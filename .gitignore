@@ -1,0 +1,24 @@
+# Node
+node_modules/
+npm-debug.log
+dist/
+.env
+
+# Java / Maven
+target/
+*.class
+.classpath
+.project
+.settings/
+.idea/
+*.iml
+
+# VS Code
+.vscode/
+!.vscode/extensions.json
+
+# Docker
+.env.local
+
+# IDE
+.DS_Store
