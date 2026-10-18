@@ -1,0 +1,14 @@
+# Finales de línea LF en el repo y en la copia de trabajo, sin importar el sistema
+* text=auto eol=lf
+
+# Scripts de Windows
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# Binarios (git no los toca)
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.jar binary

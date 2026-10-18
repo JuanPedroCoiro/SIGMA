@@ -5,13 +5,17 @@ charset = utf-8
 end_of_line = lf
 insert_final_newline = true
 trim_trailing_whitespace = true
-
-[*.{java,js,ts,tsx,jsx,py}]
 indent_style = space
 indent_size = 2
 
-[*.java]
-indent_size = 4
-
+# Markdown: dos espacios al final de una línea son un salto de línea
 [*.md]
 trim_trailing_whitespace = false
+
+# Scripts de Windows
+[*.{cmd,bat}]
+end_of_line = crlf
+
+# El pom.xml generado por Spring Initializr usa tabulaciones
+[pom.xml]
+indent_style = tab
