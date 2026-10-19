@@ -20,8 +20,8 @@ jobs:
           java-version: '25'
           distribution: 'temurin'
           cache: maven
-      - name: Tests y build
-        run: ./mvnw -B verify
+      - name: Formato, tests y build
+        run: ./mvnw -B spotless:check verify
 
   frontend:
     runs-on: ubuntu-latest
