@@ -13,8 +13,8 @@ public class SecurityConfig {
   @Bean
   SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
     http.authorizeHttpRequests(
-        auth -> auth.requestMatchers("/api/v1/ping").permitAll().anyRequest().authenticated())
-      .httpBasic(Customizer.withDefaults());
+            auth -> auth.requestMatchers("/api/v1/ping").permitAll().anyRequest().authenticated())
+        .httpBasic(Customizer.withDefaults());
     return http.build();
   }
 }
