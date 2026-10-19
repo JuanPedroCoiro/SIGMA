@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { cliente } from './api/cliente'
+import { cliente } from './shared/api/cliente'
 
 type PingResponse = {
   estado: string
