@@ -105,10 +105,10 @@ SIGMA/
 
 - `main`: versión estable. Recibe `develop` al cierre de cada iteración (línea base).
 - `develop`: rama de integración. Todo entra por Pull Request.
-- `feature/HU-xx-descripcion`: una rama por historia de usuario, creada desde `develop`.
-- `fix/<issue>-descripcion`: correcciones.
+- `feature/HU-xx-descripcion`: una rama por historia de usuario.
+- `<tipo>/<issue>-descripcion`: el resto de las tareas, con el mismo tipo que el commit (`fix/1-esqueleto`, `chore/3-claude-md`, `ci/...`, `docs/...`, `build/...`).
 
-Cada tarea arranca con un issue en GitHub.
+Todas las ramas se crean desde `develop`, y cada tarea arranca con un issue en GitHub.
 
 ```powershell
 git switch develop
@@ -132,7 +132,10 @@ docs(readme): actualizar pasos de instalación (#3)
 ci: agregar build del frontend (#5)
 ```
 
-Después se abre un Pull Request **hacia `develop`**, que aprueba el otro integrante antes del merge. Al cierre de cada iteración, `develop` pasa a `main` por Pull Request y se marca con una etiqueta (`v0.1`, `v0.2`, ...).
+Después se abre un Pull Request **hacia `develop`**, con el título en el mismo formato que los commits, y lo aprueba el otro integrante antes del merge.
+
+- **Tareas → `develop`:** se mergean con **Squash and merge**, así cada PR entra como un solo commit con el título del PR. Como los PR no van a la rama por defecto, el issue se cierra a mano después del merge.
+- **Cierre de iteración (`develop` → `main`):** por Pull Request con **Create a merge commit**, nunca con squash, para que las dos ramas no se separen. Después se marca con una etiqueta (`v0.1`, `v0.2`, ...).
 
 Tipos más usados: `feat`, `fix`, `docs`, `test`, `refactor`, `chore`, `ci`, `build`.
 
@@ -140,6 +143,7 @@ Tipos más usados: `feat`, `fix`, `docs`, `test`, `refactor`, `chore`, `ci`, `bu
 
 - Archivos en UTF-8 con finales LF (lo aplican `.editorconfig` y `.gitattributes`). Crear y editar archivos desde el editor, no con `echo ... >` en PowerShell: Windows PowerShell guarda en UTF-16.
 - Java: Google Java Style. TypeScript/React: ESLint + Prettier.
+- El repositorio es público: nunca subir datos reales de CIEMSA (planillas de instalaciones, IPs, ubicaciones, usuarios) ni credenciales. Solo datos de prueba.
 - Base de datos: el esquema se maneja solo con migraciones Flyway (`V<n>__descripcion.sql`). Una migración ya aplicada no se edita: se agrega una nueva. Tablas en snake_case singular, PK `id_<entidad>`.
 
 ## Problemas frecuentes
