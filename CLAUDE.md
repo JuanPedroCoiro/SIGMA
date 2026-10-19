@@ -78,8 +78,9 @@ Reglas del núcleo:
 
 ## Git
 
-- Ramas: `main` (línea base de cada iteración), `develop` (integración), `feature/HU-xx-descripcion`, `fix/<issue>-descripcion` y `chore/<issue>-descripcion` (tareas que no son historia ni corrección). Siempre se crean desde `develop` y el PR va hacia `develop`.
-- Commits con Conventional Commits, usando la HU o el área como ámbito y el issue al final: `feat(HU-01): implementar login (#12)`, `fix(docker): corregir volumen (#3)`.
+- Ramas: `main` (línea base de cada iteración), `develop` (integración), `feature/HU-xx-descripcion` para historias y `<tipo>/<issue>-descripcion` para el resto, con el mismo tipo que el commit (`fix/1-esqueleto`, `chore/3-claude-md`). Siempre se crean desde `develop` y el PR va hacia `develop`.
+- Commits y títulos de PR con Conventional Commits, usando la HU o el área como ámbito y el issue al final: `feat(HU-01): implementar login (#12)`, `fix(docker): corregir volumen (#3)`.
+- Merge: las tareas entran a `develop` con squash (un commit por PR). El pase de `develop` a `main` al cierre de cada iteración es con merge commit, nunca squash, y se marca con una etiqueta `v0.x`.
 - No hacer commit, push ni merge si no lo pide quien está trabajando.
 
 ## Qué evitar
@@ -87,4 +88,5 @@ Reglas del núcleo:
 - Agregar dependencias sin consultarlo antes.
 - `ddl-auto=update` o `create`, y SQL fuera de las migraciones.
 - Credenciales en el código: van en `docker/.env`, que no se sube al repo.
+- Datos reales de CIEMSA en el repo (planillas de instalaciones, IPs, ubicaciones, usuarios): el repositorio es público. Solo datos de prueba.
 - Keycloak u otro proveedor de identidad externo (descartado en el anteproyecto).
