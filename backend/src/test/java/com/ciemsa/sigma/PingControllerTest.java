@@ -29,9 +29,9 @@ class PingControllerTest {
   @Test
   void ping_sinLogin_devuelveOkConLaBase() throws Exception {
     mvc.perform(get("/api/v1/ping"))
-      .andExpect(status().isOk())
-      .andExpect(jsonPath("$.estado").value("ok"))
-      .andExpect(jsonPath("$.baseDeDatos").isNotEmpty());
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.estado").value("ok"))
+        .andExpect(jsonPath("$.baseDeDatos").isNotEmpty());
   }
 
   @Test
