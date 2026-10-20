@@ -4,6 +4,8 @@ CMMS (sistema de gestión de mantenimiento) para CIEMSA. Proyecto final de Unive
 
 El anteproyecto entregado es la fuente de verdad: nombres del dominio (Fig. 7), estados de la OT (Fig. 18), módulos (Fig. 19) y convenciones (1.13.1.6.1). Si algo choca con el anteproyecto o con este archivo, preguntar antes de seguir.
 
+La guía de arquitectura (`docs/guia-arquitectura.md`) desarrolla en detalle lo que este archivo resume: capas, patrones y el ejemplo «Registrar incidente», que es la plantilla para las demás funcionalidades. Leerla antes de crear un módulo nuevo.
+
 ## Stack
 
 - **Backend:** Java 25, Spring Boot 4, Spring Data JPA (Hibernate), Spring Security, Flyway, PostgreSQL 18. Paquete base `com.ciemsa.sigma`.
@@ -17,11 +19,13 @@ En PowerShell (en el CI se usan los equivalentes de Linux):
 
 - Base de datos: `docker compose -f docker/docker-compose.yml up -d`
 - Backend: `cd backend; .\mvnw.cmd spring-boot:run`
+- Formato del backend: `.\mvnw.cmd spotless:apply` (corrige) y `.\mvnw.cmd spotless:check` (verifica, como el CI)
 - Tests y build del backend: `.\mvnw.cmd verify` (necesita Docker abierto por Testcontainers)
 - Frontend: `cd frontend; npm ci; npm run dev`
+- Formato del frontend: `npm run format` (corrige) y `npm run format:check` (verifica, como el CI)
 - Lint y build del frontend: `npm run lint` y `npm run build`
 
-Antes de dar una tarea por terminada, correr `mvnw verify` si se tocó el backend, y `npm run lint` + `npm run build` si se tocó el frontend.
+Antes de dar una tarea por terminada, correr lo mismo que el CI: `mvnw spotless:check verify` si se tocó el backend, y `npm run format:check` + `npm run lint` + `npm run build` si se tocó el frontend.
 
 ## Arquitectura del backend
 
@@ -54,6 +58,10 @@ Reglas del núcleo:
 - El cierre de una OT es idempotente.
 - La lógica de negocio va en servicios y entidades, nunca en los controllers.
 
+## Frontend
+
+- Todas las llamadas al backend usan el cliente HTTP compartido `cliente` de `frontend/src/shared/api/cliente.ts` (axios con `baseURL` `/api/v1`). No crear otras instancias de axios ni usar `fetch` directo.
+
 ## API
 
 - REST bajo `/api/v1`, con recursos en plural y kebab-case (`/api/v1/ordenes-trabajo`). Las acciones son subrecursos con `POST` (`/api/v1/ordenes-trabajo/{id}/asignar`).
@@ -67,7 +75,7 @@ Reglas del núcleo:
 - Una migración que ya está en `develop` no se edita: se agrega una nueva.
 - Tablas en snake_case, singular y en español (`orden_trabajo`). PK `id_<entidad>`. FK con el nombre de la entidad referenciada (`id_instalacion`).
 - Columna `version` para bloqueo optimista en las entidades que se editan de forma concurrente.
-- Los maestros no se borran: se desactivan con `activo`.
+- Los maestros no se borran: se desactivan con un booleano `activo` o `activa`, concordando con el nombre de la tabla como en el MER (`usuario.activo`, `instalacion.activa`, `categoria_falla.activa`).
 - Los códigos visibles (`INC-nnnn`, `OT-nnnn`) se generan con secuencias.
 
 ## Estilo
@@ -78,9 +86,9 @@ Reglas del núcleo:
 
 ## Git
 
-- Ramas: `main` (línea base de cada iteración), `develop` (integración), `feature/HU-xx-descripcion` para historias y `<tipo>/<issue>-descripcion` para el resto, con el mismo tipo que el commit (`fix/1-esqueleto`, `chore/3-claude-md`). Siempre se crean desde `develop` y el PR va hacia `develop`.
+- Ramas: `main` (línea base de cada iteración), `develop` (integración) y `<tipo>/<issue>-descripcion` para todo lo demás, con el número de issue como pide el plan de SCM (1.13.1.7.2). En las historias se agrega el código de la HU: `feature/19-hu-01-login-backend`. Tipos: `feature/` (funcionalidades), `fix/` (correcciones), `chore/` (base técnica y configuración, `chore/22-modelo-datos`) y `docs/` (documentación, `docs/15-guia-arquitectura`). Siempre se crean desde `develop` y el PR va hacia `develop`.
 - Commits y títulos de PR con Conventional Commits, usando la HU o el área como ámbito y el issue al final: `feat(HU-01): implementar login (#12)`, `fix(docker): corregir volumen (#3)`.
-- Merge: las tareas entran a `develop` con squash (un commit por PR). El pase de `develop` a `main` al cierre de cada iteración es con merge commit, nunca squash, y se marca con una etiqueta `v0.x`.
+- Merge: las tareas entran a `develop` con squash (un commit por PR). El pase de `develop` a `main` al cierre de cada iteración es con merge commit, nunca squash, y se marca con una etiqueta de versión semántica por iteración (`v0.1.0` al cierre de la iteración 1, 1.13.1.7.2).
 - No hacer commit, push ni merge si no lo pide quien está trabajando.
 
 ## Qué evitar
