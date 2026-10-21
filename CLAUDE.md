@@ -74,8 +74,12 @@ Reglas del núcleo:
 - El esquema se maneja solo con Flyway, en `backend/src/main/resources/db/migration/V<n>__descripcion.sql`. Hibernate está en `ddl-auto=validate`: nunca crea ni modifica tablas.
 - Una migración que ya está en `develop` no se edita: se agrega una nueva.
 - Tablas en snake_case, singular y en español (`orden_trabajo`). PK `id_<entidad>`. FK con el nombre de la entidad referenciada (`id_instalacion`).
-- Columna `version` para bloqueo optimista en las entidades que se editan de forma concurrente.
+- Todas las tablas llevan `creado_en`, `modificado_en` y `version` (BaseEntity). `version` es INTEGER en la base e `Integer` en Java, y se usa para el bloqueo optimista.
 - Los maestros no se borran: se desactivan con un booleano `activo` o `activa`, concordando con el nombre de la tabla como en el MER (`usuario.activo`, `instalacion.activa`, `categoria_falla.activa`).
+- Fechas: `TIMESTAMPTZ` en la base e `Instant` en Java. Nunca `TIMESTAMP` ni `LocalDateTime`: el servidor corre en UTC y las fechas (y los vencimientos de SLA) quedarían corridas 3 horas. La hora de Montevideo se aplica solo al mostrar.
+- Correo: columna `correo` (es el usuario de acceso, CU-13a), siempre en minúsculas (lo exige un CHECK). Normalizar con `toLowerCase(Locale.ROOT)` antes de guardar y en el login.
+- Restricciones con nombre explícito: `uq_<tabla>_<columna>`, `ck_<tabla>_<regla>`, `ix_<tabla>_<columna>`.
+- Valores cerrados (rol, prioridad, estados) con un CHECK en la base y un enum en Java guardado como texto (`@Enumerated(EnumType.STRING)`).
 - Los códigos visibles (`INC-nnnn`, `OT-nnnn`) se generan con secuencias.
 
 ## Estilo
