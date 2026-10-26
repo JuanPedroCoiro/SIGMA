@@ -3,13 +3,16 @@ package com.ciemsa.sigma.shared.seguridad;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.RequestCacheConfigurer;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.logout.HttpStatusReturningLogoutSuccessHandler;
 import org.springframework.security.web.csrf.CsrfFilter;
+import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
 
 /**
  * Seguridad de la API (RF-20, HU-01): sesión por cookie HttpOnly y protección CSRF. Todo exige
@@ -20,6 +23,8 @@ import org.springframework.security.web.csrf.CsrfFilter;
 @EnableMethodSecurity
 public class SecurityConfig {
 
+  private static final String SESION = "/api/v1/sesion";
+
   @Bean
   SecurityFilterChain securityFilterChain(
       HttpSecurity http, ManejadorErroresSeguridad manejadorErrores) throws Exception {
@@ -29,10 +34,26 @@ public class SecurityConfig {
                     .permitAll()
                     .requestMatchers("/api/v1/ping")
                     .permitAll()
-                    .requestMatchers(HttpMethod.POST, "/api/v1/sesion")
+                    .requestMatchers(HttpMethod.POST, SESION)
                     .permitAll()
                     .anyRequest()
                     .authenticated())
+        .formLogin(
+            login ->
+                login
+                    .loginPage(SESION)
+                    .usernameParameter("correo")
+                    .passwordParameter("contrasena")
+                    .successHandler((request, response, auth) -> response.setStatus(204))
+                    .failureHandler(manejadorErrores))
+        .logout(
+            logout ->
+                logout
+                    .logoutRequestMatcher(
+                        PathPatternRequestMatcher.pathPattern(HttpMethod.DELETE, SESION))
+                    .logoutSuccessHandler(
+                        new HttpStatusReturningLogoutSuccessHandler(HttpStatus.NO_CONTENT))
+                    .deleteCookies("JSESSIONID"))
         .csrf(csrf -> csrf.spa())
         .addFilterAfter(new CsrfCookieFilter(), CsrfFilter.class)
         .requestCache(RequestCacheConfigurer::disable)
