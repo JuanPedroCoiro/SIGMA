@@ -13,6 +13,8 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.web.csrf.CsrfException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -56,6 +58,21 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
   ProblemDetail accesoDenegado(AccessDeniedException ex) {
     return problema(
         HttpStatus.FORBIDDEN, "Acceso denegado", "No tenés permiso para realizar esta operación.");
+  }
+
+  /** Sin sesión o con la sesión vencida (CU-12 *a): hay que volver a iniciar sesión. */
+  @ExceptionHandler(AuthenticationException.class)
+  ProblemDetail noAutenticado(AuthenticationException ex) {
+    return problema(HttpStatus.UNAUTHORIZED, "No autenticado", "Iniciá sesión para continuar.");
+  }
+
+  /** Falta el token CSRF o no coincide con el de la sesión. */
+  @ExceptionHandler(CsrfException.class)
+  ProblemDetail csrfInvalido(CsrfException ex) {
+    return problema(
+        HttpStatus.FORBIDDEN,
+        "Token CSRF inválido",
+        "La sesión de seguridad no es válida. Recargá la página y volvé a intentar.");
   }
 
   /** ?sort con un campo que no existe en la entidad. */
