@@ -13,6 +13,9 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.DisabledException;
+import org.springframework.security.authentication.LockedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.web.csrf.CsrfException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -51,9 +54,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         "Otro usuario modificó estos datos. Recargá la pantalla y volvé a intentar.");
   }
 
-  /**
-   * @PreAuthorize rechazó el pedido: el usuario no tiene el rol necesario.
-   */
+  /** {@code @PreAuthorize} rechazó el pedido: el usuario no tiene el rol necesario. */
   @ExceptionHandler(AccessDeniedException.class)
   ProblemDetail accesoDenegado(AccessDeniedException ex) {
     return problema(
@@ -63,7 +64,37 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
   /** Sin sesión o con la sesión vencida (CU-12 *a): hay que volver a iniciar sesión. */
   @ExceptionHandler(AuthenticationException.class)
   ProblemDetail noAutenticado(AuthenticationException ex) {
-    return problema(HttpStatus.UNAUTHORIZED, "No autenticado", "Iniciá sesión para continuar.");
+    return problemaIngreso(
+        "SESION_REQUERIDA",
+        "No autenticado",
+        "Tu sesión venció o no iniciaste sesión. Iniciá sesión para continuar.");
+  }
+
+  /** CU-12 4a: el mismo mensaje si el correo no existe o la contraseña es incorrecta. */
+  @ExceptionHandler(BadCredentialsException.class)
+  ProblemDetail credencialesIncorrectas(BadCredentialsException ex) {
+    return problemaIngreso(
+        "CREDENCIALES_INCORRECTAS",
+        "Credenciales incorrectas",
+        "El correo o la contraseña no son correctos.");
+  }
+
+  /** CU-12 4b: la cuenta fue dada de baja. */
+  @ExceptionHandler(DisabledException.class)
+  ProblemDetail cuentaDesactivada(DisabledException ex) {
+    return problemaIngreso(
+        "CUENTA_DESACTIVADA",
+        "Cuenta desactivada",
+        "Tu cuenta está desactivada. Contactá a la Jefatura.");
+  }
+
+  /** CU-12 4c: bloqueo temporal por intentos fallidos consecutivos. */
+  @ExceptionHandler(LockedException.class)
+  ProblemDetail cuentaBloqueada(LockedException ex) {
+    return problemaIngreso(
+        "CUENTA_BLOQUEADA",
+        "Cuenta bloqueada",
+        "Tu cuenta quedó bloqueada por varios intentos fallidos. Volvé a intentar en unos minutos.");
   }
 
   /** Falta el token CSRF o no coincide con el de la sesión. */
@@ -113,6 +144,13 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
   private static ProblemDetail problema(HttpStatus status, String titulo, String detalle) {
     ProblemDetail problema = ProblemDetail.forStatusAndDetail(status, detalle);
     problema.setTitle(titulo);
+    return problema;
+  }
+
+  /** Errores de ingreso: siempre 401, con un código para que el frontend sepa qué mostrar. */
+  private static ProblemDetail problemaIngreso(String codigo, String titulo, String detalle) {
+    ProblemDetail problema = problema(HttpStatus.UNAUTHORIZED, titulo, detalle);
+    problema.setProperty("codigo", codigo);
     return problema;
   }
 
