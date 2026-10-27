@@ -593,7 +593,7 @@ La regla de módulos más estricta (que `inventario.application` solo use los re
 **Pipeline de CI (GitHub Actions, en cada push y PR a `develop` y `main`)**
 
 1. Backend: `./mvnw -B spotless:check verify` (formato, tests unitarios, integración con Testcontainers y, desde el sprint 2, ArchUnit).
-2. Frontend: `npm ci`, `npm run format:check`, `npm run lint` y `npm run build` (el build incluye el chequeo de tipos con `tsc -b`). `npm test` se suma cuando haya tests con Vitest.
+2. Frontend: `npm ci`, `npm run format:check`, `npm run lint`, `npm test` (Vitest) y `npm run build` (el build incluye el chequeo de tipos con `tsc -b`).
 3. Cobertura reportada con JaCoCo; meta orientativa 70 % en `domain` y `application`, sin bloquear el PR.
 
 **Checklist de revisión de PR** (lo que la CI no ve):
