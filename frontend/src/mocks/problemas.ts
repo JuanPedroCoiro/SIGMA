@@ -2,7 +2,7 @@ import { HttpResponse } from 'msw/http'
 import { TIPOS_PROBLEMA } from '../shared/api/problemDetail'
 import { base, type UsuarioSimulado } from './datos'
 
-type Tipo = (typeof TIPOS_PROBLEMA)[keyof typeof TIPOS_PROBLEMA]
+type Tipo = (typeof TIPOS_PROBLEMA)[keyof typeof TIPOS_PROBLEMA] | 'regla-negocio' | 'no-encontrado'
 
 /** ProblemDetail como el que arma el backend, con el `type` acordado. */
 export function problema(

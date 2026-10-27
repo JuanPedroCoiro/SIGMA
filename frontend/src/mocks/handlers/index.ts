@@ -1,6 +1,7 @@
 import { http, HttpResponse } from 'msw/http'
 import { sinSesion, usuarioEnSesion } from '../problemas'
 import { handlersSesion } from './sesion'
+import { handlersUsuarios } from './usuarios'
 
 const handlerPing = http.get('/api/v1/ping', () => {
   // El ping real es público; acá se exige sesión para poder probar la sesión vencida desde
@@ -13,4 +14,4 @@ const handlerPing = http.get('/api/v1/ping', () => {
   })
 })
 
-export const handlers = [...handlersSesion, handlerPing]
+export const handlers = [...handlersSesion, ...handlersUsuarios, handlerPing]

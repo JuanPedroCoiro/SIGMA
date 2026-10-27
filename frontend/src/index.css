@@ -135,3 +135,50 @@ code {
   color: var(--acento);
   background: var(--acento-fondo);
 }
+
+.boton-peligro {
+  color: #fff;
+  background: var(--error);
+}
+
+.campo-ayuda {
+  color: var(--texto-suave);
+  font-size: 0.875rem;
+}
+
+.alerta-exito {
+  color: var(--exito);
+}
+
+/* Paginación de los listados */
+.paginacion {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.paginacion-resumen {
+  color: var(--texto-suave);
+}
+
+/* Estado activo / inactivo */
+.estado {
+  display: inline-block;
+  padding: 0.125rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.estado-activo {
+  color: var(--exito);
+  background: color-mix(in srgb, var(--exito) 15%, transparent);
+}
+
+.estado-inactivo {
+  color: var(--texto-suave);
+  background: color-mix(in srgb, var(--texto-suave) 15%, transparent);
+}

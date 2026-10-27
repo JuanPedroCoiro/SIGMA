@@ -1,6 +1,6 @@
-export type Rol = 'JEFATURA' | 'TECNICO' | 'OPERADOR' | 'ENCARGADO_STOCK'
+export const ROLES = ['JEFATURA', 'TECNICO', 'OPERADOR', 'ENCARGADO_STOCK'] as const
 
-export const ROLES: Rol[] = ['JEFATURA', 'TECNICO', 'OPERADOR', 'ENCARGADO_STOCK']
+export type Rol = (typeof ROLES)[number]
 
 export const ETIQUETA_ROL: Record<Rol, string> = {
   JEFATURA: 'Jefatura',
