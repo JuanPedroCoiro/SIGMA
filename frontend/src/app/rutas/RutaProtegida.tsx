@@ -12,11 +12,17 @@ export function RutaProtegida({ roles }: Props) {
   const location = useLocation()
 
   if (sesion.estado === 'cargando') {
-    return <p>Cargando...</p>
+    return <p style={{ padding: '2rem' }}>Cargando...</p>
   }
 
   if (sesion.estado === 'anonimo') {
-    return <Navigate to="/iniciar-sesion" replace state={{ desde: location }} />
+    return (
+      <Navigate
+        to="/iniciar-sesion"
+        replace
+        state={{ desde: location, expirada: sesion.expirada }}
+      />
+    )
   }
 
   if (roles && !roles.includes(sesion.usuario.rol)) {
