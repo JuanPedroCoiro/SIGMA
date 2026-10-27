@@ -1,0 +1,5 @@
+codigo;nombre;ruta_zona;latitud;longitud
+INST-001;Cruce Ficticio 1;Ruta 1;-34,712345;-56,301234
+INST-002;Cruce Ficticio 2;Ruta 5;-34,523456;-56,284567
+INST-003;"Cruce Ficticio 3; acceso norte";Zona Este;-34.801234;-55.912345
+INST-004;Cruce Ficticio 4;Ruta 8;-34,654321;-55,701234
