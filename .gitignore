@@ -29,3 +29,6 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Planillas reales de CIEMSA: trabajar con ellas solo dentro de esta carpeta (repo público)
+datos-reales/

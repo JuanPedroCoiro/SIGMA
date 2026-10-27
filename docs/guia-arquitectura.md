@@ -498,7 +498,7 @@ class BitacoraListener {
 
 **Errores**: un solo `GlobalExceptionHandler` (`@RestControllerAdvice`) que devuelve `ProblemDetail` (RFC 9457) con `type`, `title`, `status`, `detail` y, en validaciones, la lista de campos. Los servicios lanzan excepciones de negocio; nunca devuelven `null` ni códigos de error.
 
-**Base de datos**: todo cambio de esquema por Flyway, nunca `ddl-auto=update`. Una migración aplicada no se edita: se agrega otra. Las tablas que se editan llevan `creado_en`, `modificado_en` y `version` (bloqueo optimista, para que dos usuarios no pisen la misma OT). Los registros maestros se desactivan, no se borran (1.13.1.6.1), y la bitácora solo admite inserciones (RF-21).
+**Base de datos**: todo cambio de esquema por Flyway, nunca `ddl-auto=update`. Una migración aplicada no se edita: se agrega otra. Las tablas que se editan llevan `creado_en`, `modificado_en` y `version` (bloqueo optimista, para que dos usuarios no pisen la misma OT). Los registros maestros se desactivan, no se borran (1.13.1.6.1), y la bitácora solo admite inserciones (RF-21). Los datos ficticios de desarrollo van en `db/datos-prueba` como migraciones repetibles (`R__`), sin número de versión, y esa ubicación solo se activa con el perfil `dev` y en los tests: nunca se aplican en el servidor.
 
 **Tests**
 
