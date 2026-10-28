@@ -72,34 +72,35 @@ class UsuarioControllerTest {
   void crear_datosValidos_devuelve201ConLocationYSinElHash() throws Exception {
     crear(
             """
-      {"nombre": "Ana", "correo": "Ana@Ciemsa.com", "contrasena": "Prueba.1234",
+      {"nombre": "Ana", "correo": "Ana@Ciemsa.com", "password": "Prueba.1234",
        "rol": "OPERADOR"}
       """)
         .andExpect(status().isCreated())
         .andExpect(header().string("Location", startsWith("/api/v1/usuarios/")))
         .andExpect(jsonPath("$.correo").value("ana@ciemsa.com"))
         .andExpect(jsonPath("$.activo").value(true))
-        .andExpect(jsonPath("$.passwordHash").doesNotExist());
+        .andExpect(jsonPath("$.passwordHash").doesNotExist())
+        .andExpect(jsonPath("$.password").doesNotExist());
   }
 
   @Test
   void crear_datosInvalidos_devuelve400ConCadaCampo() throws Exception {
     crear(
             """
-      {"nombre": "", "correo": "no-es-un-correo", "contrasena": "corta"}
+      {"nombre": "", "correo": "no-es-un-correo", "password": "corta"}
       """)
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.type").value("/errores/validacion"))
         .andExpect(
             jsonPath(
-                "$.errores[*].campo", containsInAnyOrder("nombre", "correo", "contrasena", "rol")));
+                "$.errores[*].campo", containsInAnyOrder("nombre", "correo", "password", "rol")));
   }
 
   @Test
   void crear_correoExistente_devuelve409() throws Exception {
     crear(
             """
-      {"nombre": "Otra", "correo": "jefa@ciemsa.com", "contrasena": "Prueba.1234",
+      {"nombre": "Otra", "correo": "jefa@ciemsa.com", "password": "Prueba.1234",
        "rol": "OPERADOR"}
       """)
         .andExpect(status().isConflict())
@@ -110,7 +111,7 @@ class UsuarioControllerTest {
   void crear_tecnicoSinCuadrilla_devuelve400() throws Exception {
     crear(
             """
-      {"nombre": "Juan", "correo": "juan@ciemsa.com", "contrasena": "Prueba.1234",
+      {"nombre": "Juan", "correo": "juan@ciemsa.com", "password": "Prueba.1234",
        "rol": "TECNICO"}
       """)
         .andExpect(status().isBadRequest())
@@ -124,7 +125,7 @@ class UsuarioControllerTest {
 
     crear(
             """
-      {"nombre": "Juan", "correo": "juan@ciemsa.com", "contrasena": "Prueba.1234",
+      {"nombre": "Juan", "correo": "juan@ciemsa.com", "password": "Prueba.1234",
        "rol": "TECNICO", "idCuadrilla": %d}
       """
                 .formatted(norte.getId()))
@@ -151,32 +152,45 @@ class UsuarioControllerTest {
   }
 
   @Test
+  void listar_filtrandoPorRolYEstado_devuelveSoloLosQueCoinciden() throws Exception {
+    guardar("Ana", "ana@ciemsa.com", Rol.OPERADOR);
+    Usuario beto = guardar("Beto", "beto@ciemsa.com", Rol.OPERADOR);
+    beto.darDeBaja();
+    usuarioRepository.save(beto);
+
+    mvc.perform(get(USUARIOS).param("rol", "OPERADOR").param("activo", "true").with(user(jefa)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.totalElementos").value(1))
+        .andExpect(jsonPath("$.contenido[0].nombre").value("Ana"));
+  }
+
+  @Test
   void obtener_idInexistente_devuelve404() throws Exception {
     mvc.perform(get(USUARIOS + "/999999").with(user(jefa))).andExpect(status().isNotFound());
   }
 
-  // --- Contraseña y baja (CU-13b, CU-13d) ---
+  // --- Contraseña, desactivar y activar (CU-13b, CU-13d) ---
 
   @Test
-  void restablecerContrasena_luegoIngresaConLaNueva() throws Exception {
+  void restablecerPassword_luegoIngresaConLaNueva() throws Exception {
     Usuario ana = guardar("Ana", "ana@ciemsa.com", Rol.OPERADOR);
 
     mvc.perform(
-            post(USUARIOS + "/" + ana.getId() + "/contrasena")
+            post(USUARIOS + "/" + ana.getId() + "/restablecer-password")
                 .with(user(jefa))
                 .with(csrf())
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"contrasena\": \"Nueva.5678\"}"))
+                .content("{\"password\": \"Nueva.5678\"}"))
         .andExpect(status().isNoContent());
 
     ingresar("ana@ciemsa.com", "Nueva.5678").andExpect(status().isNoContent());
   }
 
   @Test
-  void darDeBaja_operador_devuelve204YYaNoPuedeIngresar() throws Exception {
+  void desactivar_operador_devuelve204YYaNoPuedeIngresar() throws Exception {
     Usuario ana = guardar("Ana", "ana@ciemsa.com", Rol.OPERADOR);
 
-    mvc.perform(post(USUARIOS + "/" + ana.getId() + "/baja").with(user(jefa)).with(csrf()))
+    mvc.perform(post(USUARIOS + "/" + ana.getId() + "/desactivar").with(user(jefa)).with(csrf()))
         .andExpect(status().isNoContent());
 
     ingresar("ana@ciemsa.com", CONTRASENA)
@@ -185,10 +199,22 @@ class UsuarioControllerTest {
   }
 
   @Test
-  void darDeBaja_aSiMismo_devuelve400() throws Exception {
-    mvc.perform(post(USUARIOS + "/" + jefa.getId() + "/baja").with(user(jefa)).with(csrf()))
+  void desactivar_aSiMismo_devuelve400() throws Exception {
+    mvc.perform(post(USUARIOS + "/" + jefa.getId() + "/desactivar").with(user(jefa)).with(csrf()))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.type").value("/errores/regla-negocio"));
+  }
+
+  @Test
+  void activar_usuarioDesactivado_vuelveAPoderIngresar() throws Exception {
+    Usuario ana = guardar("Ana", "ana@ciemsa.com", Rol.OPERADOR);
+    ana.darDeBaja();
+    usuarioRepository.save(ana);
+
+    mvc.perform(post(USUARIOS + "/" + ana.getId() + "/activar").with(user(jefa)).with(csrf()))
+        .andExpect(status().isNoContent());
+
+    ingresar("ana@ciemsa.com", CONTRASENA).andExpect(status().isNoContent());
   }
 
   // --- Cuadrillas (desplegable) ---

@@ -83,6 +83,16 @@ class UsuarioTest {
   }
 
   @Test
+  void reactivar_usuarioDadoDeBaja_quedaActivo() {
+    Usuario usuario = operador();
+    usuario.darDeBaja();
+
+    usuario.reactivar();
+
+    assertThat(usuario.isActivo()).isTrue();
+  }
+
+  @Test
   void restablecerContrasena_cuentaBloqueada_cambiaElHashYLaDesbloquea() {
     Usuario usuario = operador();
     fallar(usuario, 5, AHORA);

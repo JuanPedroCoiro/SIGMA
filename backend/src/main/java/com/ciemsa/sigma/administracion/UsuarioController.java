@@ -5,6 +5,7 @@ import com.ciemsa.sigma.administracion.dto.ModificarUsuarioRequest;
 import com.ciemsa.sigma.administracion.dto.RestablecerContrasenaRequest;
 import com.ciemsa.sigma.administracion.dto.UsuarioResponse;
 import com.ciemsa.sigma.shared.api.PageResponse;
+import com.ciemsa.sigma.shared.seguridad.Rol;
 import jakarta.validation.Valid;
 import java.net.URI;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +20,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -46,18 +48,20 @@ public class UsuarioController {
   }
 
   /** CU-13b: restablecer la contraseña. */
-  @PostMapping("/{id}/contrasena")
+  @PostMapping("/{id}/restablecer-password")
   @ResponseStatus(HttpStatus.NO_CONTENT)
   public void restablecerContrasena(
       @PathVariable Long id, @Valid @RequestBody RestablecerContrasenaRequest req) {
     usuarioService.restablecerContrasena(id, req);
   }
 
-  /** CU-13c: listado, ordenado por nombre si no se indica otro orden. */
+  /** CU-13c: listado con filtros opcionales, ordenado por nombre si no se indica otro orden. */
   @GetMapping
   public PageResponse<UsuarioResponse> listar(
+      @RequestParam(required = false) Rol rol,
+      @RequestParam(required = false) Boolean activo,
       @PageableDefault(size = 20, sort = "nombre") Pageable pageable) {
-    return PageResponse.de(usuarioService.listar(pageable));
+    return PageResponse.de(usuarioService.listar(rol, activo, pageable));
   }
 
   /** CU-13c: detalle. */
@@ -67,9 +71,16 @@ public class UsuarioController {
   }
 
   /** CU-13d: baja lógica. */
-  @PostMapping("/{id}/baja")
+  @PostMapping("/{id}/desactivar")
   @ResponseStatus(HttpStatus.NO_CONTENT)
-  public void darDeBaja(@PathVariable Long id) {
-    usuarioService.darDeBaja(id);
+  public void desactivar(@PathVariable Long id) {
+    usuarioService.desactivar(id);
+  }
+
+  /** Reactivar una cuenta desactivada. */
+  @PostMapping("/{id}/activar")
+  @ResponseStatus(HttpStatus.NO_CONTENT)
+  public void activar(@PathVariable Long id) {
+    usuarioService.activar(id);
   }
 }

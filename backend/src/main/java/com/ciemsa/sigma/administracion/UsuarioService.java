@@ -13,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -38,7 +39,7 @@ public class UsuarioService {
         Usuario.crear(
             req.nombre(),
             correo,
-            passwordEncoder.encode(req.contrasena()),
+            passwordEncoder.encode(req.password()),
             req.rol(),
             buscarCuadrilla(req.rol(), req.idCuadrilla())); // 4b lo valida la entidad
     guardar(usuario);
@@ -63,13 +64,20 @@ public class UsuarioService {
 
   /** CU-13b: la Jefatura asigna una contraseña nueva; también levanta un bloqueo vigente. */
   public void restablecerContrasena(Long id, RestablecerContrasenaRequest req) {
-    buscar(id).restablecerContrasena(passwordEncoder.encode(req.contrasena()));
+    buscar(id).restablecerContrasena(passwordEncoder.encode(req.password()));
   }
 
-  /** CU-13c: listado paginado. */
+  /** CU-13c: listado paginado, con filtros opcionales por rol y por estado. */
   @Transactional(readOnly = true)
-  public Page<UsuarioResponse> listar(Pageable pageable) {
-    return usuarioRepository.findAll(pageable).map(UsuarioResponse::de);
+  public Page<UsuarioResponse> listar(Rol rol, Boolean activo, Pageable pageable) {
+    Specification<Usuario> filtro = Specification.unrestricted();
+    if (rol != null) {
+      filtro = filtro.and((usuario, query, cb) -> cb.equal(usuario.get("rol"), rol));
+    }
+    if (activo != null) {
+      filtro = filtro.and((usuario, query, cb) -> cb.equal(usuario.get("activo"), activo));
+    }
+    return usuarioRepository.findAll(filtro, pageable).map(UsuarioResponse::de);
   }
 
   /** CU-13c: detalle. */
@@ -79,14 +87,19 @@ public class UsuarioService {
   }
 
   /** CU-13d: baja lógica; la cuenta no puede ingresar pero conserva su historial. */
-  public void darDeBaja(Long id) {
+  public void desactivar(Long id) {
     if (id.equals(usuarioActual.id())) {
-      throw new ReglaNegocioException("No podés darte de baja a vos mismo.");
+      throw new ReglaNegocioException("No podés desactivar tu propia cuenta.");
     }
     Usuario usuario = buscar(id);
     verificarQueQuedeOtraJefatura(usuario);
     // TODO sprint 2 (3a): advertir si integra una cuadrilla con OTs asignadas o en proceso.
     usuario.darDeBaja();
+  }
+
+  /** Vuelve a habilitar una cuenta desactivada. */
+  public void activar(Long id) {
+    buscar(id).reactivar();
   }
 
   private Usuario buscar(Long id) {

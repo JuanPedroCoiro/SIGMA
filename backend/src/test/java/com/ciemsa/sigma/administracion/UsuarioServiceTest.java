@@ -113,7 +113,7 @@ class UsuarioServiceTest {
         .hasMessageContaining("Jefatura");
   }
 
-  // --- Consulta y baja (CU-13c, CU-13d) ---
+  // --- Consulta, desactivar y activar (CU-13c, CU-13d) ---
 
   @Test
   void obtener_idInexistente_lanzaNoEncontrado() {
@@ -123,33 +123,44 @@ class UsuarioServiceTest {
   }
 
   @Test
-  void darDeBaja_aSiMismo_lanzaReglaNegocioSinBuscarlo() {
+  void desactivar_aSiMismo_lanzaReglaNegocioSinBuscarlo() {
     when(usuarioActual.id()).thenReturn(1L);
 
-    assertThatThrownBy(() -> usuarioService.darDeBaja(1L))
+    assertThatThrownBy(() -> usuarioService.desactivar(1L))
         .isInstanceOf(ReglaNegocioException.class);
     verify(usuarioRepository, never()).findById(any());
   }
 
   @Test
-  void darDeBaja_unicaJefaturaActiva_lanzaReglaNegocio() {
+  void desactivar_unicaJefaturaActiva_lanzaReglaNegocio() {
     when(usuarioActual.id()).thenReturn(1L);
     when(usuarioRepository.findById(2L)).thenReturn(Optional.of(jefatura("otra@ciemsa.com")));
     when(usuarioRepository.countByRolAndActivoTrue(Rol.JEFATURA)).thenReturn(1L);
 
-    assertThatThrownBy(() -> usuarioService.darDeBaja(2L))
+    assertThatThrownBy(() -> usuarioService.desactivar(2L))
         .isInstanceOf(ReglaNegocioException.class);
   }
 
   @Test
-  void darDeBaja_operador_quedaInactivo() {
+  void desactivar_operador_quedaInactivo() {
     Usuario operador = operador("ana@ciemsa.com");
     when(usuarioActual.id()).thenReturn(1L);
     when(usuarioRepository.findById(2L)).thenReturn(Optional.of(operador));
 
-    usuarioService.darDeBaja(2L);
+    usuarioService.desactivar(2L);
 
     assertThat(operador.isActivo()).isFalse();
+  }
+
+  @Test
+  void activar_usuarioDesactivado_quedaActivo() {
+    Usuario operador = operador("ana@ciemsa.com");
+    operador.darDeBaja();
+    when(usuarioRepository.findById(2L)).thenReturn(Optional.of(operador));
+
+    usuarioService.activar(2L);
+
+    assertThat(operador.isActivo()).isTrue();
   }
 
   private static CrearUsuarioRequest altaOperador(String correo) {

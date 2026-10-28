@@ -15,6 +15,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.transaction.annotation.Transactional;
 
 @Import(TestcontainersConfiguration.class)
@@ -88,7 +89,8 @@ class UsuarioRepositoryTest {
     entityManager.flush();
     entityManager.clear();
 
-    Page<Usuario> pagina = usuarioRepository.findAll(PageRequest.of(0, 20));
+    Page<Usuario> pagina =
+        usuarioRepository.findAll(Specification.unrestricted(), PageRequest.of(0, 20));
 
     assertThat(pagina.getContent()).hasSize(1);
     assertThat(Hibernate.isInitialized(pagina.getContent().getFirst().getCuadrilla())).isTrue();

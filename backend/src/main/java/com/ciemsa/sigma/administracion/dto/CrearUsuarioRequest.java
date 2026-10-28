@@ -16,7 +16,7 @@ public record CrearUsuarioRequest(
         @Size(max = 255, message = "El correo admite hasta 255 caracteres.")
         String correo,
     @NotBlank(message = "Ingresá la contraseña inicial.")
-        @Size(min = 8, max = 72, message = "La contraseña debe tener entre 8 y 72 caracteres.")
-        String contrasena,
+        @Size(min = 10, max = 72, message = "La contraseña debe tener entre 10 y 72 caracteres.")
+        String password,
     @NotNull(message = "Elegí el rol.") Rol rol,
     Long idCuadrilla) {}
