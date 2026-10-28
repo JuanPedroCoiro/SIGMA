@@ -89,6 +89,7 @@ class UsuarioControllerTest {
       {"nombre": "", "correo": "no-es-un-correo", "contrasena": "corta"}
       """)
         .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.type").value("/errores/validacion"))
         .andExpect(
             jsonPath(
                 "$.errores[*].campo", containsInAnyOrder("nombre", "correo", "contrasena", "rol")));
@@ -101,17 +102,19 @@ class UsuarioControllerTest {
       {"nombre": "Otra", "correo": "jefa@ciemsa.com", "contrasena": "Prueba.1234",
        "rol": "OPERADOR"}
       """)
-        .andExpect(status().isConflict());
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.type").value("/errores/correo-duplicado"));
   }
 
   @Test
-  void crear_tecnicoSinCuadrilla_devuelve422() throws Exception {
+  void crear_tecnicoSinCuadrilla_devuelve400() throws Exception {
     crear(
             """
       {"nombre": "Juan", "correo": "juan@ciemsa.com", "contrasena": "Prueba.1234",
        "rol": "TECNICO"}
       """)
-        .andExpect(status().isUnprocessableContent())
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.type").value("/errores/regla-negocio"))
         .andExpect(jsonPath("$.detail", containsString("cuadrilla")));
   }
 
@@ -178,13 +181,14 @@ class UsuarioControllerTest {
 
     ingresar("ana@ciemsa.com", CONTRASENA)
         .andExpect(status().isUnauthorized())
-        .andExpect(jsonPath("$.codigo").value("CUENTA_DESACTIVADA"));
+        .andExpect(jsonPath("$.type").value("/errores/cuenta-desactivada"));
   }
 
   @Test
-  void darDeBaja_aSiMismo_devuelve422() throws Exception {
+  void darDeBaja_aSiMismo_devuelve400() throws Exception {
     mvc.perform(post(USUARIOS + "/" + jefa.getId() + "/baja").with(user(jefa)).with(csrf()))
-        .andExpect(status().isUnprocessableContent());
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.type").value("/errores/regla-negocio"));
   }
 
   // --- Cuadrillas (desplegable) ---

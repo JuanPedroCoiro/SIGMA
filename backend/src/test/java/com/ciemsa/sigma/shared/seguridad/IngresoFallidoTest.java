@@ -63,7 +63,7 @@ class IngresoFallidoTest {
   void login_contrasenaIncorrecta_devuelveCredencialesIncorrectas() throws Exception {
     ingresar(CORREO, INCORRECTA)
         .andExpect(status().isUnauthorized())
-        .andExpect(jsonPath("$.codigo").value("CREDENCIALES_INCORRECTAS"))
+        .andExpect(jsonPath("$.type").value("/errores/credenciales"))
         .andExpect(unauthenticated());
   }
 
@@ -71,11 +71,9 @@ class IngresoFallidoTest {
   void login_correoInexistente_respondeIgualQueContrasenaIncorrecta() throws Exception {
     ingresar("nadie@ciemsa.com", CONTRASENA)
         .andExpect(status().isUnauthorized())
-        .andExpect(jsonPath("$.codigo").value("CREDENCIALES_INCORRECTAS"))
-        .andExpect(jsonPath("$.detail").value("El correo o la contraseña no son correctos."));
+        .andExpect(jsonPath("$.type").value("/errores/credenciales"))
+        .andExpect(jsonPath("$.detail").value("Correo o contraseña incorrectos."));
   }
-
-  // --- 4b: cuenta desactivada ---
 
   @Test
   void login_cuentaDadaDeBaja_devuelveCuentaDesactivada() throws Exception {
@@ -85,9 +83,7 @@ class IngresoFallidoTest {
 
     ingresar(CORREO, CONTRASENA)
         .andExpect(status().isUnauthorized())
-        .andExpect(jsonPath("$.codigo").value("CUENTA_DESACTIVADA"))
-        .andExpect(
-            jsonPath("$.detail").value("Tu cuenta está desactivada. Contactá a la Jefatura."))
+        .andExpect(jsonPath("$.type").value("/errores/cuenta-desactivada"))
         .andExpect(unauthenticated());
   }
 
@@ -110,8 +106,8 @@ class IngresoFallidoTest {
     assertThat(usuario().getBloqueadoHasta())
         .isCloseTo(Instant.now().plus(Duration.ofMinutes(15)), within(1, ChronoUnit.MINUTES));
     ingresar(CORREO, CONTRASENA)
-        .andExpect(status().isUnauthorized())
-        .andExpect(jsonPath("$.codigo").value("CUENTA_BLOQUEADA"))
+        .andExpect(status().isLocked())
+        .andExpect(jsonPath("$.type").value("/errores/usuario-bloqueado"))
         .andExpect(unauthenticated());
   }
 
@@ -129,10 +125,10 @@ class IngresoFallidoTest {
   // --- *a: sesión expirada ---
 
   @Test
-  void sesion_vencidaOInexistente_devuelveSesionRequerida() throws Exception {
+  void sesion_vencidaOInexistente_devuelveSinSesion() throws Exception {
     mvc.perform(get(SESION).session(new MockHttpSession()))
         .andExpect(status().isUnauthorized())
-        .andExpect(jsonPath("$.codigo").value("SESION_REQUERIDA"));
+        .andExpect(jsonPath("$.type").value("/errores/sin-sesion"));
   }
 
   private ResultActions ingresar(String correo, String contrasena) throws Exception {

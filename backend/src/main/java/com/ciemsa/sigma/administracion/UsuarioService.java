@@ -127,6 +127,7 @@ public class UsuarioService {
   }
 
   private static ConflictoException correoEnUso(String correo) {
-    return new ConflictoException("Ya existe una cuenta con el correo " + correo + ".");
+    return new ConflictoException(
+        "correo-duplicado", "Ya existe un usuario con el correo " + correo + ".");
   }
 }
