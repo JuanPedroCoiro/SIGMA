@@ -138,11 +138,13 @@ class UsuarioControllerTest {
 
     mvc.perform(get(USUARIOS).with(user(jefa)))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.content[0].nombre").value("Ana"))
-        .andExpect(jsonPath("$.content[1].nombre").value("Beto"))
-        .andExpect(jsonPath("$.content[2].nombre").value("Jefa"))
-        .andExpect(jsonPath("$.totalElements").value(3))
-        .andExpect(jsonPath("$.size").value(20));
+        .andExpect(jsonPath("$.contenido[0].nombre").value("Ana"))
+        .andExpect(jsonPath("$.contenido[1].nombre").value("Beto"))
+        .andExpect(jsonPath("$.contenido[2].nombre").value("Jefa"))
+        .andExpect(jsonPath("$.pagina").value(0))
+        .andExpect(jsonPath("$.tamanio").value(20))
+        .andExpect(jsonPath("$.totalElementos").value(3))
+        .andExpect(jsonPath("$.totalPaginas").value(1));
   }
 
   @Test
