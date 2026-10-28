@@ -20,6 +20,10 @@ public class UsuarioAutenticado implements UserDetails, CredentialsContainer {
   private final String correo;
   private final String nombre;
   private final Rol rol;
+
+  /** Solo los técnicos tienen cuadrilla; null para los demás roles. */
+  private final Long idCuadrilla;
+
   private final boolean activo;
 
   /** Fin del bloqueo vigente (CU-12 4c); null si al cargarla la cuenta no estaba bloqueada. */
@@ -32,6 +36,7 @@ public class UsuarioAutenticado implements UserDetails, CredentialsContainer {
       String correo,
       String nombre,
       Rol rol,
+      Long idCuadrilla,
       boolean activo,
       Instant bloqueadoHasta,
       String passwordHash) {
@@ -39,6 +44,7 @@ public class UsuarioAutenticado implements UserDetails, CredentialsContainer {
     this.correo = correo;
     this.nombre = nombre;
     this.rol = rol;
+    this.idCuadrilla = idCuadrilla;
     this.activo = activo;
     this.bloqueadoHasta = bloqueadoHasta;
     this.passwordHash = passwordHash;

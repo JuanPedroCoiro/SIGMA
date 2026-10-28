@@ -36,7 +36,7 @@ public class SecurityConfig {
             auth ->
                 auth.requestMatchers("/error")
                     .permitAll()
-                    .requestMatchers("/api/v1/ping")
+                    .requestMatchers("/api/v1/ping", "/actuator/health")
                     .permitAll()
                     .requestMatchers(HttpMethod.POST, SESION)
                     .permitAll()

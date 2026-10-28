@@ -1,6 +1,7 @@
 package com.ciemsa.sigma.shared.seguridad;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.response.SecurityMockMvcResultMatchers.authenticated;
 import static org.springframework.security.test.web.servlet.response.SecurityMockMvcResultMatchers.unauthenticated;
@@ -13,6 +14,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.ciemsa.sigma.TestcontainersConfiguration;
+import com.ciemsa.sigma.administracion.Cuadrilla;
+import com.ciemsa.sigma.administracion.CuadrillaRepository;
 import com.ciemsa.sigma.administracion.Usuario;
 import com.ciemsa.sigma.administracion.UsuarioRepository;
 import org.junit.jupiter.api.AfterEach;
@@ -41,6 +44,7 @@ class SesionTest {
 
   @Autowired private WebApplicationContext context;
   @Autowired private UsuarioRepository usuarioRepository;
+  @Autowired private CuadrillaRepository cuadrillaRepository;
   @Autowired private PasswordEncoder passwordEncoder;
   private MockMvc mvc;
 
@@ -54,6 +58,7 @@ class SesionTest {
   @AfterEach
   void tearDown() {
     usuarioRepository.deleteAll();
+    cuadrillaRepository.deleteAll();
   }
 
   // --- Login (POST) ---
@@ -111,7 +116,7 @@ class SesionTest {
 
   @Test
   void login_credencialesCorrectas_noGuardaElHashEnLaSesion() throws Exception {
-    MockHttpSession sesion = iniciarSesion();
+    MockHttpSession sesion = iniciarSesion(CORREO);
 
     SecurityContext contexto =
         (SecurityContext)
@@ -125,7 +130,7 @@ class SesionTest {
 
   @Test
   void sesion_despuesDelLogin_devuelveElUsuarioSinElHash() throws Exception {
-    MockHttpSession sesion = iniciarSesion();
+    MockHttpSession sesion = iniciarSesion(CORREO);
 
     mvc.perform(get(SESION).session(sesion))
         .andExpect(status().isOk())
@@ -133,7 +138,22 @@ class SesionTest {
         .andExpect(jsonPath("$.nombre").value("Jefa"))
         .andExpect(jsonPath("$.correo").value(CORREO))
         .andExpect(jsonPath("$.rol").value("JEFATURA"))
+        .andExpect(jsonPath("$.idCuadrilla").value(nullValue()))
         .andExpect(jsonPath("$.passwordHash").doesNotExist());
+  }
+
+  @Test
+  void sesion_tecnico_devuelveSuCuadrilla() throws Exception {
+    Cuadrilla norte = cuadrillaRepository.save(Cuadrilla.crear("Cuadrilla Norte", "Norte"));
+    usuarioRepository.save(
+        Usuario.crear(
+            "Juan", "juan@ciemsa.com", passwordEncoder.encode(CONTRASENA), Rol.TECNICO, norte));
+    MockHttpSession sesion = iniciarSesion("juan@ciemsa.com");
+
+    mvc.perform(get(SESION).session(sesion))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.rol").value("TECNICO"))
+        .andExpect(jsonPath("$.idCuadrilla").value(norte.getId()));
   }
 
   @Test
@@ -147,7 +167,7 @@ class SesionTest {
 
   @Test
   void logout_conSesion_devuelve204EInvalidaLaSesion() throws Exception {
-    MockHttpSession sesion = iniciarSesion();
+    MockHttpSession sesion = iniciarSesion(CORREO);
 
     mvc.perform(delete(SESION).session(sesion).with(csrf())).andExpect(status().isNoContent());
 
@@ -155,10 +175,10 @@ class SesionTest {
   }
 
   /** Hace login y devuelve la sesión creada, como la cookie que guardaría el navegador. */
-  private MockHttpSession iniciarSesion() throws Exception {
+  private MockHttpSession iniciarSesion(String correo) throws Exception {
     MvcResult resultado =
         mvc.perform(
-                post(SESION).param("correo", CORREO).param("contrasena", CONTRASENA).with(csrf()))
+                post(SESION).param("correo", correo).param("contrasena", CONTRASENA).with(csrf()))
             .andExpect(status().isNoContent())
             .andReturn();
     return (MockHttpSession) resultado.getRequest().getSession(false);

@@ -237,6 +237,7 @@ class UsuarioControllerTest {
         usuario.getCorreo(),
         usuario.getNombre(),
         usuario.getRol(),
+        usuario.getCuadrilla() == null ? null : usuario.getCuadrilla().getId(),
         true,
         null,
         null);

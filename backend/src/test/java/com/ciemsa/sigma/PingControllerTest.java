@@ -35,6 +35,13 @@ class PingControllerTest {
   }
 
   @Test
+  void health_sinLogin_devuelveUp() throws Exception {
+    mvc.perform(get("/actuator/health"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status").value("UP"));
+  }
+
+  @Test
   void otraRuta_sinLogin_devuelve401() throws Exception {
     mvc.perform(get("/api/v1/usuarios")).andExpect(status().isUnauthorized());
   }

@@ -32,6 +32,7 @@ public class UsuarioDetailsService implements UserDetailsService {
         usuario.getCorreo(),
         usuario.getNombre(),
         usuario.getRol(),
+        usuario.getCuadrilla() == null ? null : usuario.getCuadrilla().getId(),
         usuario.isActivo(),
         bloqueadoHasta,
         usuario.getPasswordHash());
