@@ -3,7 +3,9 @@ package com.ciemsa.sigma.shared.api;
 import com.ciemsa.sigma.shared.domain.ConflictoException;
 import com.ciemsa.sigma.shared.domain.NoEncontradoException;
 import com.ciemsa.sigma.shared.domain.ReglaNegocioException;
+import com.ciemsa.sigma.shared.seguridad.CuentaBloqueadaException;
 import java.net.URI;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.core.PropertyReferenceException;
@@ -96,14 +98,21 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         "Tu cuenta está desactivada. Contactá a la Jefatura.");
   }
 
-  /** 4c: bloqueo temporal por intentos fallidos consecutivos. */
+  /** 4c: bloqueo temporal por intentos fallidos consecutivos, con la hora en que se libera. */
   @ExceptionHandler(LockedException.class)
   ProblemDetail cuentaBloqueada(LockedException ex) {
-    return problema(
-        HttpStatus.LOCKED,
-        "usuario-bloqueado",
-        "Usuario bloqueado",
-        "Demasiados intentos fallidos.");
+    ProblemDetail problema =
+        problema(
+            HttpStatus.LOCKED,
+            "usuario-bloqueado",
+            "Usuario bloqueado",
+            "Demasiados intentos fallidos.");
+    if (ex instanceof CuentaBloqueadaException bloqueada) {
+      problema.setProperty(
+          "bloqueadoHasta",
+          bloqueada.getBloqueadoHasta().truncatedTo(ChronoUnit.SECONDS).toString());
+    }
+    return problema;
   }
 
   /** {@code @PreAuthorize} rechazó el pedido: el usuario no tiene el rol necesario. */

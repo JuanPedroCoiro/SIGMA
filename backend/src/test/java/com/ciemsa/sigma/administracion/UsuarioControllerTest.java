@@ -238,7 +238,7 @@ class UsuarioControllerTest {
         usuario.getNombre(),
         usuario.getRol(),
         true,
-        false,
+        null,
         null);
   }
 }

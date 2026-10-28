@@ -87,6 +87,17 @@ class IngresoFallidoTest {
         .andExpect(unauthenticated());
   }
 
+  @Test
+  void login_cuentaDadaDeBajaConContrasenaIncorrecta_noRevelaQueEstaDesactivada() throws Exception {
+    Usuario usuario = usuarioRepository.findByCorreo(CORREO).orElseThrow();
+    usuario.darDeBaja();
+    usuarioRepository.save(usuario);
+
+    ingresar(CORREO, INCORRECTA)
+        .andExpect(status().isUnauthorized())
+        .andExpect(jsonPath("$.type").value("/errores/credenciales"));
+  }
+
   // --- 4c: bloqueo por intentos fallidos ---
 
   @Test
@@ -103,11 +114,15 @@ class IngresoFallidoTest {
   void login_quintoFallo_bloqueaLaCuentaAunConLaContrasenaCorrecta() throws Exception {
     fallar(5);
 
-    assertThat(usuario().getBloqueadoHasta())
+    Instant bloqueadoHasta = usuario().getBloqueadoHasta();
+    assertThat(bloqueadoHasta)
         .isCloseTo(Instant.now().plus(Duration.ofMinutes(15)), within(1, ChronoUnit.MINUTES));
     ingresar(CORREO, CONTRASENA)
         .andExpect(status().isLocked())
         .andExpect(jsonPath("$.type").value("/errores/usuario-bloqueado"))
+        .andExpect(
+            jsonPath("$.bloqueadoHasta")
+                .value(bloqueadoHasta.truncatedTo(ChronoUnit.SECONDS).toString()))
         .andExpect(unauthenticated());
   }
 

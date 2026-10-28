@@ -25,13 +25,15 @@ public class UsuarioDetailsService implements UserDetailsService {
         usuarioRepository
             .findByCorreo(Usuario.normalizarCorreo(correo))
             .orElseThrow(() -> new UsernameNotFoundException("Usuario no encontrado"));
+    Instant bloqueadoHasta =
+        usuario.estaBloqueado(Instant.now(clock)) ? usuario.getBloqueadoHasta() : null;
     return new UsuarioAutenticado(
         usuario.getId(),
         usuario.getCorreo(),
         usuario.getNombre(),
         usuario.getRol(),
         usuario.isActivo(),
-        usuario.estaBloqueado(Instant.now(clock)),
+        bloqueadoHasta,
         usuario.getPasswordHash());
   }
 }
