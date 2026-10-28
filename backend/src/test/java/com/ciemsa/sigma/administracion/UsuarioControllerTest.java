@@ -220,7 +220,7 @@ class UsuarioControllerTest {
   // --- Cuadrillas (desplegable) ---
 
   @Test
-  void cuadrillas_conSesion_devuelveSoloLasActivasOrdenadas() throws Exception {
+  void cuadrillas_conJefatura_devuelveTodasConSuEstadoOrdenadas() throws Exception {
     cuadrillaRepository.save(Cuadrilla.crear("Sur", "Sur"));
     cuadrillaRepository.save(Cuadrilla.crear("Norte", "Norte"));
     Cuadrilla este = Cuadrilla.crear("Este", "Este");
@@ -229,9 +229,21 @@ class UsuarioControllerTest {
 
     mvc.perform(get("/api/v1/cuadrillas").with(user(jefa)))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.length()").value(2))
-        .andExpect(jsonPath("$[0].nombre").value("Norte"))
-        .andExpect(jsonPath("$[1].nombre").value("Sur"));
+        .andExpect(jsonPath("$.length()").value(3))
+        .andExpect(jsonPath("$[0].nombre").value("Este"))
+        .andExpect(jsonPath("$[0].activa").value(false))
+        .andExpect(jsonPath("$[1].nombre").value("Norte"))
+        .andExpect(jsonPath("$[1].activa").value(true))
+        .andExpect(jsonPath("$[2].nombre").value("Sur"));
+  }
+
+  @Test
+  void cuadrillas_conRolOperador_devuelve403() throws Exception {
+    UsuarioAutenticado operador = enSesion(guardar("Ana", "ana@ciemsa.com", Rol.OPERADOR));
+
+    mvc.perform(get("/api/v1/cuadrillas").with(user(operador)))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.type").value("/errores/sin-permiso"));
   }
 
   private ResultActions crear(String json) throws Exception {
