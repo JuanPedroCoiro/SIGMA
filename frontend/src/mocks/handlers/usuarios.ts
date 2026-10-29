@@ -164,7 +164,7 @@ export const handlersUsuarios = [
     if (!usuario) return noEncontrado()
     if (usuario.id === base.idSesion) {
       return problema(
-        422,
+        400,
         'regla-negocio',
         'Regla de negocio no cumplida',
         'No podés desactivar tu propia cuenta.',
