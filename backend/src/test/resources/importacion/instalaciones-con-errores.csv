@@ -1,0 +1,5 @@
+codigo;nombre;ruta_zona;latitud;longitud
+INST-101;Cruce Ficticio 101;Ruta 1;-34,712345;-56,301234
+INST-102;;Ruta 5;-34,523456;-56,284567
+INST-103;Cruce Ficticio 103;Ruta 8;-56,301234;-34,712345
+INST-101;Cruce Ficticio 101 bis;Ruta 1;-34,700000;-56,300000

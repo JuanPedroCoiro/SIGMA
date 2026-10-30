@@ -18,7 +18,7 @@ La guía de arquitectura (`docs/guia-arquitectura.md`) desarrolla en detalle lo 
 En PowerShell (en el CI se usan los equivalentes de Linux):
 
 - Base de datos: `docker compose -f docker/docker-compose.yml up -d`
-- Backend: `cd backend; .\mvnw.cmd spring-boot:run`
+- Backend: `cd backend; .\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=dev"` (el perfil `dev` suma los datos ficticios de `db/datos-prueba`)
 - Formato del backend: `.\mvnw.cmd spotless:apply` (corrige) y `.\mvnw.cmd spotless:check` (verifica, como el CI)
 - Tests y build del backend: `.\mvnw.cmd verify` (necesita Docker abierto por Testcontainers)
 - Frontend: `cd frontend; npm ci; npm run dev`
@@ -73,6 +73,7 @@ Reglas del núcleo:
 
 - El esquema se maneja solo con Flyway, en `backend/src/main/resources/db/migration/V<n>__descripcion.sql`. Hibernate está en `ddl-auto=validate`: nunca crea ni modifica tablas.
 - Una migración que ya está en `develop` no se edita: se agrega una nueva.
+- Datos ficticios (catálogos de prueba) en `db/datos-prueba/R__*.sql`: migraciones repetibles e idempotentes que solo se aplican con el perfil `dev` y en los tests. En `db/migration` van solo datos reales (por ejemplo, el organismo MTOP).
 - Tablas en snake_case, singular y en español (`orden_trabajo`). PK `id_<entidad>`. FK con el nombre de la entidad referenciada (`id_instalacion`).
 - Todas las tablas llevan `creado_en`, `modificado_en` y `version` (BaseEntity). `version` es INTEGER en la base e `Integer` en Java, y se usa para el bloqueo optimista.
 - Los maestros no se borran: se desactivan con un booleano `activo` o `activa`, concordando con el nombre de la tabla como en el MER (`usuario.activo`, `instalacion.activa`, `categoria_falla.activa`).
