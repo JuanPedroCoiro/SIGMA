@@ -37,6 +37,15 @@
   white-space: nowrap;
 }
 
+.layout-rol {
+  color: var(--texto-suave);
+}
+
+.layout-salir {
+  flex-shrink: 0;
+  padding: 0.375rem 0.75rem;
+}
+
 .layout-boton-menu {
   display: none;
   padding: 0.25rem 0.5rem;
@@ -94,6 +103,11 @@
 
   .layout-boton-menu {
     display: inline-block;
+  }
+
+  /* En el celular no entra el rol; el nombre se recorta si hace falta. */
+  .layout-rol {
+    display: none;
   }
 
   .layout-menu {

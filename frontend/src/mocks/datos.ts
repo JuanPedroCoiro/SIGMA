@@ -1,0 +1,125 @@
+import type { Rol } from '../shared/lib/roles'
+
+// Datos FICTICIOS de la API simulada (solo `npm run dev:simulado` y los tests).
+// Se guardan en sessionStorage para que una recarga del navegador no los pierda.
+
+export const CONTRASENA_SIMULADA = 'Prueba.1234'
+
+export type UsuarioSimulado = {
+  id: number
+  nombre: string
+  correo: string
+  rol: Rol
+  idCuadrilla: number | null
+  activo: boolean
+  password: string
+  /** Si es true, el login responde 423 (bloqueo temporal, CU-12 4c). */
+  bloqueado: boolean
+}
+
+export type CuadrillaSimulada = {
+  id: number
+  nombre: string
+  zona: string
+  activa: boolean
+}
+
+type Base = {
+  usuarios: UsuarioSimulado[]
+  cuadrillas: CuadrillaSimulada[]
+  /** Usuario con la sesión abierta, o null. */
+  idSesion: number | null
+}
+
+const CLAVE_ALMACEN = 'sigma.apiSimulada'
+
+const NOMBRES = ['Ana', 'Bruno', 'Carla', 'Diego', 'Elena', 'Fabián', 'Gabriela', 'Hernán']
+const APELLIDOS = ['Acosta', 'Benítez', 'Cabrera', 'Duarte']
+
+function usuario(
+  id: number,
+  nombre: string,
+  correo: string,
+  rol: Rol,
+  idCuadrilla: number | null,
+  extra: Partial<UsuarioSimulado> = {},
+): UsuarioSimulado {
+  return {
+    id,
+    nombre,
+    correo,
+    rol,
+    idCuadrilla,
+    activo: true,
+    password: CONTRASENA_SIMULADA,
+    bloqueado: false,
+    ...extra,
+  }
+}
+
+function crearBaseInicial(): Base {
+  const cuadrillas: CuadrillaSimulada[] = [
+    { id: 1, nombre: 'Cuadrilla Norte', zona: 'Zona Norte', activa: true },
+    { id: 2, nombre: 'Cuadrilla Sur', zona: 'Zona Sur', activa: true },
+    { id: 3, nombre: 'Cuadrilla Este', zona: 'Zona Este', activa: true },
+  ]
+  const usuarios: UsuarioSimulado[] = [
+    usuario(1, 'Jefa de Prueba', 'jefatura@sigma.test', 'JEFATURA', null),
+    usuario(2, 'Técnico de Prueba', 'tecnico@sigma.test', 'TECNICO', 1),
+    usuario(3, 'Operador de Prueba', 'operador@sigma.test', 'OPERADOR', null),
+    usuario(4, 'Encargado de Prueba', 'stock@sigma.test', 'ENCARGADO_STOCK', null),
+    usuario(5, 'Usuario Bloqueado', 'bloqueado@sigma.test', 'OPERADOR', null, { bloqueado: true }),
+    usuario(6, 'Usuario Desactivado', 'desactivado@sigma.test', 'OPERADOR', null, {
+      activo: false,
+    }),
+  ]
+  // Relleno para probar la paginación del listado.
+  for (let i = 0; i < 26; i++) {
+    const id = usuarios.length + 1
+    const nombre = `${NOMBRES[i % NOMBRES.length]} ${APELLIDOS[i % APELLIDOS.length]}`
+    const esTecnico = i % 2 === 0
+    usuarios.push(
+      usuario(
+        id,
+        nombre,
+        `usuario${id}@sigma.test`,
+        esTecnico ? 'TECNICO' : 'OPERADOR',
+        esTecnico ? (i % 3) + 1 : null,
+        { activo: i % 7 !== 0 },
+      ),
+    )
+  }
+  return { usuarios, cuadrillas, idSesion: null }
+}
+
+function cargar(): Base {
+  try {
+    const guardada = sessionStorage.getItem(CLAVE_ALMACEN)
+    if (guardada) return JSON.parse(guardada) as Base
+  } catch {
+    // Sin sessionStorage (o con datos corruptos) se arranca de cero.
+  }
+  return crearBaseInicial()
+}
+
+export let base: Base = cargar()
+
+export function guardarBase() {
+  try {
+    sessionStorage.setItem(CLAVE_ALMACEN, JSON.stringify(base))
+  } catch {
+    // La simulación sigue funcionando en memoria.
+  }
+}
+
+/** Vuelve a los datos iniciales (los tests lo llaman entre casos). */
+export function reiniciarBaseSimulada() {
+  base = crearBaseInicial()
+  guardarBase()
+}
+
+/** Simula que la sesión del backend venció: el próximo pedido responde 401. */
+export function expirarSesionSimulada() {
+  base.idSesion = null
+  guardarBase()
+}

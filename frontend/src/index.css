@@ -65,3 +65,120 @@ button {
 code {
   font-family: var(--mono);
 }
+
+/* Formularios, botones y alertas comunes */
+.campo {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.campo label {
+  font-weight: 600;
+  color: var(--texto-fuerte);
+}
+
+.campo input,
+.campo select {
+  font: inherit;
+  padding: 0.5rem 0.75rem;
+  color: var(--texto-fuerte);
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: 0.375rem;
+}
+
+.campo input[aria-invalid='true'],
+.campo select[aria-invalid='true'] {
+  border-color: var(--error);
+}
+
+.campo-error {
+  color: var(--error);
+  font-size: 0.875rem;
+}
+
+.boton {
+  padding: 0.5rem 1rem;
+  font-weight: 600;
+  border: 1px solid transparent;
+  border-radius: 0.375rem;
+}
+
+.boton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.boton-primario {
+  color: var(--superficie);
+  background: var(--acento);
+}
+
+.boton-secundario {
+  color: var(--texto-fuerte);
+  background: transparent;
+  border-color: var(--borde);
+}
+
+.alerta {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  border-radius: 0.375rem;
+  border: 1px solid currentColor;
+}
+
+.alerta-error {
+  color: var(--error);
+}
+
+.alerta-aviso {
+  color: var(--acento);
+  background: var(--acento-fondo);
+}
+
+.boton-peligro {
+  color: #fff;
+  background: var(--error);
+}
+
+.campo-ayuda {
+  color: var(--texto-suave);
+  font-size: 0.875rem;
+}
+
+.alerta-exito {
+  color: var(--exito);
+}
+
+/* Paginación de los listados */
+.paginacion {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.paginacion-resumen {
+  color: var(--texto-suave);
+}
+
+/* Estado activo / inactivo */
+.estado {
+  display: inline-block;
+  padding: 0.125rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.estado-activo {
+  color: var(--exito);
+  background: color-mix(in srgb, var(--exito) 15%, transparent);
+}
+
+.estado-inactivo {
+  color: var(--texto-suave);
+  background: color-mix(in srgb, var(--texto-suave) 15%, transparent);
+}

@@ -1,0 +1,32 @@
+.inicio-sesion {
+  min-height: 100svh;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+}
+
+.inicio-sesion-tarjeta {
+  width: 100%;
+  max-width: 24rem;
+  display: grid;
+  gap: 1rem;
+  padding: 2rem 1.5rem;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: 0.75rem;
+}
+
+.inicio-sesion-tarjeta h1 {
+  margin: 0;
+  text-align: center;
+}
+
+.inicio-sesion-subtitulo {
+  margin: -0.5rem 0 0;
+  text-align: center;
+  color: var(--texto-suave);
+}
+
+.inicio-sesion-tarjeta .boton {
+  width: 100%;
+}

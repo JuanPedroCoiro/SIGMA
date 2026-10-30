@@ -7,7 +7,12 @@ export type OpcionMenu = {
   roles?: Rol[]
 }
 
-export const opcionesMenu: OpcionMenu[] = [{ ruta: '/', etiqueta: 'Estado del sistema' }]
+// Cada rol ve solo sus funciones (CU-12). Las rutas repiten la restricción en router.tsx.
+export const opcionesMenu: OpcionMenu[] = [
+  { ruta: '/', etiqueta: 'Inicio' },
+  { ruta: '/usuarios', etiqueta: 'Usuarios', roles: ['JEFATURA'] },
+  { ruta: '/estado', etiqueta: 'Estado del sistema', roles: ['JEFATURA'] },
+]
 
 export function opcionesParaRol(rol: Rol): OpcionMenu[] {
   return opcionesMenu.filter((opcion) => !opcion.roles || opcion.roles.includes(rol))
