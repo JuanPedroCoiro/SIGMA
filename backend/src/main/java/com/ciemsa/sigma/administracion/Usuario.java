@@ -100,6 +100,11 @@ public class Usuario extends BaseEntity {
     this.activo = false;
   }
 
+  /** Vuelve a habilitar una cuenta dada de baja; conserva su contraseña y su historial. */
+  public void reactivar() {
+    this.activo = true;
+  }
+
   public boolean estaBloqueado(Instant ahora) {
     return bloqueadoHasta != null && ahora.isBefore(bloqueadoHasta);
   }

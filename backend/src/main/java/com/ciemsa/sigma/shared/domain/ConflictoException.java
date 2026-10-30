@@ -4,6 +4,11 @@ package com.ciemsa.sigma.shared.domain;
 public class ConflictoException extends DomainException {
 
   public ConflictoException(String mensaje) {
-    super(mensaje);
+    this("conflicto", mensaje);
+  }
+
+  /** Con un tipo propio, cuando el frontend necesita distinguir el caso (correo-duplicado). */
+  public ConflictoException(String tipo, String mensaje) {
+    super(tipo, mensaje);
   }
 }

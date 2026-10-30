@@ -514,6 +514,35 @@ Nombre de test: `metodo_condicion_resultadoEsperado` (por ejemplo `cerrarTecnica
 
 **Git** (1.13.1.7, acordado el 18/10): todo cambio nace como issue en GitHub. `develop` es la rama de integración y `main` recibe `develop` al cierre de cada iteración (línea base, con etiqueta `v0.x`); las dos protegidas. Ramas desde `develop`: `feature/HU-01-login-basico` para historias y `<tipo>/<issue>-descripcion` para el resto (`fix/1-esqueleto`, `chore/3-claude-md`). Commits y títulos de PR con Conventional Commits, la HU o el área como ámbito y el issue al final (`feat(HU-01): implementar login (#12)`, `fix(docker): corregir volumen (#3)`). Todo entra por PR aprobado por el otro integrante: las tareas con squash y el cierre de iteración con merge commit (squash provisorio hasta que lo confirme Juan Pedro). El repositorio es público: nunca se suben datos reales de CIEMSA ni credenciales.
 
+## Seguridad (HU-01)
+
+Configuración de Spring Security elegida para RF-20 y RNF-3, verificada de punta a punta con el frontend en la prueba de concepto (#18, 28/10/2026). El contrato de la API está en el «Contrato del login (versión 2)».
+
+**Decisión:** sesión de servidor con cookie, no JWT. La cookie HttpOnly, el vencimiento por inactividad y la protección CSRF los da Spring Security sin código propio, y el frontend nunca guarda tokens.
+
+| Tema | Cómo quedó | Dónde |
+| --- | --- | --- |
+| Login | `formLogin` en `POST /api/v1/sesion`, formulario con `correo` y `contrasena`; éxito → 204, falla → `ProblemDetail`. Sin `httpBasic` ni página de login de Spring | `SecurityConfig` |
+| Quién soy y logout | `GET /api/v1/sesion` (200 o 401) y `DELETE /api/v1/sesion` (204, invalida la sesión y borra las cookies) | `SesionController`, `SecurityConfig` |
+| Contraseñas | BCrypt (`BCryptPasswordEncoder`, costo 10). Se guarda solo el hash; nunca se devuelve ni se guarda en la sesión (`eraseCredentials`) | `SecurityConfig`, `UsuarioAutenticado` |
+| Cookie de sesión | `JSESSIONID`: HttpOnly, SameSite=Lax, 9 h sin actividad. `Secure` solo en el perfil del servidor | `application.properties` |
+| CSRF | `csrf.spa()`: cookie `XSRF-TOKEN` legible por JavaScript y header `X-XSRF-TOKEN`. `CsrfCookieFilter` genera el token en cada pedido, porque Spring lo genera recién cuando alguien lo pide | `SecurityConfig`, `CsrfCookieFilter` |
+| Session fixation | El login cambia el id de la sesión y renueva el token CSRF | `formLogin` (por defecto) |
+| Roles | Authority `ROLE_<rol>`. Cada endpoint declara `@PreAuthorize("hasRole(...)")`, que se evalúa en cada pedido. Un cambio de rol rige desde el siguiente ingreso | Controllers |
+| Bloqueo (CU-12 4c) | 5 intentos fallidos seguidos → 15 min (`sigma.seguridad.duracion-bloqueo`). Lo cuenta `IntentosIngresoListener` con los eventos de Spring Security; la regla está en `Usuario` | `IntentosIngresoListener`, `Usuario` |
+| Orden de los chequeos | Bloqueo antes de la contraseña (423 aunque sea correcta); cuenta desactivada después (solo se revela con la contraseña correcta) | `SecurityConfig.authenticationProvider` |
+| Errores 401 y 403 | Los errores de los filtros pasan por `ManejadorErroresSeguridad` al `GlobalExceptionHandler`: `sin-sesion`, `credenciales`, `cuenta-desactivada`, `usuario-bloqueado` (423), `sin-permiso` y `csrf` | `ManejadorErroresSeguridad` |
+| Rutas públicas | `POST /api/v1/sesion`, `/api/v1/ping` y `/actuator/health`. Todo lo demás exige sesión | `SecurityConfig` |
+| Usuario actual | Los servicios usan `UsuarioActual` (`id()`, `rol()`), sin depender de Spring Security | `UsuarioActualSesion` |
+
+Reglas para lo que venga:
+
+- Todo endpoint nuevo exige sesión por defecto. Si además depende del rol, lleva `@PreAuthorize` en la clase o en el método, y **los métodos con `@PreAuthorize` o `@Transactional` van `public`**: con métodos de paquete, el proxy puede no aplicarlos, sin ningún aviso. Cada endpoint restringido tiene un test que verifica el 403 con otro rol.
+- Ningún pedido que modifica datos se excluye del CSRF, tampoco el login.
+- El frontend llama siempre con el `cliente` compartido (envía la cookie y el token). Después del login **y del logout** vuelve a pedir `GET /api/v1/sesion`: así carga el estado real y recibe el token CSRF nuevo, que Spring renueva en los dos casos.
+- Pendiente: `server.servlet.session.cookie.secure=true` en el perfil del servidor (deploy) y cortar la sesión de un usuario en el momento en que se lo desactiva (fuera del sprint 1).
+
+
 ## Frontend React
 
 El frontend copia la idea del backend: carpetas por funcionalidad y, dentro, tres capas (llamadas a la API, hooks con la lógica y componentes que solo muestran). Una SPA con Vite + TypeScript.
@@ -593,7 +622,7 @@ La regla de módulos más estricta (que `inventario.application` solo use los re
 **Pipeline de CI (GitHub Actions, en cada push y PR a `develop` y `main`)**
 
 1. Backend: `./mvnw -B spotless:check verify` (formato, tests unitarios, integración con Testcontainers y, desde el sprint 2, ArchUnit).
-2. Frontend: `npm ci`, `npm run format:check`, `npm run lint` y `npm run build` (el build incluye el chequeo de tipos con `tsc -b`). `npm test` se suma cuando haya tests con Vitest.
+2. Frontend: `npm ci`, `npm run format:check`, `npm run lint`, `npm test` (Vitest) y `npm run build` (el build incluye el chequeo de tipos con `tsc -b`).
 3. Cobertura reportada con JaCoCo; meta orientativa 70 % en `domain` y `application`, sin bloquear el PR.
 
 **Checklist de revisión de PR** (lo que la CI no ve):
@@ -648,5 +677,8 @@ Los módulos no se crean vacíos de entrada: cada paquete aparece cuando una his
 | Fotos detrás de `AlmacenArchivos` | Anteproyecto Fig. 5 y Fig. 19 |
 | Java 25 | Anteproyecto V16 (Tabla 16) |
 | Listados paginados | Esta guía, API REST (17/10) |
+
+| Sesión de servidor con cookie HttpOnly + CSRF (`formLogin`, `csrf.spa()`), sin JWT | Anteproyecto 1.11.4 y Fig. 19; esta guía, «Seguridad (HU-01)», verificado en #18 |
+| Lombok en el backend (`@Getter`, `@RequiredArgsConstructor`; sin `@Data` ni `@Setter` en entidades) | Esta guía (#19) |
 
 Si aparece una decisión nueva que no esté en el anteproyecto, se agrega una fila y, si cambia algo de lo entregado, una fila en la tabla de cambios del capítulo 2.

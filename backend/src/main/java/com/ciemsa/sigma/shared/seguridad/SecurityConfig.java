@@ -4,9 +4,13 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.authentication.DisabledException;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.RequestCacheConfigurer;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
@@ -32,7 +36,7 @@ public class SecurityConfig {
             auth ->
                 auth.requestMatchers("/error")
                     .permitAll()
-                    .requestMatchers("/api/v1/ping")
+                    .requestMatchers("/api/v1/ping", "/actuator/health")
                     .permitAll()
                     .requestMatchers(HttpMethod.POST, SESION)
                     .permitAll()
@@ -68,5 +72,31 @@ public class SecurityConfig {
   @Bean
   PasswordEncoder passwordEncoder() {
     return new BCryptPasswordEncoder();
+  }
+
+  /**
+   * Login contra la base (CU-12): el bloqueo se verifica antes de la contraseña (4c sale aunque sea
+   * correcta) y la cuenta desactivada después (4b solo se revela con la contraseña correcta).
+   */
+  @Bean
+  DaoAuthenticationProvider authenticationProvider(
+      UserDetailsService userDetailsService, PasswordEncoder passwordEncoder) {
+    DaoAuthenticationProvider provider = new DaoAuthenticationProvider(userDetailsService);
+    provider.setPasswordEncoder(passwordEncoder);
+    provider.setPreAuthenticationChecks(SecurityConfig::verificarBloqueo);
+    provider.setPostAuthenticationChecks(SecurityConfig::verificarActiva);
+    return provider;
+  }
+
+  private static void verificarBloqueo(UserDetails usuario) {
+    if (usuario instanceof UsuarioAutenticado autenticado && !autenticado.isAccountNonLocked()) {
+      throw new CuentaBloqueadaException(autenticado.getBloqueadoHasta());
+    }
+  }
+
+  private static void verificarActiva(UserDetails usuario) {
+    if (!usuario.isEnabled()) {
+      throw new DisabledException("Cuenta desactivada");
+    }
   }
 }

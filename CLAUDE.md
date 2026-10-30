@@ -23,9 +23,9 @@ En PowerShell (en el CI se usan los equivalentes de Linux):
 - Tests y build del backend: `.\mvnw.cmd verify` (necesita Docker abierto por Testcontainers)
 - Frontend: `cd frontend; npm ci; npm run dev`
 - Formato del frontend: `npm run format` (corrige) y `npm run format:check` (verifica, como el CI)
-- Lint y build del frontend: `npm run lint` y `npm run build`
+- Lint, tests y build del frontend: `npm run lint`, `npm test` (Vitest) y `npm run build`
 
-Antes de dar una tarea por terminada, correr lo mismo que el CI: `mvnw spotless:check verify` si se tocó el backend, y `npm run format:check` + `npm run lint` + `npm run build` si se tocó el frontend.
+Antes de dar una tarea por terminada, correr lo mismo que el CI: `mvnw spotless:check verify` si se tocó el backend, y `npm run format:check` + `npm run lint` + `npm test` + `npm run build` si se tocó el frontend.
 
 ## Arquitectura del backend
 

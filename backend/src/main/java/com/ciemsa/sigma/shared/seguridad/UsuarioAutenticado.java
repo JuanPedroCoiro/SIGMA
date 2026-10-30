@@ -1,5 +1,6 @@
 package com.ciemsa.sigma.shared.seguridad;
 
+import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import lombok.Getter;
@@ -19,8 +20,15 @@ public class UsuarioAutenticado implements UserDetails, CredentialsContainer {
   private final String correo;
   private final String nombre;
   private final Rol rol;
+
+  /** Solo los técnicos tienen cuadrilla; null para los demás roles. */
+  private final Long idCuadrilla;
+
   private final boolean activo;
-  private final boolean bloqueado;
+
+  /** Fin del bloqueo vigente (CU-12 4c); null si al cargarla la cuenta no estaba bloqueada. */
+  private final Instant bloqueadoHasta;
+
   private String passwordHash;
 
   public UsuarioAutenticado(
@@ -28,15 +36,17 @@ public class UsuarioAutenticado implements UserDetails, CredentialsContainer {
       String correo,
       String nombre,
       Rol rol,
+      Long idCuadrilla,
       boolean activo,
-      boolean bloqueado,
+      Instant bloqueadoHasta,
       String passwordHash) {
     this.id = id;
     this.correo = correo;
     this.nombre = nombre;
     this.rol = rol;
+    this.idCuadrilla = idCuadrilla;
     this.activo = activo;
-    this.bloqueado = bloqueado;
+    this.bloqueadoHasta = bloqueadoHasta;
     this.passwordHash = passwordHash;
   }
 
@@ -62,7 +72,7 @@ public class UsuarioAutenticado implements UserDetails, CredentialsContainer {
 
   @Override
   public boolean isAccountNonLocked() {
-    return !bloqueado;
+    return bloqueadoHasta == null;
   }
 
   /** Spring lo llama después del login: el hash no queda guardado en la sesión. */
