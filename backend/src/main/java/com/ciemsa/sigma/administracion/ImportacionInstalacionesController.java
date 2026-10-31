@@ -3,6 +3,7 @@ package com.ciemsa.sigma.administracion;
 import com.ciemsa.sigma.administracion.dto.ResultadoImportacion;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URI;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -41,6 +42,7 @@ class ImportacionInstalacionesController {
                 + resultado.errores().size()
                 + " errores. No se importó ninguna instalación: corregí la planilla y volvé a"
                 + " subirla.");
+    problema.setType(URI.create("/errores/planilla-invalida"));
     problema.setTitle("Planilla con errores");
     problema.setProperty("errores", resultado.errores());
     return ResponseEntity.of(problema).build();
