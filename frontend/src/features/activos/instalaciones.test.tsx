@@ -110,4 +110,15 @@ describe('instalaciones (HU-02)', () => {
     expect(errores[1]).toHaveTextContent('3codigoYa existe una instalación con el código INST-001.')
     expect(base.instalaciones).toHaveLength(25)
   })
+
+  it('importar_planillaSinColumnas_muestraElMotivoSinTablaDeErrores', async () => {
+    renderizarRuta('/instalaciones')
+
+    const dialogo = await importarPlanilla('codigo;nombre;latitud\nINST-101;Cruce Nuevo;-34,5')
+
+    const alerta = await within(dialogo).findByRole('alert')
+    expect(alerta).toHaveTextContent('Faltan las columnas ruta_zona, longitud.')
+    expect(within(alerta).queryByRole('table')).not.toBeInTheDocument()
+    expect(base.instalaciones).toHaveLength(25)
+  })
 })

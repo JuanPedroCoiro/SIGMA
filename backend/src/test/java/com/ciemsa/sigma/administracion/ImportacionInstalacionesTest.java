@@ -1,6 +1,7 @@
 package com.ciemsa.sigma.administracion;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
@@ -13,6 +14,7 @@ import com.ciemsa.sigma.activos.Instalacion;
 import com.ciemsa.sigma.activos.InstalacionRepository;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -22,6 +24,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 
@@ -111,6 +114,49 @@ class ImportacionInstalacionesTest {
         .andExpect(jsonPath("$.errores.length()").value(4));
 
     assertThat(instalacionRepository.count()).isEqualTo(4);
+  }
+
+  @Test
+  void importar_archivoVacio_devuelve422SinErroresPorFila() throws Exception {
+    MockMultipartFile vacio =
+        new MockMultipartFile("archivo", "vacia.csv", "text/csv", new byte[0]);
+
+    importarComoJefatura(vacio)
+        .andExpect(status().isUnprocessableContent())
+        .andExpect(jsonPath("$.type").value("/errores/planilla-invalida"))
+        .andExpect(jsonPath("$.title").value("Planilla inválida"))
+        .andExpect(jsonPath("$.detail").value(containsString("vacío")))
+        .andExpect(jsonPath("$.errores").isEmpty());
+
+    assertThat(instalacionRepository.count()).isZero();
+  }
+
+  @Test
+  void importar_sinColumnasObligatorias_devuelve422ConLasColumnasQueFaltan() throws Exception {
+    MockMultipartFile sinColumnas =
+        new MockMultipartFile(
+            "archivo",
+            "sin-columnas.csv",
+            "text/csv",
+            "codigo;nombre;latitud\nINST-001;Cruce Ficticio 1;-34,712345\n"
+                .getBytes(StandardCharsets.UTF_8));
+
+    importarComoJefatura(sinColumnas)
+        .andExpect(status().isUnprocessableContent())
+        .andExpect(jsonPath("$.type").value("/errores/planilla-invalida"))
+        .andExpect(jsonPath("$.detail").value(containsString("ruta_zona")))
+        .andExpect(jsonPath("$.detail").value(containsString("longitud")))
+        .andExpect(jsonPath("$.errores").isEmpty());
+
+    assertThat(instalacionRepository.count()).isZero();
+  }
+
+  private ResultActions importarComoJefatura(MockMultipartFile archivo) throws Exception {
+    return mvc.perform(
+        multipart(IMPORTAR)
+            .file(archivo)
+            .with(user("jefa@ciemsa.com").roles("JEFATURA"))
+            .with(csrf()));
   }
 
   @Test

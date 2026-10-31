@@ -20,6 +20,21 @@ type ErrorFila = { fila: number; campo: string; mensaje: string }
 function leerPlanilla(texto: string) {
   const lineas = texto.replace(/^\uFEFF/, '').split(/\r?\n/)
   const encabezados = lineas[0].split(';').map((e) => e.trim().toLowerCase())
+  if (!lineas[0].trim()) {
+    return {
+      invalida: 'El archivo está vacío: la primera fila tiene que tener los encabezados.',
+      nuevas: [],
+      errores: [],
+    }
+  }
+  const faltantes = COLUMNAS.filter((c) => !encabezados.includes(c))
+  if (faltantes.length > 0) {
+    return {
+      invalida: `Faltan las columnas ${faltantes.join(', ')}. La primera fila tiene que tener: ${COLUMNAS.join(';')}.`,
+      nuevas: [],
+      errores: [],
+    }
+  }
   const errores: ErrorFila[] = []
   const nuevas: Omit<InstalacionSimulada, 'id'>[] = []
   const codigos = new Set(base.instalaciones.map((i) => i.codigo))
@@ -61,7 +76,7 @@ function leerPlanilla(texto: string) {
       longitud,
     })
   })
-  return { nuevas, errores }
+  return { invalida: null, nuevas, errores }
 }
 
 /**
@@ -103,7 +118,14 @@ export const handlersInstalaciones = [
     const usuario = usuarioEnSesion()
     if (!usuario) return sinSesion()
     if (usuario.rol !== 'JEFATURA') return sinPermiso()
-    const { nuevas, errores } = leerPlanilla(await textoDelArchivo(request))
+    const { invalida, nuevas, errores } = leerPlanilla(await textoDelArchivo(request))
+
+    // El archivo entero no sirve: 422 sin errores por fila.
+    if (invalida) {
+      return problema(422, TIPOS_PROBLEMA.planillaInvalida, 'Planilla inválida', invalida, {
+        errores: [],
+      })
+    }
 
     if (errores.length > 0) {
       return problema(

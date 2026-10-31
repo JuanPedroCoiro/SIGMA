@@ -90,26 +90,28 @@ export function ImportarPlanillaDialogo({ onCerrar }: Props) {
         {resultado?.tipo === 'errores' && (
           <div className="importar-planilla-errores" role="alert">
             <p className="alerta alerta-error">{resultado.detalle}</p>
-            <div className="importar-planilla-tabla">
-              <table>
-                <thead>
-                  <tr>
-                    <th scope="col">Fila</th>
-                    <th scope="col">Campo</th>
-                    <th scope="col">Mensaje</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {resultado.errores.map((error, i) => (
-                    <tr key={i}>
-                      <td>{error.fila}</td>
-                      <td>{error.campo}</td>
-                      <td>{error.mensaje}</td>
+            {resultado.errores.length > 0 && (
+              <div className="importar-planilla-tabla">
+                <table>
+                  <thead>
+                    <tr>
+                      <th scope="col">Fila</th>
+                      <th scope="col">Campo</th>
+                      <th scope="col">Mensaje</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {resultado.errores.map((error, i) => (
+                      <tr key={i}>
+                        <td>{error.fila}</td>
+                        <td>{error.campo}</td>
+                        <td>{error.mensaje}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
 
