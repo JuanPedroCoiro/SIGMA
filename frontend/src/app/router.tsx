@@ -1,4 +1,5 @@
 import { createBrowserRouter, type RouteObject } from 'react-router-dom'
+import { InstalacionesPage } from '../features/activos/pages/InstalacionesPage'
 import { EditarUsuarioPage } from '../features/administracion/pages/EditarUsuarioPage'
 import { NuevoUsuarioPage } from '../features/administracion/pages/NuevoUsuarioPage'
 import { UsuarioDetallePage } from '../features/administracion/pages/UsuarioDetallePage'
@@ -19,6 +20,10 @@ export const rutas: RouteObject[] = [
         element: <Layout />,
         children: [
           { index: true, element: <InicioPage /> },
+          {
+            element: <RutaProtegida roles={['JEFATURA', 'OPERADOR']} />,
+            children: [{ path: 'instalaciones', element: <InstalacionesPage /> }],
+          },
           {
             element: <RutaProtegida roles={['JEFATURA']} />,
             children: [
