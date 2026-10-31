@@ -1,5 +1,5 @@
-import { keepPreviousData, useQuery } from '@tanstack/react-query'
-import { listarInstalaciones } from '../api/instalacionesApi'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { importarInstalaciones, listarInstalaciones } from '../api/instalacionesApi'
 
 const CLAVE = 'instalaciones'
 const ORDEN = 'codigo,asc'
@@ -10,5 +10,14 @@ export function useInstalaciones(pagina: number) {
     queryKey: [CLAVE, 'lista', pagina],
     queryFn: () => listarInstalaciones({ page: pagina, sort: ORDEN }),
     placeholderData: keepPreviousData,
+  })
+}
+
+/** Al importar se recarga el listado. */
+export function useImportarInstalaciones() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: importarInstalaciones,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: [CLAVE] }),
   })
 }

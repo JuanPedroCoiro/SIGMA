@@ -1,19 +1,36 @@
+import { useState } from 'react'
+import { useSesion } from '../../../app/sesion/useSesion'
 import { Paginacion } from '../../../shared/components/Paginacion'
 import { usePaginado } from '../../../shared/hooks/usePaginado'
+import { ImportarPlanillaDialogo } from '../components/ImportarPlanillaDialogo'
 import { formatearCoordenada } from '../coordenadas'
 import { useInstalaciones } from '../hooks/useInstalaciones'
 import './InstalacionesPage.css'
 
-/** HU-02: listado paginado de instalaciones, de solo lectura. */
+/** HU-02: listado paginado de instalaciones; la Jefatura además importa la planilla. */
 export function InstalacionesPage() {
   const { pagina, irAPagina } = usePaginado()
   const instalaciones = useInstalaciones(pagina)
+  const sesion = useSesion()
+  const puedeImportar = sesion.estado === 'autenticado' && sesion.usuario.rol === 'JEFATURA'
+  const [importando, setImportando] = useState(false)
 
   return (
     <section>
       <div className="encabezado-pagina">
         <h1>Instalaciones</h1>
+        {puedeImportar && (
+          <button
+            type="button"
+            className="boton boton-primario"
+            onClick={() => setImportando(true)}
+          >
+            Importar planilla
+          </button>
+        )}
       </div>
+
+      {importando && <ImportarPlanillaDialogo onCerrar={() => setImportando(false)} />}
 
       {instalaciones.isPending && <p>Cargando instalaciones...</p>}
       {instalaciones.isError && (

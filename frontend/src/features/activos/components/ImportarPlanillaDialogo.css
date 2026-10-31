@@ -1,0 +1,38 @@
+.importar-planilla {
+  display: grid;
+  gap: 1rem;
+}
+
+.importar-planilla-errores {
+  display: grid;
+  gap: 0.75rem;
+}
+
+/* Una planilla grande puede tener muchos errores: la tabla se desplaza dentro del diálogo. */
+.importar-planilla-tabla {
+  max-height: 16rem;
+  overflow: auto;
+  border: 1px solid var(--borde);
+  border-radius: 0.375rem;
+}
+
+.importar-planilla-tabla table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.importar-planilla-tabla th,
+.importar-planilla-tabla td {
+  padding: 0.375rem 0.5rem;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--borde);
+}
+
+.importar-planilla-tabla th {
+  position: sticky;
+  top: 0;
+  color: var(--texto-suave);
+  background: var(--superficie);
+}
