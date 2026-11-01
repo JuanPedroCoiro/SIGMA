@@ -51,10 +51,24 @@ docker compose -f docker/docker-compose.yml ps
 
 ```powershell
 cd backend
-.\mvnw.cmd spring-boot:run
+.\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=dev"
 ```
 
-Al arrancar, Flyway aplica las migraciones de `src/main/resources/db/migration`. El backend queda en `http://localhost:8080`.
+Al arrancar, Flyway aplica las migraciones de `src/main/resources/db/migration`. Con el perfil `dev` suma además los datos ficticios de `db/datos-prueba` (catálogos) y `db/datos-dev` (usuarios, cuadrillas e instalaciones). En PowerShell, las comillas alrededor de `-Dspring-boot.run.profiles=dev` son necesarias. El backend queda en `http://localhost:8080`.
+
+#### Usuarios de prueba (perfil `dev`)
+
+Todos los datos son ficticios y solo se cargan en el entorno local. La contraseña de todos es `SigmaDev2026`.
+
+| Correo                    | Rol             | Cuadrilla           |
+| ------------------------- | --------------- | ------------------- |
+| `jefatura.dev@sigma.test` | Jefatura        | —                   |
+| `operador.dev@sigma.test` | Operador        | —                   |
+| `stock.dev@sigma.test`    | Encargado stock | —                   |
+| `tecnico1.dev@sigma.test` | Técnico         | Cuadrilla Dev Norte |
+| `tecnico2.dev@sigma.test` | Técnico         | Cuadrilla Dev Sur   |
+
+También se cargan las instalaciones `DEV-001` a `DEV-006`, del organismo MTOP. Si ya existe un usuario, una cuadrilla o una instalación con el mismo correo, nombre o código, se deja como está.
 
 ### 5. Frontend (en otra terminal)
 
@@ -153,6 +167,7 @@ Tipos más usados: `feat`, `fix`, `docs`, `test`, `refactor`, `chore`, `ci`, `bu
 - **El contenedor `sigma-db` arranca y se cierra:** PostgreSQL 18 espera el volumen en `/var/lib/postgresql` (no en `/var/lib/postgresql/data`). Revisar con `docker compose -f docker/docker-compose.yml logs`.
 - **`npm ci` falla con `ERESOLVE`:** hay un conflicto de versiones en `package.json`. No usar `--force` ni `--legacy-peer-deps`: corregir las versiones y regenerar `package-lock.json`.
 - **Un archivo se ve con `NUL` o caracteres raros:** está guardado en UTF-16. Reabrirlo con esa codificación y guardarlo como UTF-8.
+- **`Detected applied migration not resolved locally: catalogos prueba`:** la base local se levantó alguna vez con el perfil `dev` y ahora se arrancó sin él. Arrancar siempre con `"-Dspring-boot.run.profiles=dev"` en local.
 
 ## Integrantes
 
