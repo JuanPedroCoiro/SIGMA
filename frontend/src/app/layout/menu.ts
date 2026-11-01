@@ -12,6 +12,7 @@ export const opcionesMenu: OpcionMenu[] = [
   { ruta: '/', etiqueta: 'Inicio' },
   { ruta: '/instalaciones', etiqueta: 'Instalaciones', roles: ['JEFATURA', 'OPERADOR'] },
   { ruta: '/usuarios', etiqueta: 'Usuarios', roles: ['JEFATURA'] },
+  { ruta: '/cuadrillas', etiqueta: 'Cuadrillas', roles: ['JEFATURA'] },
   { ruta: '/estado', etiqueta: 'Estado del sistema', roles: ['JEFATURA'] },
 ]
 

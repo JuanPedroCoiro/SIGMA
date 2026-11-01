@@ -32,6 +32,7 @@ describe('router', () => {
 
     expect(screen.getByRole('link', { name: 'Instalaciones' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Usuarios' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Cuadrillas' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Estado del sistema' })).toBeInTheDocument()
   })
 
@@ -41,14 +42,22 @@ describe('router', () => {
     expect(screen.getByRole('link', { name: 'Inicio' })).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Instalaciones' })).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Usuarios' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Cuadrillas' })).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Estado del sistema' })).not.toBeInTheDocument()
   })
 
-  it('menu_operador_veInstalacionesPeroNoUsuarios', () => {
+  it('menu_operador_veInstalacionesPeroNoUsuariosNiCuadrillas', () => {
     renderizarRuta('/', sesionDe('OPERADOR'))
 
     expect(screen.getByRole('link', { name: 'Instalaciones' })).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Usuarios' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Cuadrillas' })).not.toBeInTheDocument()
+  })
+
+  it('rutaDeCuadrillas_operador_loRedirigeAlInicio', () => {
+    const { router } = renderizarRuta('/cuadrillas', sesionDe('OPERADOR'))
+
+    expect(router.state.location.pathname).toBe('/')
   })
 
   it('rutaDeInstalaciones_tecnico_loRedirigeAlInicio', () => {

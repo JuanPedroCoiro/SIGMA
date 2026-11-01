@@ -231,4 +231,20 @@ describe('usuarios (CU-13)', () => {
     expect(await screen.findByText('Activo')).toBeInTheDocument()
     expect(base.usuarios.find((u) => u.id === ID_INACTIVO)?.activo).toBe(true)
   })
+
+  it('activar_tecnicoDeCuadrillaInactiva_muestraElErrorYSigueInactivo', async () => {
+    const tecnico = base.usuarios.find((u) => u.id === ID_TECNICO)!
+    tecnico.activo = false
+    base.cuadrillas.find((c) => c.id === tecnico.idCuadrilla)!.activa = false
+    renderizarRuta(`/usuarios/${ID_TECNICO}`)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Activar' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'La cuadrilla Cuadrilla Norte está inactiva: activala o cambiá al técnico de cuadrilla ' +
+        'antes de reactivarlo.',
+    )
+    expect(screen.getByText('Inactivo')).toBeInTheDocument()
+    expect(tecnico.activo).toBe(false)
+  })
 })

@@ -1,6 +1,9 @@
 import { createBrowserRouter, type RouteObject } from 'react-router-dom'
 import { InstalacionesPage } from '../features/activos/pages/InstalacionesPage'
+import { CuadrillasPage } from '../features/administracion/pages/CuadrillasPage'
+import { EditarCuadrillaPage } from '../features/administracion/pages/EditarCuadrillaPage'
 import { EditarUsuarioPage } from '../features/administracion/pages/EditarUsuarioPage'
+import { NuevaCuadrillaPage } from '../features/administracion/pages/NuevaCuadrillaPage'
 import { NuevoUsuarioPage } from '../features/administracion/pages/NuevoUsuarioPage'
 import { UsuarioDetallePage } from '../features/administracion/pages/UsuarioDetallePage'
 import { UsuariosPage } from '../features/administracion/pages/UsuariosPage'
@@ -31,6 +34,9 @@ export const rutas: RouteObject[] = [
               { path: 'usuarios/nuevo', element: <NuevoUsuarioPage /> },
               { path: 'usuarios/:id', element: <UsuarioDetallePage /> },
               { path: 'usuarios/:id/editar', element: <EditarUsuarioPage /> },
+              { path: 'cuadrillas', element: <CuadrillasPage /> },
+              { path: 'cuadrillas/nueva', element: <NuevaCuadrillaPage /> },
+              { path: 'cuadrillas/:id/editar', element: <EditarCuadrillaPage /> },
               { path: 'estado', element: <EstadoPage /> },
             ],
           },

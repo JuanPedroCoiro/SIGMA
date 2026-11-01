@@ -70,3 +70,13 @@
     color: var(--texto-suave);
   }
 }
+
+.acciones-fila {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.acciones-fila .boton {
+  text-decoration: none;
+}

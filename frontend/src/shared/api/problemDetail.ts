@@ -29,6 +29,7 @@ export const TIPOS_PROBLEMA = {
   csrf: 'csrf',
   validacion: 'validacion',
   correoDuplicado: 'correo-duplicado',
+  cuadrillaDuplicada: 'cuadrilla-duplicada',
   planillaInvalida: 'planilla-invalida',
 } as const
 
