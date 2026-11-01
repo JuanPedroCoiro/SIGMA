@@ -1,0 +1,7 @@
+codigo;nombre;ruta_zona;latitud;longitud
+INST-101;Cruce Demo 101;Ruta 1;-34,512345;-56,201234
+INST-102;;Ruta 5;-34,423456;-55,984567
+INST-103;Cruce Demo 103;Ruta 8;-56,101234;-34,612345
+INST-104;Cruce Demo 104;Ruta 9;-12,046374;-77,042793
+INST-101;Cruce Demo 101 bis;Ruta 1;-34,500000;-56,200000
+INST-106;Cruce Demo 106;Zona Este;-34,9a;-54,950000

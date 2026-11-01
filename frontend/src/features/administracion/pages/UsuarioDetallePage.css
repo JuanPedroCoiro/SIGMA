@@ -1,0 +1,49 @@
+.usuario-detalle {
+  display: grid;
+  gap: 1rem;
+  max-width: 40rem;
+}
+
+.usuario-detalle > * {
+  margin: 0;
+}
+
+.usuario-datos {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.5rem 1.5rem;
+  padding: 1rem;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: 0.5rem;
+}
+
+.usuario-datos dt {
+  color: var(--texto-suave);
+}
+
+.usuario-datos dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.usuario-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.usuario-acciones .boton {
+  text-decoration: none;
+}
+
+@media (max-width: 767px) {
+  .usuario-datos {
+    grid-template-columns: 1fr;
+    gap: 0.125rem;
+  }
+
+  .usuario-datos dd {
+    margin-bottom: 0.5rem;
+  }
+}

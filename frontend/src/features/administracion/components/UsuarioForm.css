@@ -1,0 +1,17 @@
+.usuario-form {
+  max-width: 32rem;
+  display: grid;
+  gap: 1rem;
+}
+
+.usuario-form-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.usuario-form-acciones .boton {
+  text-decoration: none;
+  text-align: center;
+}
