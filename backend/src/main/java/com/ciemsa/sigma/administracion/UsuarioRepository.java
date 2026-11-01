@@ -21,6 +21,9 @@ public interface UsuarioRepository
 
   long countByRolAndActivoTrue(Rol rol);
 
+  /** Técnicos activos de una cuadrilla: mientras tenga alguno no se puede desactivar. */
+  long countByCuadrillaIdAndRolAndActivoTrue(Long idCuadrilla, Rol rol);
+
   /** Listado de CU-13c con filtros: trae la cuadrilla en la misma consulta para evitar N+1. */
   @Override
   @EntityGraph(attributePaths = "cuadrilla")

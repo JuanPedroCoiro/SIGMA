@@ -93,6 +93,30 @@ class UsuarioTest {
   }
 
   @Test
+  void reactivar_tecnicoConCuadrillaActiva_quedaActivo() {
+    Cuadrilla cuadrilla = Cuadrilla.crear("Cuadrilla Norte", "Norte");
+    Usuario tecnico = Usuario.crear("Juan", "juan@ciemsa.com", HASH, Rol.TECNICO, cuadrilla);
+    tecnico.darDeBaja();
+
+    tecnico.reactivar();
+
+    assertThat(tecnico.isActivo()).isTrue();
+  }
+
+  @Test
+  void reactivar_tecnicoConCuadrillaInactiva_lanzaReglaNegocioYSigueInactivo() {
+    Cuadrilla cuadrilla = Cuadrilla.crear("Cuadrilla Norte", "Norte");
+    Usuario tecnico = Usuario.crear("Juan", "juan@ciemsa.com", HASH, Rol.TECNICO, cuadrilla);
+    tecnico.darDeBaja();
+    cuadrilla.desactivar(0);
+
+    assertThatThrownBy(tecnico::reactivar)
+        .isInstanceOf(ReglaNegocioException.class)
+        .hasMessageContaining("Cuadrilla Norte está inactiva");
+    assertThat(tecnico.isActivo()).isFalse();
+  }
+
+  @Test
   void restablecerContrasena_cuentaBloqueada_cambiaElHashYLaDesbloquea() {
     Usuario usuario = operador();
     fallar(usuario, 5, AHORA);
