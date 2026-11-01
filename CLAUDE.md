@@ -52,7 +52,7 @@ Estructura según el módulo (completa donde hay reglas, mínima donde hay altas
 
 Reglas del núcleo:
 
-- `EstadoOT` es un enum con comportamiento (patrón State): `PENDIENTE`, `ASIGNADA`, `EN_PROCESO`, `CERRADA_TECNICA`, `VALIDADA`, `ANULADA`. Una transición inválida lanza `TransicionInvalidaException`. El vencimiento del SLA es una condición derivada, no un estado.
+- `EstadoOT` es un enum con comportamiento (patrón State): `PENDIENTE`, `ASIGNADA`, `EN_PROCESO`, `EN_PAUSA`, `CERRADA_TECNICA`, `VALIDADA`, `ANULADA`. Al reanudar, una OT en pausa vuelve al estado anterior a la pausa. Una transición inválida lanza `TransicionInvalidaException`. El vencimiento del SLA es una condición derivada, no un estado.
 - El vencimiento se calcula con `ReglaSLA.calcularVencimiento`: las reglas son datos. No hardcodear organismos (por ejemplo, MTOP).
 - Inyectar `Clock` en lugar de llamar a `LocalDateTime.now()`. Usar las interfaces `UsuarioActual`, `AlmacenArchivos` y `LectorPlanilla`.
 - El cierre de una OT es idempotente.
