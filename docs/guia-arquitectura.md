@@ -127,108 +127,83 @@ Se usan nueve patrones, cada uno en un lugar concreto del dominio y la mayoría 
 | **Adapter** | `AlmacenArchivos` | El almacenamiento de fotos es reemplazable (Fig. 19) |
 | **DTO + Mapper** | `api` de cada módulo, MapStruct | Las entidades nunca salen por HTTP; el contrato de la API es estable |
 
-**State.** Es el mismo patrón que en el obligatorio de DA (una clase por estado), escrito como enum: cada constante de `EstadoOT` es un estado y sobreescribe solo las operaciones que admite; el resto lanza `TransicionInvalidaException`. Las operaciones son las de la Fig. 7 (`asignar`, `iniciar`, `cerrarTecnicamente`, `validar`, `observar`, `reprogramar`, `anular`) más `suspender`, para el flujo 3a de CU-3. Al ser un enum, se guarda en la base como texto (`@Enumerated(EnumType.STRING)`) sin conversiones.
+**State.** Es el mismo patrón que en el obligatorio de DA (una clase por estado), escrito como enum: cada constante de `EstadoOT` es un estado y sobreescribe solo las operaciones que admite; el resto lanza `TransicionInvalidaException` (400, `/errores/transicion-invalida`). Los estados son `PENDIENTE`, `ASIGNADA`, `EN_PROCESO`, `EN_PAUSA`, `CERRADA_TECNICA`, `VALIDADA` y `ANULADA`. Al ser un enum, se guarda en la base como texto (`@Enumerated(EnumType.STRING)`) sin conversiones.
+
+| Operación | Desde | Hacia |
+| --- | --- | --- |
+| `asignar` (asignar o tomar) | Pendiente | Asignada |
+| `asignar` (reasignar) | Asignada | Asignada |
+| `liberar` (borra la cuadrilla) | Asignada, En proceso | Pendiente |
+| `iniciar` | Asignada | En proceso |
+| `pausar` | Pendiente, Asignada, En proceso | En pausa (guarda el estado anterior) |
+| `reanudar` | En pausa | El estado anterior a la pausa |
+| `cerrarTecnicamente` | En proceso | Cerrada técnica |
+| `validar` | Cerrada técnica | Validada |
+| `observar` | Cerrada técnica | Asignada |
+| `anular` | Pendiente, Asignada, o En pausa si antes estaba Pendiente o Asignada | Anulada |
+
+La pausa reemplaza a la suspensión de CU-3 3a (antes «volver a Asignada»): la OT queda En pausa con su motivo (`pausa_ot`) y al reanudar vuelve a donde estaba. Una OT que ya empezó no se anula, ni siquiera desde la pausa.
 
 ```java
-// ot/domain/EstadoOT.java: cada estado sabe qué operaciones admite (Fig. 18)
+// ot/domain/EstadoOT.java (extracto): cada estado sabe qué operaciones admite (Fig. 18)
 public enum EstadoOT {
-    PENDIENTE {
-        @Override void asignar(OrdenTrabajo ot, Long idCuadrilla, LocalDate fecha) {   // asignar o tomar
-            ot.registrarAsignacion(idCuadrilla, fecha);
-            ot.cambiarEstado(ASIGNADA);
-        }
-        @Override void anular(OrdenTrabajo ot, String motivo) {
-            ot.registrarAnulacion(motivo);
-            ot.cambiarEstado(ANULADA);
-        }
-    },
-    ASIGNADA {
-        @Override void asignar(OrdenTrabajo ot, Long idCuadrilla, LocalDate fecha) {   // reasignar
-            ot.registrarAsignacion(idCuadrilla, fecha);
-        }
-        @Override void reprogramar(OrdenTrabajo ot, LocalDate fecha, String motivo) {
-            ot.registrarReprogramacion(fecha, motivo);
-        }
-        @Override void iniciar(OrdenTrabajo ot) {
-            ot.cambiarEstado(EN_PROCESO);
-        }
-        @Override void anular(OrdenTrabajo ot, String motivo) {
-            ot.registrarAnulacion(motivo);
-            ot.cambiarEstado(ANULADA);
-        }
-    },
-    EN_PROCESO {
-        @Override void suspender(OrdenTrabajo ot, String motivo) {                     // CU-3, 3a
-            ot.registrarSuspension(motivo);
-            ot.cambiarEstado(ASIGNADA);
-        }
-        @Override void cerrarTecnicamente(OrdenTrabajo ot, CierreTecnico cierre) {
-            ot.registrarCierre(cierre);              // diagnóstico, solución y al menos una foto (RN-06)
-            ot.cambiarEstado(CERRADA_TECNICA);
-        }
-    },
-    CERRADA_TECNICA {
-        @Override void validar(OrdenTrabajo ot, Long idUsuario) {
-            ot.registrarValidacion(idUsuario);
-            ot.cambiarEstado(VALIDADA);
-        }
-        @Override void observar(OrdenTrabajo ot, String motivo) {   // Jefatura, o el Operador si no se restableció
-            ot.registrarObservacion(motivo);
-            ot.cambiarEstado(ASIGNADA);
-        }
-    },
-    VALIDADA,
-    ANULADA;
-
-    // Por defecto ninguna operación está permitida: cada estado habilita solo las suyas
-    void asignar(OrdenTrabajo ot, Long idCuadrilla, LocalDate fecha) { throw invalida("asignar"); }
-    void reprogramar(OrdenTrabajo ot, LocalDate fecha, String motivo) { throw invalida("reprogramar"); }
-    void iniciar(OrdenTrabajo ot) { throw invalida("iniciar"); }
-    void suspender(OrdenTrabajo ot, String motivo) { throw invalida("suspender"); }
-    void cerrarTecnicamente(OrdenTrabajo ot, CierreTecnico cierre) { throw invalida("cerrar"); }
-    void validar(OrdenTrabajo ot, Long idUsuario) { throw invalida("validar"); }
-    void observar(OrdenTrabajo ot, String motivo) { throw invalida("observar"); }
-    void anular(OrdenTrabajo ot, String motivo) { throw invalida("anular"); }
-
-    TransicionInvalidaException invalida(String operacion) {
-        return new TransicionInvalidaException(this, operacion);
+  PENDIENTE {
+    @Override
+    void asignar(OrdenTrabajo ot, Long idCuadrilla, LocalDate fechaEjecucion, Instant ahora) {
+      ot.registrarAsignacion(idCuadrilla, fechaEjecucion); // asignar o tomar
+      ot.cambiarEstado(ASIGNADA, ahora);
     }
+    // ... pausar y anular
+  },
+  EN_PAUSA {
+    @Override
+    void reanudar(OrdenTrabajo ot, Instant ahora) {
+      EstadoOT anterior = ot.getEstadoAnteriorPausa();
+      ot.cerrarPausa();
+      ot.cambiarEstado(anterior, ahora);
+    }
+    // ... anular solo si antes estaba Pendiente o Asignada
+  },
+  // ... ASIGNADA, EN_PROCESO, CERRADA_TECNICA, VALIDADA, ANULADA
+
+  // Por defecto ninguna operación está permitida: cada estado habilita solo las suyas
+  void iniciar(OrdenTrabajo ot, Instant ahora) {
+    throw new TransicionInvalidaException(this, "iniciar");
+  }
+  // ... igual para las demás operaciones
 }
 ```
 
-`OrdenTrabajo` delega en su estado, y solo `EstadoOT` puede cambiarlo (los métodos `registrar...` y `cambiarEstado` son de paquete). Los servicios nunca hacen `ot.setEstado(...)`.
+`OrdenTrabajo` delega en su estado, y solo `EstadoOT` puede cambiarlo (los métodos `registrar...` y `cambiarEstado` son de paquete). Los servicios nunca hacen `ot.setEstado(...)`. Cada operación recibe `Instant ahora`, que el servicio saca del `Clock`: el dominio nunca llama a `now()`.
+
+Cada cambio de estado queda como evento pendiente en la OT (`OrdenGenerada`, `EstadoOrdenCambiado` con el estado anterior y el nuevo). Después de guardar, el servicio los publica: `ot.extraerEventos().forEach(eventos::publishEvent)`. Así ningún servicio puede olvidarse de armar el evento.
 
 ```java
 // ot/domain/OrdenTrabajo.java (extracto)
-public void asignar(Long idCuadrilla, LocalDate fecha) { estado.asignar(this, idCuadrilla, fecha); }
-public void iniciar() { estado.iniciar(this); }
-public void suspender(String motivo) { estado.suspender(this, motivo); }
-public void cerrarTecnicamente(CierreTecnico cierre) { estado.cerrarTecnicamente(this, cierre); }
-// ... validar, observar, reprogramar y anular, igual
+public void asignar(Long idCuadrilla, LocalDate fechaEjecucion, Instant ahora) {
+  estado.asignar(this, idCuadrilla, fechaEjecucion, ahora);
+}
+public void pausar(Instant ahora) { estado.pausar(this, ahora); }
+// ... liberar, iniciar, reanudar, cerrarTecnicamente, validar, observar y anular, igual
 
-void cambiarEstado(EstadoOT nuevo) { this.estado = nuevo; }
-```
-
-Una OT nace `PENDIENTE` (desde un incidente o como preventiva) o `EN_PROCESO` (intervención no planificada, CU-21). El vencimiento no es un estado: lo calcula `estaVencida()`. El incidente tiene su propio estado; el anteproyecto define «En espera de tercero», y los otros dos nombres del ejemplo son propuestos.
-
-```java
-@Entity
-@Table(name = "regla_sla")
-public class ReglaSLA extends BaseEntity {
-    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id_regla_sla") private Long id;
-    @Column(name = "id_organismo") private Long idOrganismo;
-    @Enumerated(EnumType.STRING) private Prioridad prioridad;
-    private int horasRespuesta;
-    private int horasResolucion;
-
-    // Fecha límite de la OT. Confirmar con CIEMSA si el contrato la mide
-    // con las horas de resolución (supuesto actual) o con las de respuesta.
-    public LocalDateTime calcularVencimiento(LocalDateTime desde) {
-        return desde.plusHours(horasResolucion);
-    }
+void cambiarEstado(EstadoOT nuevo, Instant ahora) {
+  cambiosPendientes.add(new CambioPendiente(estado, nuevo, ahora));
+  this.estado = nuevo;
 }
 ```
+
+Una OT nace `PENDIENTE` (desde un incidente o como preventiva) o `EN_PROCESO` (intervención no planificada, CU-21). El vencimiento no es un estado: lo calcula `estaVencida(ahora)` (tiene fecha límite, sigue abierta y ya la pasó). Las preventivas no tienen fecha límite. El incidente tiene su propio estado (`ABIERTO`, `EN_ESPERA_TERCERO`, `CON_OT`, `CERRADO_SIN_OT`); el anteproyecto define «En espera de tercero», y los otros nombres son propuestos.
+
+```java
+// ot/domain/ReglaSLA.java (extracto)
+// Fecha límite de la OT. Confirmar con CIEMSA si el contrato la mide
+// con las horas de resolución (supuesto actual) o con las de respuesta.
+public Instant calcularVencimiento(Instant inicioSla) {
+  return inicioSla.plus(Duration.ofHours(horasResolucion));
+}
+```
+
+Sin regla para el organismo de la instalación y la prioridad, la OT queda con fecha límite `null` («SLA sin definir»).
 
 La comparación con el obligatorio de Diseño de Aplicaciones (qué patrones se reutilizan y cuáles no) está en el capítulo 2 del informe, sección 2.2.3.
 
@@ -387,50 +362,33 @@ public interface ReglaSlaRepository extends JpaRepository<ReglaSLA, Long> {
 ```
 
 ```sql
--- src/main/resources/db/migration/V4__crear_incidente_y_orden_trabajo.sql
-CREATE SEQUENCE seq_numero_incidente;
-CREATE SEQUENCE seq_numero_orden_trabajo;
-
-CREATE TABLE incidente (
-    id_incidente        BIGSERIAL PRIMARY KEY,
-    numero              VARCHAR(12)   NOT NULL UNIQUE
-                        DEFAULT ('INC-' || LPAD(nextval('seq_numero_incidente')::text, 4, '0')),
-    id_instalacion      BIGINT        NOT NULL REFERENCES instalacion(id_instalacion),
-    id_equipo           BIGINT        REFERENCES equipo(id_equipo),
-    id_categoria_falla  BIGINT        NOT NULL REFERENCES categoria_falla(id_categoria_falla),
-    origen              VARCHAR(20)   NOT NULL,
-    prioridad           VARCHAR(20)   NOT NULL,
-    estado              VARCHAR(20)   NOT NULL,
-    descripcion         VARCHAR(2000) NOT NULL,
-    tercero             VARCHAR(100),
-    causa               VARCHAR(500),
-    fecha_reporte       TIMESTAMP     NOT NULL,
-    id_usuario          BIGINT        NOT NULL REFERENCES usuario(id_usuario),
-    creado_en           TIMESTAMP     NOT NULL,
-    modificado_en       TIMESTAMP     NOT NULL,
-    version             INTEGER       NOT NULL DEFAULT 0
-);
+-- src/main/resources/db/migration/V6__crear_incidente_y_orden_trabajo.sql (extracto)
+CREATE SEQUENCE seq_orden_trabajo_numero;
 
 CREATE TABLE orden_trabajo (
-    id_orden_trabajo    BIGSERIAL PRIMARY KEY,
-    numero              VARCHAR(12)   NOT NULL UNIQUE
-                        DEFAULT ('OT-' || LPAD(nextval('seq_numero_orden_trabajo')::text, 4, '0')),
-    tipo                VARCHAR(20)   NOT NULL,
-    estado              VARCHAR(20)   NOT NULL,
-    id_incidente        BIGINT        REFERENCES incidente(id_incidente),
-    id_instalacion      BIGINT        NOT NULL REFERENCES instalacion(id_instalacion),
-    id_equipo           BIGINT        REFERENCES equipo(id_equipo),
-    id_cuadrilla        BIGINT        REFERENCES cuadrilla(id_cuadrilla),
-    fecha_programada    DATE,
-    fecha_limite_sla    TIMESTAMP,                    -- NULL = SLA sin definir
-    diagnostico         VARCHAR(2000),
-    solucion            VARCHAR(2000),
-    creado_en           TIMESTAMP     NOT NULL,
-    modificado_en       TIMESTAMP     NOT NULL,
-    version             INTEGER       NOT NULL DEFAULT 0
+    id_orden_trabajo      BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+    numero                VARCHAR(20)  NOT NULL      -- OT-0001; desde 10000 sin recortar
+                          DEFAULT formatear_numero('OT-', nextval('seq_orden_trabajo_numero')),
+    tipo                  VARCHAR(20)  NOT NULL,
+    estado                VARCHAR(20)  NOT NULL,
+    id_incidente          BIGINT       REFERENCES incidente (id_incidente),   -- las preventivas no tienen
+    id_instalacion        BIGINT       NOT NULL REFERENCES instalacion (id_instalacion),
+    id_cuadrilla          BIGINT       REFERENCES cuadrilla (id_cuadrilla),
+    fecha_ejecucion       DATE,
+    inicio_sla            TIMESTAMPTZ,
+    fecha_limite          TIMESTAMPTZ,                                        -- NULL = SLA sin definir
+    estado_anterior_pausa VARCHAR(20),
+    motivo_anulacion      VARCHAR(500),
+    creado_en             TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    modificado_en         TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    version               INTEGER      NOT NULL DEFAULT 0,
+    CONSTRAINT ck_orden_trabajo_pausa
+        CHECK ((estado = 'EN_PAUSA') = (estado_anterior_pausa IS NOT NULL)),
+    CONSTRAINT ck_orden_trabajo_preventiva_sin_limite
+        CHECK (tipo <> 'PREVENTIVA' OR fecha_limite IS NULL)
+    -- ... y los CHECK de tipo, estado, anulación y cuadrilla
 );
-CREATE INDEX ix_orden_trabajo_estado    ON orden_trabajo(estado);
-CREATE INDEX ix_orden_trabajo_cuadrilla ON orden_trabajo(id_cuadrilla);
+CREATE INDEX ix_orden_trabajo_estado_fecha_limite ON orden_trabajo (estado, fecha_limite);
 ```
 
 **5. Efecto secundario por evento (otro módulo)**
@@ -477,7 +435,7 @@ class BitacoraListener {
 | Tabla y columna | snake\_case en singular | `orden_trabajo.fecha_limite_sla` |
 | Clave primaria | `id_<entidad>` | `id_orden_trabajo` |
 | Clave foránea | `id_<entidad referida>` | `id_instalacion` |
-| Migración Flyway | `V<n>__<verbo>_<objeto>.sql` | `V4__crear_incidente_y_orden_trabajo.sql` |
+| Migración Flyway | `V<n>__<verbo>_<objeto>.sql` | `V6__crear_incidente_y_orden_trabajo.sql` |
 | Número visible para el usuario | `INC-nnnn`, `OT-nnnn` | `OT-0315` |
 
 **API REST**

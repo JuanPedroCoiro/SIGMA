@@ -7,6 +7,11 @@ package com.ciemsa.sigma.shared.domain;
 public class ReglaNegocioException extends DomainException {
 
   public ReglaNegocioException(String mensaje) {
-    super("regla-negocio", mensaje);
+    this("regla-negocio", mensaje);
+  }
+
+  /** Con un tipo propio, cuando el frontend necesita distinguir el caso (transicion-invalida). */
+  protected ReglaNegocioException(String tipo, String mensaje) {
+    super(tipo, mensaje);
   }
 }
