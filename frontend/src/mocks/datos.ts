@@ -24,9 +24,19 @@ export type CuadrillaSimulada = {
   activa: boolean
 }
 
+export type InstalacionSimulada = {
+  id: number
+  codigo: string
+  nombre: string
+  rutaZona: string
+  latitud: number
+  longitud: number
+}
+
 type Base = {
   usuarios: UsuarioSimulado[]
   cuadrillas: CuadrillaSimulada[]
+  instalaciones: InstalacionSimulada[]
   /** Usuario con la sesión abierta, o null. */
   idSesion: number | null
 }
@@ -55,6 +65,23 @@ function usuario(
     bloqueado: false,
     ...extra,
   }
+}
+
+const RUTAS = ['Ruta 1', 'Ruta 5', 'Ruta 8', 'Zona Este', 'Zona Oeste']
+
+/** 25 cruces ficticios alrededor de Montevideo, para probar la paginación del listado. */
+function crearInstalaciones(): InstalacionSimulada[] {
+  return Array.from({ length: 25 }, (_, i) => {
+    const numero = i + 1
+    return {
+      id: numero,
+      codigo: `INST-${String(numero).padStart(3, '0')}`,
+      nombre: `Cruce Ficticio ${numero}`,
+      rutaZona: RUTAS[i % RUTAS.length],
+      latitud: Number((-34.9 + i * 0.012345).toFixed(6)),
+      longitud: Number((-56.2 + i * 0.023456).toFixed(6)),
+    }
+  })
 }
 
 function crearBaseInicial(): Base {
@@ -89,13 +116,14 @@ function crearBaseInicial(): Base {
       ),
     )
   }
-  return { usuarios, cuadrillas, idSesion: null }
+  return { usuarios, cuadrillas, instalaciones: crearInstalaciones(), idSesion: null }
 }
 
 function cargar(): Base {
   try {
     const guardada = sessionStorage.getItem(CLAVE_ALMACEN)
-    if (guardada) return JSON.parse(guardada) as Base
+    // Con los datos iniciales de base, por si lo guardado es de antes de sumar una colección.
+    if (guardada) return { ...crearBaseInicial(), ...(JSON.parse(guardada) as Partial<Base>) }
   } catch {
     // Sin sessionStorage (o con datos corruptos) se arranca de cero.
   }

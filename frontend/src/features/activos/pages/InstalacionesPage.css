@@ -1,0 +1,60 @@
+.tabla-instalaciones {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: 0.5rem;
+}
+
+.tabla-instalaciones th,
+.tabla-instalaciones td {
+  padding: 0.625rem 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid var(--borde);
+}
+
+.tabla-instalaciones th {
+  color: var(--texto-suave);
+  font-weight: 600;
+}
+
+.tabla-instalaciones td {
+  overflow-wrap: anywhere;
+}
+
+.tabla-instalaciones .numero {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Celular: cada instalación es una tarjeta, con la etiqueta de cada dato a la izquierda. */
+@media (max-width: 767px) {
+  .tabla-instalaciones,
+  .tabla-instalaciones tbody,
+  .tabla-instalaciones tr,
+  .tabla-instalaciones td {
+    display: block;
+  }
+
+  .tabla-instalaciones thead {
+    display: none;
+  }
+
+  .tabla-instalaciones tr {
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--borde);
+  }
+
+  .tabla-instalaciones td {
+    display: grid;
+    grid-template-columns: 7rem 1fr;
+    gap: 0.5rem;
+    padding: 0.25rem 0.75rem;
+    border: none;
+  }
+
+  .tabla-instalaciones td::before {
+    content: attr(data-etiqueta);
+    color: var(--texto-suave);
+  }
+}

@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { renderizarRuta } from '../test/renderizarRuta'
 import type { Sesion } from './sesion/sesion'
 
-function sesionDe(rol: 'JEFATURA' | 'TECNICO'): Sesion {
+function sesionDe(rol: 'JEFATURA' | 'TECNICO' | 'OPERADOR'): Sesion {
   return {
     estado: 'autenticado',
     usuario: { id: 1, nombre: 'Ana Pérez', correo: 'ana@sigma.test', rol, idCuadrilla: null },
@@ -27,9 +27,10 @@ describe('router', () => {
     expect(screen.getByRole('heading', { name: 'Hola, Ana Pérez' })).toBeInTheDocument()
   })
 
-  it('menu_jefatura_veUsuariosYEstado', () => {
+  it('menu_jefatura_veInstalacionesUsuariosYEstado', () => {
     renderizarRuta('/', sesionDe('JEFATURA'))
 
+    expect(screen.getByRole('link', { name: 'Instalaciones' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Usuarios' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Estado del sistema' })).toBeInTheDocument()
   })
@@ -38,8 +39,22 @@ describe('router', () => {
     renderizarRuta('/', sesionDe('TECNICO'))
 
     expect(screen.getByRole('link', { name: 'Inicio' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Instalaciones' })).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Usuarios' })).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Estado del sistema' })).not.toBeInTheDocument()
+  })
+
+  it('menu_operador_veInstalacionesPeroNoUsuarios', () => {
+    renderizarRuta('/', sesionDe('OPERADOR'))
+
+    expect(screen.getByRole('link', { name: 'Instalaciones' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Usuarios' })).not.toBeInTheDocument()
+  })
+
+  it('rutaDeInstalaciones_tecnico_loRedirigeAlInicio', () => {
+    const { router } = renderizarRuta('/instalaciones', sesionDe('TECNICO'))
+
+    expect(router.state.location.pathname).toBe('/')
   })
 
   it('rutaDeJefatura_tecnico_loRedirigeAlInicio', () => {

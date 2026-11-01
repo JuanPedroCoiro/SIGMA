@@ -1,5 +1,6 @@
 import { http, HttpResponse } from 'msw/http'
 import { sinSesion, usuarioEnSesion } from '../problemas'
+import { handlersInstalaciones } from './instalaciones'
 import { handlersSesion } from './sesion'
 import { handlersUsuarios } from './usuarios'
 
@@ -14,4 +15,9 @@ const handlerPing = http.get('/api/v1/ping', () => {
   })
 })
 
-export const handlers = [...handlersSesion, ...handlersUsuarios, handlerPing]
+export const handlers = [
+  ...handlersSesion,
+  ...handlersUsuarios,
+  ...handlersInstalaciones,
+  handlerPing,
+]

@@ -3,12 +3,15 @@ package com.ciemsa.sigma.administracion;
 import com.ciemsa.sigma.administracion.dto.ResultadoImportacion;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URI;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -20,6 +23,8 @@ import org.springframework.web.multipart.MultipartFile;
 @RequestMapping("/api/v1/instalaciones")
 @RequiredArgsConstructor
 class ImportacionInstalacionesController {
+
+  private static final String TIPO_PLANILLA_INVALIDA = "/errores/planilla-invalida";
 
   private final ImportacionInstalacionesService importacionService;
 
@@ -41,8 +46,22 @@ class ImportacionInstalacionesController {
                 + resultado.errores().size()
                 + " errores. No se importó ninguna instalación: corregí la planilla y volvé a"
                 + " subirla.");
+    problema.setType(URI.create(TIPO_PLANILLA_INVALIDA));
     problema.setTitle("Planilla con errores");
     problema.setProperty("errores", resultado.errores());
     return ResponseEntity.of(problema).build();
+  }
+
+  /**
+   * 422 si el archivo entero no sirve (vacío, sin filas o sin columnas): no hay errores por fila.
+   */
+  @ExceptionHandler(PlanillaInvalidaException.class)
+  ProblemDetail planillaInvalida(PlanillaInvalidaException ex) {
+    ProblemDetail problema =
+        ProblemDetail.forStatusAndDetail(HttpStatus.UNPROCESSABLE_CONTENT, ex.getMessage());
+    problema.setType(URI.create("/errores/" + ex.getTipo()));
+    problema.setTitle("Planilla inválida");
+    problema.setProperty("errores", List.of());
+    return problema;
   }
 }
