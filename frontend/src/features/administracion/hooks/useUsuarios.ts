@@ -25,10 +25,17 @@ export function useUsuario(id: number) {
   return useQuery({ queryKey: [CLAVE, id], queryFn: () => obtenerUsuario(id) })
 }
 
-/** Después de cualquier cambio se recargan el listado y el detalle. */
+/**
+ * Después de cualquier cambio se recargan el listado y el detalle, y también las cuadrillas,
+ * porque cambia la cantidad de técnicos activos de cada una.
+ */
 function useInvalidarUsuarios() {
   const queryClient = useQueryClient()
-  return () => queryClient.invalidateQueries({ queryKey: [CLAVE] })
+  return () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: [CLAVE] }),
+      queryClient.invalidateQueries({ queryKey: ['cuadrillas'] }),
+    ])
 }
 
 export function useCrearUsuario() {

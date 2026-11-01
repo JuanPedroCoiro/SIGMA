@@ -217,6 +217,24 @@ class UsuarioControllerTest {
     ingresar("ana@ciemsa.com", CONTRASENA).andExpect(status().isNoContent());
   }
 
+  @Test
+  void activar_tecnicoDeCuadrillaInactiva_devuelve400() throws Exception {
+    Cuadrilla norte = cuadrillaRepository.save(Cuadrilla.crear("Cuadrilla Norte", "Norte"));
+    Usuario juan =
+        usuarioRepository.save(
+            Usuario.crear(
+                "Juan", "juan@ciemsa.com", passwordEncoder.encode(CONTRASENA), Rol.TECNICO, norte));
+    juan.darDeBaja();
+    usuarioRepository.save(juan);
+    norte.desactivar(0);
+    cuadrillaRepository.save(norte);
+
+    mvc.perform(post(USUARIOS + "/" + juan.getId() + "/activar").with(user(jefa)).with(csrf()))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.type").value("/errores/regla-negocio"))
+        .andExpect(jsonPath("$.detail", containsString("Cuadrilla Norte está inactiva")));
+  }
+
   // --- Cuadrillas (desplegable) ---
 
   @Test

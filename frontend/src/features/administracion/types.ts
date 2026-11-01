@@ -28,4 +28,12 @@ export type Cuadrilla = {
   nombre: string
   zona: string | null
   activa: boolean
+  /** Técnicos activos de la cuadrilla: mientras tenga alguno no se puede desactivar. */
+  tecnicosActivos: number
+}
+
+/** POST /api/v1/cuadrillas y PUT /api/v1/cuadrillas/{id}. */
+export type DatosCuadrilla = {
+  nombre: string
+  zona: string | null
 }

@@ -100,8 +100,17 @@ public class Usuario extends BaseEntity {
     this.activo = false;
   }
 
-  /** Vuelve a habilitar una cuenta dada de baja; conserva su contraseña y su historial. */
+  /**
+   * Vuelve a habilitar una cuenta dada de baja; conserva su contraseña y su historial. Un técnico
+   * no puede volver a una cuadrilla inactiva.
+   */
   public void reactivar() {
+    if (rol.requiereCuadrilla() && cuadrilla != null && !cuadrilla.isActiva()) {
+      throw new ReglaNegocioException(
+          "La cuadrilla "
+              + cuadrilla.getNombre()
+              + " está inactiva: activala o cambiá al técnico de cuadrilla antes de reactivarlo.");
+    }
     this.activo = true;
   }
 

@@ -2,9 +2,9 @@ import { http, HttpResponse } from 'msw/http'
 import { TIPOS_PROBLEMA, type ErrorCampo } from '../../shared/api/problemDetail'
 import { ROLES, type Rol } from '../../shared/lib/roles'
 import { base, guardarBase, type UsuarioSimulado } from '../datos'
-import { problema, sinPermiso, sinSesion, usuarioEnSesion } from '../problemas'
+import { exigirJefatura, problema, reglaNegocio } from '../problemas'
 
-// Endpoints de usuarios y cuadrillas acordados con el backend (CU-13), solo para JEFATURA.
+// Endpoints de usuarios acordados con el backend (CU-13), solo para JEFATURA.
 
 const TAMANIO_POR_DEFECTO = 20
 const TAMANIO_MAXIMO = 100
@@ -15,14 +15,6 @@ type DatosUsuario = {
   rol?: Rol
   idCuadrilla?: number | null
   password?: string
-}
-
-/** Respuesta 401/403 si quien pide no es JEFATURA; null si puede seguir. */
-function exigirJefatura() {
-  const usuario = usuarioEnSesion()
-  if (!usuario) return sinSesion()
-  if (usuario.rol !== 'JEFATURA') return sinPermiso()
-  return null
 }
 
 function respuesta({ id, nombre, correo, rol, idCuadrilla, activo }: UsuarioSimulado) {
@@ -46,7 +38,11 @@ function validar(datos: DatosUsuario, conPassword: boolean): ErrorCampo[] {
   if (!datos.rol || !ROLES.includes(datos.rol)) {
     errores.push({ campo: 'rol', mensaje: 'El rol no es válido.' })
   }
-  if (datos.rol === 'TECNICO' && !base.cuadrillas.some((c) => c.id === datos.idCuadrilla)) {
+  // Como en el backend, un técnico necesita una cuadrilla activa.
+  if (
+    datos.rol === 'TECNICO' &&
+    !base.cuadrillas.some((c) => c.id === datos.idCuadrilla && c.activa)
+  ) {
     errores.push({ campo: 'idCuadrilla', mensaje: 'Un técnico debe pertenecer a una cuadrilla.' })
   }
   if (conPassword && (datos.password ?? '').length < 10) {
@@ -162,14 +158,7 @@ export const handlersUsuarios = [
     if (rechazo) return rechazo
     const usuario = buscar(params.id)
     if (!usuario) return noEncontrado()
-    if (usuario.id === base.idSesion) {
-      return problema(
-        400,
-        'regla-negocio',
-        'Regla de negocio no cumplida',
-        'No podés desactivar tu propia cuenta.',
-      )
-    }
+    if (usuario.id === base.idSesion) return reglaNegocio('No podés desactivar tu propia cuenta.')
     usuario.activo = false
     guardarBase()
     return new HttpResponse(null, { status: 204 })
@@ -180,14 +169,15 @@ export const handlersUsuarios = [
     if (rechazo) return rechazo
     const usuario = buscar(params.id)
     if (!usuario) return noEncontrado()
+    const cuadrilla = base.cuadrillas.find((c) => c.id === usuario.idCuadrilla)
+    if (usuario.rol === 'TECNICO' && cuadrilla && !cuadrilla.activa) {
+      return reglaNegocio(
+        `La cuadrilla ${cuadrilla.nombre} está inactiva: activala o cambiá al técnico de ` +
+          'cuadrilla antes de reactivarlo.',
+      )
+    }
     usuario.activo = true
     guardarBase()
     return new HttpResponse(null, { status: 204 })
-  }),
-
-  http.get('/api/v1/cuadrillas', () => {
-    const rechazo = exigirJefatura()
-    if (rechazo) return rechazo
-    return HttpResponse.json(base.cuadrillas)
   }),
 ]

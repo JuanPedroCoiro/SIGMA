@@ -47,3 +47,16 @@ export type ValoresUsuario = z.output<ReturnType<typeof crearEsquemaUsuario>>
 export const esquemaPassword = z.object({ password })
 
 export type CamposPassword = z.infer<typeof esquemaPassword>
+
+/** Las mismas reglas que CuadrillaRequest: nombre obligatorio y zona opcional. */
+export const esquemaCuadrilla = z.object({
+  nombre: z.string().trim().min(1, 'Ingresá el nombre.').max(100, 'Máximo 100 caracteres.'),
+  zona: z
+    .string()
+    .trim()
+    .max(100, 'Máximo 100 caracteres.')
+    .transform((zona) => zona || null),
+})
+
+export type CamposCuadrilla = z.input<typeof esquemaCuadrilla>
+export type ValoresCuadrilla = z.output<typeof esquemaCuadrilla>

@@ -20,7 +20,7 @@ export type UsuarioSimulado = {
 export type CuadrillaSimulada = {
   id: number
   nombre: string
-  zona: string
+  zona: string | null
   activa: boolean
 }
 
@@ -89,6 +89,9 @@ function crearBaseInicial(): Base {
     { id: 1, nombre: 'Cuadrilla Norte', zona: 'Zona Norte', activa: true },
     { id: 2, nombre: 'Cuadrilla Sur', zona: 'Zona Sur', activa: true },
     { id: 3, nombre: 'Cuadrilla Este', zona: 'Zona Este', activa: true },
+    // Sin técnicos, para poder desactivarla.
+    { id: 4, nombre: 'Cuadrilla Oeste', zona: 'Zona Oeste', activa: true },
+    { id: 5, nombre: 'Cuadrilla Centro', zona: 'Zona Centro', activa: false },
   ]
   const usuarios: UsuarioSimulado[] = [
     usuario(1, 'Jefa de Prueba', 'jefatura@sigma.test', 'JEFATURA', null),

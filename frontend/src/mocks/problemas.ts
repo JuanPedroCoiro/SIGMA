@@ -32,3 +32,14 @@ export const sinPermiso = () =>
 export function usuarioEnSesion(): UsuarioSimulado | undefined {
   return base.usuarios.find((u) => u.id === base.idSesion)
 }
+
+/** Respuesta 401/403 si quien pide no es JEFATURA; null si puede seguir. */
+export function exigirJefatura() {
+  const usuario = usuarioEnSesion()
+  if (!usuario) return sinSesion()
+  if (usuario.rol !== 'JEFATURA') return sinPermiso()
+  return null
+}
+
+export const reglaNegocio = (detalle: string) =>
+  problema(400, 'regla-negocio', 'Regla de negocio no cumplida', detalle)
