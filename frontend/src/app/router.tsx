@@ -14,6 +14,7 @@ import { InicioPage } from './InicioPage'
 import { Layout } from './layout/Layout'
 import { NoEncontradaPage } from './NoEncontradaPage'
 import { RutaProtegida } from './rutas/RutaProtegida'
+import { PendientesPage } from '../features/pendientes/pages/PendientesPage'
 
 export const rutas: RouteObject[] = [
   { path: '/iniciar-sesion', element: <InicioSesionPage /> },
@@ -26,7 +27,10 @@ export const rutas: RouteObject[] = [
           { index: true, element: <InicioPage /> },
           {
             element: <RutaProtegida roles={['JEFATURA', 'OPERADOR']} />,
-            children: [{ path: 'instalaciones', element: <InstalacionesPage /> }],
+            children: [
+              { path: 'instalaciones', element: <InstalacionesPage /> },
+              { path: 'pendientes', element: <PendientesPage /> },
+            ],
           },
           {
             // El técnico solo ve las OTs de su cuadrilla: lo verifica el backend.
@@ -42,7 +46,10 @@ export const rutas: RouteObject[] = [
               { path: 'usuarios/:id/editar', element: <EditarUsuarioPage /> },
               { path: 'cuadrillas', element: <CuadrillasPage /> },
               { path: 'cuadrillas/nueva', element: <NuevaCuadrillaPage /> },
-              { path: 'cuadrillas/:id/editar', element: <EditarCuadrillaPage /> },
+              {
+                path: 'cuadrillas/:id/editar',
+                element: <EditarCuadrillaPage />,
+              },
               { path: 'estado', element: <EstadoPage /> },
             ],
           },

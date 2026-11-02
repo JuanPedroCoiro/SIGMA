@@ -76,3 +76,31 @@ export type DatosPausa = {
   motivo: MotivoPausa
   detalle: string | null
 }
+
+export type Prioridad = 'ALTA' | 'MEDIA' | 'BAJA'
+
+export const ETIQUETA_PRIORIDAD: Record<Prioridad, string> = {
+  ALTA: 'Alta',
+  MEDIA: 'Media',
+  BAJA: 'Baja',
+}
+
+export type EstadoIncidente = 'ABIERTO' | 'EN_ESPERA_TERCERO' | 'CON_OT' | 'CERRADO_SIN_OT'
+
+/** Respuesta de POST /api/v1/incidentes/{id}/cerrar-sin-ot y /generar-ot (#38). */
+export type IncidenteResponse = {
+  id: number
+  numero: string
+  estado: EstadoIncidente
+  prioridad: Prioridad
+  tercero: string | null
+  causa: string | null
+  /** null si no tiene OT (en espera de tercero o cerrado sin OT). */
+  ordenTrabajo: {
+    id: number
+    numero: string
+    inicioSla: string
+    fechaLimite: string | null
+    slaDefinido: boolean
+  } | null
+}

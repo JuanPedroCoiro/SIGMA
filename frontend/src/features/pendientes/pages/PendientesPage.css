@@ -1,0 +1,108 @@
+.pendientes h2 {
+  margin: 1.5rem 0 0.75rem;
+  font-size: 1.125rem;
+}
+
+.pendientes-orden select {
+  margin-left: 0.25rem;
+}
+
+.tabla-pendientes {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: 0.5rem;
+}
+
+.tabla-pendientes th,
+.tabla-pendientes td {
+  padding: 0.625rem 0.75rem;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--borde);
+}
+
+.tabla-pendientes th {
+  color: var(--texto-suave);
+  font-weight: 600;
+}
+
+.tabla-pendientes td {
+  overflow-wrap: anywhere;
+}
+
+/* Vencidas: fondo rojo suave en toda la fila, además de la marca «Vencida». */
+.fila-vencida td {
+  background: color-mix(in srgb, var(--error) 8%, transparent);
+}
+
+.pendientes-secundario {
+  display: block;
+  color: var(--texto-suave);
+  font-size: 0.875rem;
+}
+
+.pendientes-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.marca {
+  display: inline-block;
+  margin-left: 0.375rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.marca-peligro {
+  color: var(--error);
+  background: color-mix(in srgb, var(--error) 15%, transparent);
+}
+
+.marca-aviso {
+  margin-left: 0;
+  color: var(--acento);
+  background: var(--acento-fondo);
+}
+
+.marca-neutra {
+  margin-left: 0;
+  color: var(--texto-suave);
+  background: color-mix(in srgb, var(--texto-suave) 15%, transparent);
+}
+
+/* Celular: cada fila es una tarjeta, con la etiqueta de cada dato a la izquierda. */
+@media (max-width: 767px) {
+  .tabla-pendientes,
+  .tabla-pendientes tbody,
+  .tabla-pendientes tr,
+  .tabla-pendientes td {
+    display: block;
+  }
+
+  .tabla-pendientes thead {
+    display: none;
+  }
+
+  .tabla-pendientes tr {
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--borde);
+  }
+
+  .tabla-pendientes td {
+    display: grid;
+    grid-template-columns: 7rem 1fr;
+    gap: 0.5rem;
+    padding: 0.25rem 0.75rem;
+    border: none;
+  }
+
+  .tabla-pendientes td::before {
+    content: attr(data-etiqueta);
+    color: var(--texto-suave);
+  }
+}
