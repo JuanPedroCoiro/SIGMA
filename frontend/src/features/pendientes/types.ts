@@ -17,6 +17,8 @@ export type OrdenPendiente = {
   numero: string
   tipo: TipoOT
   estado: EstadoOT
+  /** Solo en EN_PAUSA: decide si se puede anular (CU-19). */
+  estadoAnteriorPausa: EstadoOT | null
   /** null en las preventivas. */
   prioridad: Prioridad | null
   /** null = «SLA sin definir» (o preventiva). */

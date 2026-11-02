@@ -15,6 +15,7 @@ public record FilaOrdenPendiente(
     String numero,
     TipoOT tipo,
     EstadoOT estado,
+    EstadoOT estadoAnteriorPausa,
     Prioridad prioridad,
     Instant fechaLimite,
     String codigoInstalacion,

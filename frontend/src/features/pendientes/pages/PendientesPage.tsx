@@ -18,12 +18,17 @@ import {
   type OrdenPendiente,
 } from '../types'
 import './PendientesPage.css'
+import { useSesion } from '../../../app/sesion/useSesion'
+import { AccionAnular } from '../../ot/components/AccionAnular'
 
 /** HU-04 (CU-9): OTs abiertas por vencimiento y, aparte, los incidentes en espera de tercero. */
 export function PendientesPage() {
   const { pagina, irAPagina } = usePaginado()
   const [orden, setOrden] = useState<CriterioOrden>('VENCIMIENTO')
   const ordenes = useOrdenesPendientes(orden, pagina)
+  const sesion = useSesion()
+  // Anular es solo de la Jefatura (CU-19): el Operador no ve la columna.
+  const esJefatura = sesion.estado === 'autenticado' && sesion.usuario.rol === 'JEFATURA'
 
   function cambiarOrden(nuevo: CriterioOrden) {
     setOrden(nuevo)
@@ -66,6 +71,7 @@ export function PendientesPage() {
                 <th scope="col">Prioridad</th>
                 <th scope="col">Instalación</th>
                 <th scope="col">Cuadrilla</th>
+                {esJefatura && <th scope="col">Acciones</th>}
               </tr>
             </thead>
             <tbody>
@@ -96,6 +102,11 @@ export function PendientesPage() {
                     {ot.codigoInstalacion} · {ot.nombreInstalacion}
                   </td>
                   <td data-etiqueta="Cuadrilla">{ot.cuadrilla ?? 'Sin asignar'}</td>
+                  {esJefatura && (
+                    <td data-etiqueta="Acciones">
+                      <AccionAnular orden={ot} />
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

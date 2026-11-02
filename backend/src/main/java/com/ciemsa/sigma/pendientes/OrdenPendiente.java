@@ -9,12 +9,14 @@ import java.time.Instant;
 /**
  * Una OT del tablero de pendientes (CU-9). {@code prioridad} y {@code numeroIncidente} son null en
  * las preventivas; {@code cuadrilla}, si no está asignada; {@code pausa}, si no está en pausa.
+ * {@code estadoAnteriorPausa} solo en EN_PAUSA: decide si se puede anular (CU-19).
  */
 public record OrdenPendiente(
     Long id,
     String numero,
     TipoOT tipo,
     EstadoOT estado,
+    EstadoOT estadoAnteriorPausa,
     Prioridad prioridad,
     Instant fechaLimite,
     boolean slaDefinido,
@@ -36,6 +38,7 @@ public record OrdenPendiente(
         fila.numero(),
         fila.tipo(),
         fila.estado(),
+        fila.estadoAnteriorPausa(),
         fila.prioridad(),
         fila.fechaLimite(),
         fila.fechaLimite() != null,

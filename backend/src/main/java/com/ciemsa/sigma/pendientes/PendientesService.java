@@ -30,7 +30,7 @@ public class PendientesService {
   private static final String CONSULTA_ORDENES =
       """
     select new com.ciemsa.sigma.pendientes.FilaOrdenPendiente(
-        o.id, o.numero, o.tipo, o.estado, inc.prioridad, o.fechaLimite,
+        o.id, o.numero, o.tipo, o.estado, o.estadoAnteriorPausa, inc.prioridad, o.fechaLimite,
         ins.codigo, ins.nombre, c.nombre, inc.numero,
         p.motivo, p.detalle, p.inicio, o.creadoEn)
     from OrdenTrabajo o
