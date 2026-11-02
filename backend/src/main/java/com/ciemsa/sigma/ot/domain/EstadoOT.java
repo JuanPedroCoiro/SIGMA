@@ -18,12 +18,13 @@ public enum EstadoOT {
     }
 
     @Override
-    void pausar(OrdenTrabajo ot, Instant ahora) {
-      pasarAPausa(ot, ahora);
+    void pausar(
+        OrdenTrabajo ot, MotivoPausa motivo, String detalle, Long idUsuario, Instant ahora) {
+      pasarAPausa(ot, motivo, detalle, idUsuario, ahora);
     }
 
     @Override
-    void anular(OrdenTrabajo ot, String motivo, Instant ahora) {
+    void anular(OrdenTrabajo ot, String motivo, Long idUsuario, Instant ahora) {
       pasarAAnulada(ot, motivo, ahora);
     }
   },
@@ -45,12 +46,13 @@ public enum EstadoOT {
     }
 
     @Override
-    void pausar(OrdenTrabajo ot, Instant ahora) {
-      pasarAPausa(ot, ahora);
+    void pausar(
+        OrdenTrabajo ot, MotivoPausa motivo, String detalle, Long idUsuario, Instant ahora) {
+      pasarAPausa(ot, motivo, detalle, idUsuario, ahora);
     }
 
     @Override
-    void anular(OrdenTrabajo ot, String motivo, Instant ahora) {
+    void anular(OrdenTrabajo ot, String motivo, Long idUsuario, Instant ahora) {
       pasarAAnulada(ot, motivo, ahora);
     }
   },
@@ -61,8 +63,9 @@ public enum EstadoOT {
     }
 
     @Override
-    void pausar(OrdenTrabajo ot, Instant ahora) {
-      pasarAPausa(ot, ahora);
+    void pausar(
+        OrdenTrabajo ot, MotivoPausa motivo, String detalle, Long idUsuario, Instant ahora) {
+      pasarAPausa(ot, motivo, detalle, idUsuario, ahora);
     }
 
     @Override
@@ -71,22 +74,27 @@ public enum EstadoOT {
     }
   },
   EN_PAUSA {
+    /** Vuelve al estado anterior; si la pausa fue por un tercero, el SLA arranca de nuevo. */
     @Override
-    void reanudar(OrdenTrabajo ot, Instant ahora) {
+    void reanudar(OrdenTrabajo ot, Long idUsuario, Instant ahora) {
       EstadoOT anterior = ot.getEstadoAnteriorPausa();
-      ot.cerrarPausa();
+      ot.cerrarPausa(idUsuario, ahora, true);
       ot.cambiarEstado(anterior, ahora);
     }
 
-    /** Solo si la OT no había empezado: por ejemplo, el tercero resolvió y ya no hace falta. */
+    /**
+     * Solo si la OT no había empezado: por ejemplo, el tercero resolvió y ya no hace falta. Cierra
+     * la pausa abierta con quien anula.
+     */
     @Override
-    void anular(OrdenTrabajo ot, String motivo, Instant ahora) {
+    void anular(OrdenTrabajo ot, String motivo, Long idUsuario, Instant ahora) {
       EstadoOT anterior = ot.getEstadoAnteriorPausa();
       if (anterior != PENDIENTE && anterior != ASIGNADA) {
         throw new TransicionInvalidaException(this, "anular");
       }
-      ot.cerrarPausa();
-      pasarAAnulada(ot, motivo, ahora);
+      ot.registrarAnulacion(motivo); // valida el motivo antes de tocar la pausa
+      ot.cerrarPausa(idUsuario, ahora, false);
+      ot.cambiarEstado(ANULADA, ahora);
     }
   },
   CERRADA_TECNICA {
@@ -137,11 +145,11 @@ public enum EstadoOT {
     throw new TransicionInvalidaException(this, "iniciar");
   }
 
-  void pausar(OrdenTrabajo ot, Instant ahora) {
+  void pausar(OrdenTrabajo ot, MotivoPausa motivo, String detalle, Long idUsuario, Instant ahora) {
     throw new TransicionInvalidaException(this, "pausar");
   }
 
-  void reanudar(OrdenTrabajo ot, Instant ahora) {
+  void reanudar(OrdenTrabajo ot, Long idUsuario, Instant ahora) {
     throw new TransicionInvalidaException(this, "reanudar");
   }
 
@@ -157,12 +165,13 @@ public enum EstadoOT {
     throw new TransicionInvalidaException(this, "observar");
   }
 
-  void anular(OrdenTrabajo ot, String motivo, Instant ahora) {
+  void anular(OrdenTrabajo ot, String motivo, Long idUsuario, Instant ahora) {
     throw new TransicionInvalidaException(this, "anular");
   }
 
-  private static void pasarAPausa(OrdenTrabajo ot, Instant ahora) {
-    ot.abrirPausa();
+  private static void pasarAPausa(
+      OrdenTrabajo ot, MotivoPausa motivo, String detalle, Long idUsuario, Instant ahora) {
+    ot.abrirPausa(motivo, detalle, idUsuario, ahora);
     ot.cambiarEstado(EN_PAUSA, ahora);
   }
 
