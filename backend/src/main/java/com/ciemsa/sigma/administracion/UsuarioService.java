@@ -9,6 +9,7 @@ import com.ciemsa.sigma.shared.domain.NoEncontradoException;
 import com.ciemsa.sigma.shared.domain.ReglaNegocioException;
 import com.ciemsa.sigma.shared.seguridad.Rol;
 import com.ciemsa.sigma.shared.seguridad.UsuarioActual;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
@@ -84,6 +85,15 @@ public class UsuarioService {
   @Transactional(readOnly = true)
   public UsuarioResponse obtener(Long id) {
     return UsuarioResponse.de(buscar(id));
+  }
+
+  /**
+   * La cuadrilla actual del usuario, leída de la base y no de la sesión (el técnico puede cambiar
+   * de cuadrilla con la sesión abierta). Vacío si no existe o no tiene cuadrilla.
+   */
+  @Transactional(readOnly = true)
+  public Optional<Long> idCuadrillaDe(Long idUsuario) {
+    return usuarioRepository.findById(idUsuario).map(Usuario::getCuadrilla).map(Cuadrilla::getId);
   }
 
   /** CU-13d: baja lógica; la cuenta no puede ingresar pero conserva su historial. */

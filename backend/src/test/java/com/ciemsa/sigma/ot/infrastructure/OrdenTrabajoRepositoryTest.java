@@ -12,6 +12,7 @@ import com.ciemsa.sigma.administracion.Usuario;
 import com.ciemsa.sigma.administracion.UsuarioRepository;
 import com.ciemsa.sigma.ot.domain.EstadoOT;
 import com.ciemsa.sigma.ot.domain.Incidente;
+import com.ciemsa.sigma.ot.domain.MotivoPausa;
 import com.ciemsa.sigma.ot.domain.OrdenTrabajo;
 import com.ciemsa.sigma.ot.domain.OrigenIncidente;
 import com.ciemsa.sigma.ot.domain.Prioridad;
@@ -136,16 +137,21 @@ class OrdenTrabajoRepositoryTest {
     OrdenTrabajo ot =
         ordenTrabajoRepository.save(OrdenTrabajo.preventiva(idInstalacion, FECHA, AHORA));
     ot.asignar(idCuadrilla, FECHA, AHORA);
-    ot.pausar(AHORA);
+    ot.pausar(MotivoPausa.FIN_DE_JORNADA, null, idUsuario, AHORA);
     ordenTrabajoRepository.saveAndFlush(ot);
 
-    ot.anular("Ya no hace falta", AHORA);
+    ot.anular("Ya no hace falta", idUsuario, AHORA);
     ordenTrabajoRepository.saveAndFlush(ot);
     entityManager.clear();
 
     OrdenTrabajo leida = ordenTrabajoRepository.findById(ot.getId()).orElseThrow();
     assertThat(leida.getEstado()).isEqualTo(EstadoOT.ANULADA);
     assertThat(leida.getEstadoAnteriorPausa()).isNull();
+    assertThat(leida.getPausas())
+        .singleElement()
+        .satisfies(p -> assertThat(p.getMotivo()).isEqualTo(MotivoPausa.FIN_DE_JORNADA))
+        .satisfies(p -> assertThat(p.getFin()).isEqualTo(AHORA))
+        .satisfies(p -> assertThat(p.getIdUsuarioReanudacion()).isEqualTo(idUsuario));
   }
 
   @ParameterizedTest

@@ -1,3 +1,4 @@
+import type { EstadoOT, MotivoPausa, PausaOT } from '../features/ot/types'
 import type { Rol } from '../shared/lib/roles'
 
 // Datos FICTICIOS de la API simulada (solo `npm run dev:simulado` y los tests).
@@ -33,10 +34,23 @@ export type InstalacionSimulada = {
   longitud: number
 }
 
+export type OrdenSimulada = {
+  id: number
+  numero: string
+  estado: EstadoOT
+  idCuadrilla: number | null
+  inicioSla: string | null
+  fechaLimite: string | null
+  creadaEn: string
+  estadoAnteriorPausa: EstadoOT | null
+  pausas: PausaOT[]
+}
+
 type Base = {
   usuarios: UsuarioSimulado[]
   cuadrillas: CuadrillaSimulada[]
   instalaciones: InstalacionSimulada[]
+  ordenes: OrdenSimulada[]
   /** Usuario con la sesión abierta, o null. */
   idSesion: number | null
 }
@@ -84,6 +98,62 @@ function crearInstalaciones(): InstalacionSimulada[] {
   })
 }
 
+const HORA = 3_600_000
+
+function haceHoras(horas: number) {
+  return new Date(Date.now() - horas * HORA).toISOString()
+}
+
+function pausaAbierta(motivo: MotivoPausa, detalle: string | null, horas: number): PausaOT {
+  return {
+    motivo,
+    detalle,
+    inicio: haceHoras(horas),
+    fin: null,
+    idUsuarioPausa: 3,
+    idUsuarioReanudacion: null,
+  }
+}
+
+/** OTs correctivas ficticias (#39): una asignada a Norte, una en pausa por un tercero y una sin SLA. */
+function crearOrdenes(): OrdenSimulada[] {
+  return [
+    {
+      id: 1,
+      numero: 'OT-0001',
+      estado: 'ASIGNADA',
+      idCuadrilla: 1,
+      inicioSla: haceHoras(2),
+      fechaLimite: new Date(Date.now() + 46 * HORA).toISOString(),
+      creadaEn: haceHoras(2),
+      estadoAnteriorPausa: null,
+      pausas: [],
+    },
+    {
+      id: 2,
+      numero: 'OT-0002',
+      estado: 'EN_PAUSA',
+      idCuadrilla: 1,
+      inicioSla: haceHoras(30),
+      fechaLimite: haceHoras(6),
+      creadaEn: haceHoras(30),
+      estadoAnteriorPausa: 'ASIGNADA',
+      pausas: [pausaAbierta('TERCERO', 'UTE', 10)],
+    },
+    {
+      id: 3,
+      numero: 'OT-0003',
+      estado: 'PENDIENTE',
+      idCuadrilla: null,
+      inicioSla: haceHoras(1),
+      fechaLimite: null,
+      creadaEn: haceHoras(1),
+      estadoAnteriorPausa: null,
+      pausas: [],
+    },
+  ]
+}
+
 function crearBaseInicial(): Base {
   const cuadrillas: CuadrillaSimulada[] = [
     { id: 1, nombre: 'Cuadrilla Norte', zona: 'Zona Norte', activa: true },
@@ -119,7 +189,13 @@ function crearBaseInicial(): Base {
       ),
     )
   }
-  return { usuarios, cuadrillas, instalaciones: crearInstalaciones(), idSesion: null }
+  return {
+    usuarios,
+    cuadrillas,
+    instalaciones: crearInstalaciones(),
+    ordenes: crearOrdenes(),
+    idSesion: null,
+  }
 }
 
 function cargar(): Base {

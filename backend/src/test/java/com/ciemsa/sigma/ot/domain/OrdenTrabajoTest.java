@@ -67,9 +67,9 @@ class OrdenTrabajoTest {
   }
 
   @Test
-  void estaVencida_otEnPausa_sigueVenciendo() {
+  void estaVencida_otEnPausaPorClima_sigueVenciendo() {
     OrdenTrabajo ot = correctiva(ReglaSLA.crear(1L, Prioridad.ALTA, 2, 8));
-    ot.pausar(INICIO);
+    ot.pausar(MotivoPausa.CLIMA, null, 3L, INICIO);
 
     assertThat(ot.estaVencida(LIMITE.plusSeconds(1))).isTrue();
   }

@@ -9,6 +9,7 @@ import { UsuarioDetallePage } from '../features/administracion/pages/UsuarioDeta
 import { UsuariosPage } from '../features/administracion/pages/UsuariosPage'
 import { InicioSesionPage } from '../features/autenticacion/pages/InicioSesionPage'
 import { EstadoPage } from '../features/estado/pages/EstadoPage'
+import { OrdenDetallePage } from '../features/ot/pages/OrdenDetallePage'
 import { InicioPage } from './InicioPage'
 import { Layout } from './layout/Layout'
 import { NoEncontradaPage } from './NoEncontradaPage'
@@ -26,6 +27,11 @@ export const rutas: RouteObject[] = [
           {
             element: <RutaProtegida roles={['JEFATURA', 'OPERADOR']} />,
             children: [{ path: 'instalaciones', element: <InstalacionesPage /> }],
+          },
+          {
+            // El técnico solo ve las OTs de su cuadrilla: lo verifica el backend.
+            element: <RutaProtegida roles={['JEFATURA', 'OPERADOR', 'TECNICO']} />,
+            children: [{ path: 'ordenes/:id', element: <OrdenDetallePage /> }],
           },
           {
             element: <RutaProtegida roles={['JEFATURA']} />,
