@@ -1,9 +1,11 @@
 package com.ciemsa.sigma.administracion;
 
 import com.ciemsa.sigma.administracion.dto.CrearUsuarioRequest;
+import com.ciemsa.sigma.administracion.dto.DesactivacionResponse;
 import com.ciemsa.sigma.administracion.dto.ModificarUsuarioRequest;
 import com.ciemsa.sigma.administracion.dto.RestablecerContrasenaRequest;
 import com.ciemsa.sigma.administracion.dto.UsuarioResponse;
+import com.ciemsa.sigma.ot.application.OrdenTrabajoConsultaService;
 import com.ciemsa.sigma.shared.domain.ConflictoException;
 import com.ciemsa.sigma.shared.domain.NoEncontradoException;
 import com.ciemsa.sigma.shared.domain.ReglaNegocioException;
@@ -29,6 +31,7 @@ public class UsuarioService {
   private final CuadrillaRepository cuadrillaRepository;
   private final PasswordEncoder passwordEncoder;
   private final UsuarioActual usuarioActual;
+  private final OrdenTrabajoConsultaService ordenTrabajoConsultaService;
 
   /** CU-13a: alta con contraseña inicial. */
   public UsuarioResponse crear(CrearUsuarioRequest req) {
@@ -96,15 +99,18 @@ public class UsuarioService {
     return usuarioRepository.findById(idUsuario).map(Usuario::getCuadrilla).map(Cuadrilla::getId);
   }
 
-  /** CU-13d: baja lógica; la cuenta no puede ingresar pero conserva su historial. */
-  public void desactivar(Long id) {
+  /**
+   * CU-13d: baja lógica; la cuenta no puede ingresar pero conserva su historial. Si es un técnico,
+   * la respuesta avisa cuántas OTs tiene su cuadrilla entre manos (3a): la baja no se impide.
+   */
+  public DesactivacionResponse desactivar(Long id) {
     if (id.equals(usuarioActual.id())) {
       throw new ReglaNegocioException("No podés desactivar tu propia cuenta.");
     }
     Usuario usuario = buscar(id);
     verificarQueQuedeOtraJefatura(usuario);
-    // TODO sprint 2 (3a): advertir si integra una cuadrilla con OTs asignadas o en proceso.
     usuario.darDeBaja();
+    return avisoDesactivacion(usuario);
   }
 
   /** Vuelve a habilitar una cuenta desactivada. */
@@ -135,6 +141,16 @@ public class UsuarioService {
         && usuarioRepository.countByRolAndActivoTrue(Rol.JEFATURA) <= 1) {
       throw new ReglaNegocioException("Tiene que quedar al menos una Jefatura activa.");
     }
+  }
+
+  private DesactivacionResponse avisoDesactivacion(Usuario usuario) {
+    Cuadrilla cuadrilla = usuario.getCuadrilla();
+    if (usuario.getRol() != Rol.TECNICO || cuadrilla == null) {
+      return DesactivacionResponse.sinAviso();
+    }
+    return new DesactivacionResponse(
+        cuadrilla.getNombre(),
+        ordenTrabajoConsultaService.contarAbiertasDeCuadrilla(cuadrilla.getId()));
   }
 
   /**

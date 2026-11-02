@@ -1,6 +1,7 @@
 package com.ciemsa.sigma.administracion;
 
 import com.ciemsa.sigma.administracion.dto.CrearUsuarioRequest;
+import com.ciemsa.sigma.administracion.dto.DesactivacionResponse;
 import com.ciemsa.sigma.administracion.dto.ModificarUsuarioRequest;
 import com.ciemsa.sigma.administracion.dto.RestablecerContrasenaRequest;
 import com.ciemsa.sigma.administracion.dto.UsuarioResponse;
@@ -70,11 +71,10 @@ public class UsuarioController {
     return usuarioService.obtener(id);
   }
 
-  /** CU-13d: baja lógica. */
+  /** CU-13d: baja lógica. Si es un técnico, avisa cuántas OTs tiene su cuadrilla (3a). */
   @PostMapping("/{id}/desactivar")
-  @ResponseStatus(HttpStatus.NO_CONTENT)
-  public void desactivar(@PathVariable Long id) {
-    usuarioService.desactivar(id);
+  public DesactivacionResponse desactivar(@PathVariable Long id) {
+    return usuarioService.desactivar(id);
   }
 
   /** Reactivar una cuenta desactivada. */
