@@ -108,4 +108,55 @@ describe('tablero de pendientes (#43)', () => {
     await waitFor(() => expect(router.state.location.pathname).toBe('/'))
     expect(screen.queryByRole('link', { name: 'Pendientes' })).not.toBeInTheDocument()
   })
+
+  it('jefatura_anulaUnaOtConMotivoYSaleDelTablero', async () => {
+    base.idSesion = ID_JEFATURA
+    renderizarRuta('/pendientes')
+    const fila = (await screen.findByRole('link', { name: 'OT-0001' })).closest('tr')!
+
+    fireEvent.click(within(fila).getByRole('button', { name: 'Anular' }))
+    const dialogo = await screen.findByRole('dialog', { name: 'Anular OT-0001' })
+    fireEvent.change(within(dialogo).getByLabelText('Motivo'), { target: { value: 'DUPLICADA' } })
+    fireEvent.change(within(dialogo).getByLabelText('Detalle'), {
+      target: { value: 'misma falla que OT-0003' },
+    })
+    fireEvent.click(within(dialogo).getByRole('button', { name: 'Confirmar anulación' }))
+
+    await waitFor(() => expect(numerosDelTablero()).toEqual(['OT-0002', 'OT-0003']))
+    expect(base.ordenes.find((o) => o.id === 1)?.estado).toBe('ANULADA')
+  })
+
+  it('anular_otroSinDetalle_pideElDetalleYNoAnula', async () => {
+    base.idSesion = ID_JEFATURA
+    renderizarRuta('/pendientes')
+    const fila = (await screen.findByRole('link', { name: 'OT-0003' })).closest('tr')!
+
+    fireEvent.click(within(fila).getByRole('button', { name: 'Anular' }))
+    const dialogo = await screen.findByRole('dialog', { name: 'Anular OT-0003' })
+    fireEvent.change(within(dialogo).getByLabelText('Motivo'), { target: { value: 'OTRO' } })
+    fireEvent.click(within(dialogo).getByRole('button', { name: 'Confirmar anulación' }))
+
+    expect(await within(dialogo).findByText('Detallá el motivo.')).toBeVisible()
+    expect(base.ordenes.find((o) => o.id === 3)?.estado).toBe('PENDIENTE')
+  })
+
+  it('enPausaDesdeEnProceso_noOfreceAnular', async () => {
+    base.idSesion = ID_JEFATURA
+    base.ordenes.find((o) => o.id === 2)!.estadoAnteriorPausa = 'EN_PROCESO'
+    renderizarRuta('/pendientes')
+
+    const fila = (await screen.findByRole('link', { name: 'OT-0002' })).closest('tr')!
+    expect(within(fila).queryByRole('button', { name: 'Anular' })).not.toBeInTheDocument()
+  })
+
+  it('operador_noVeLaAccionDeAnular', async () => {
+    renderizarRuta('/pendientes')
+    await screen.findByRole('link', { name: 'OT-0001' })
+
+    expect(screen.queryByRole('button', { name: 'Anular' })).not.toBeInTheDocument()
+    const [tablero] = screen.getAllByRole('table')
+    expect(
+      within(tablero).queryByRole('columnheader', { name: 'Acciones' }),
+    ).not.toBeInTheDocument()
+  })
 })

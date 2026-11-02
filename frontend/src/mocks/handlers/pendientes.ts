@@ -31,6 +31,7 @@ function aFila(orden: OrdenSimulada): OrdenPendiente {
     numero: orden.numero,
     tipo: 'CORRECTIVA',
     estado: orden.estado,
+    estadoAnteriorPausa: orden.estadoAnteriorPausa,
     prioridad: orden.prioridad,
     fechaLimite: orden.fechaLimite,
     slaDefinido: orden.fechaLimite !== null,

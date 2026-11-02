@@ -1,5 +1,5 @@
 import { http, HttpResponse } from 'msw/http'
-import type { MotivoPausa } from '../../features/ot/types'
+import { puedeAnularse, type MotivoPausa } from '../../features/ot/types'
 import { TIPOS_PROBLEMA, type ErrorCampo } from '../../shared/api/problemDetail'
 import { base, guardarBase, type OrdenSimulada } from '../datos'
 import { problema, reglaNegocio, sinPermiso, sinSesion, usuarioEnSesion } from '../problemas'
@@ -131,6 +131,38 @@ export const handlersOrdenes = [
       orden.fechaLimite = new Date(ahora.getTime() + plazo).toISOString()
     }
     orden.estado = orden.estadoAnteriorPausa ?? 'PENDIENTE'
+    orden.estadoAnteriorPausa = null
+    guardarBase()
+    return HttpResponse.json(respuesta(orden))
+  }),
+
+  http.post('/api/v1/ordenes/:id/anular', async ({ params, request }) => {
+    const usuario = usuarioEnSesion()
+    if (!usuario) return sinSesion()
+    if (usuario.rol !== 'JEFATURA') return sinPermiso()
+    const orden = base.ordenes.find((o) => o.id === Number(params.id))
+    if (!orden) {
+      return problema(404, 'no-encontrado', 'Recurso no encontrado', 'No existe la OT.')
+    }
+    const { motivo } = (await request.json()) as { motivo?: string }
+    if (!motivo?.trim()) {
+      const errores: ErrorCampo[] = [
+        { campo: 'motivo', mensaje: 'Indicá el motivo de la anulación.' },
+      ]
+      return problema(400, TIPOS_PROBLEMA.validacion, 'Datos inválidos', 'Revisá los campos.', {
+        errores,
+      })
+    }
+    if (!puedeAnularse(orden.estado, orden.estadoAnteriorPausa)) {
+      return transicionInvalida('anular', orden)
+    }
+    // Como el backend: si estaba en pausa, la pausa se cierra con quien anula.
+    const pausa = orden.pausas.find((p) => p.fin === null)
+    if (pausa) {
+      pausa.fin = new Date().toISOString()
+      pausa.idUsuarioReanudacion = usuario.id
+    }
+    orden.estado = 'ANULADA'
     orden.estadoAnteriorPausa = null
     guardarBase()
     return HttpResponse.json(respuesta(orden))

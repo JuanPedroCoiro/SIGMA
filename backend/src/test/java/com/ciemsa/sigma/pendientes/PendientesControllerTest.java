@@ -232,6 +232,7 @@ class PendientesControllerTest {
   void enPausaPorTercero_muestraElMotivoYNoVenceAunqueLaFechaLimitePaso() throws Exception {
     consultar(jefatura, null)
         .andExpect(jsonPath(campo(enPausaPorTercero, "estado"), contains("EN_PAUSA")))
+        .andExpect(jsonPath(campo(enPausaPorTercero, "estadoAnteriorPausa"), contains("PENDIENTE")))
         .andExpect(jsonPath(campo(enPausaPorTercero, "pausa.motivo"), contains("TERCERO")))
         .andExpect(jsonPath(campo(enPausaPorTercero, "pausa.detalle"), contains("UTE")))
         .andExpect(jsonPath(campo(enPausaPorTercero, "vencida"), contains(false)));
