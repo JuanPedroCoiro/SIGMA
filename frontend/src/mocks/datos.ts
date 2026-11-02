@@ -77,7 +77,9 @@ type Base = {
   idSesion: number | null
 }
 
-const CLAVE_ALMACEN = 'sigma.apiSimulada'
+// Con versión: cuando cambia la forma de los datos se sube, y la base vieja guardada en la
+// pestaña se descarta en lugar de mezclarse con la nueva (#61).
+const CLAVE_ALMACEN = 'sigma.apiSimulada.v2'
 
 const NOMBRES = ['Ana', 'Bruno', 'Carla', 'Diego', 'Elena', 'Fabián', 'Gabriela', 'Hernán']
 const APELLIDOS = ['Acosta', 'Benítez', 'Cabrera', 'Duarte']
