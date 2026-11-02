@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { obtenerOrden, pausarOrden, reanudarOrden } from '../api/ordenesApi'
+import { anularOrden, obtenerOrden, pausarOrden, reanudarOrden } from '../api/ordenesApi'
 import type { DatosPausa, OrdenTrabajoDetalle } from '../types'
 
 export const CLAVE_ORDENES = 'ordenes'
@@ -34,4 +34,12 @@ export function usePausarOrden(id: number) {
 export function useReanudarOrden(id: number) {
   const actualizar = useActualizarOrden(id)
   return useMutation({ mutationFn: () => reanudarOrden(id), onSuccess: actualizar })
+}
+
+export function useAnularOrden(id: number) {
+  const actualizar = useActualizarOrden(id)
+  return useMutation({
+    mutationFn: (motivo: string) => anularOrden(id, motivo),
+    onSuccess: actualizar,
+  })
 }

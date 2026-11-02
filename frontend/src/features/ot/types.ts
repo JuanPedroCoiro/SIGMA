@@ -104,3 +104,26 @@ export type IncidenteResponse = {
     slaDefinido: boolean
   } | null
 }
+
+export const MOTIVOS_ANULACION = ['DUPLICADA', 'IMPROCEDENTE', 'OTRO'] as const
+
+export type MotivoAnulacion = (typeof MOTIVOS_ANULACION)[number]
+
+export const ETIQUETA_MOTIVO_ANULACION: Record<MotivoAnulacion, string> = {
+  DUPLICADA: 'Duplicada',
+  IMPROCEDENTE: 'Improcedente',
+  OTRO: 'Otro',
+}
+
+const ESTADOS_ANULABLES: readonly EstadoOT[] = ['PENDIENTE', 'ASIGNADA']
+
+/**
+ * Si la OT se puede anular (EstadoOT.anular en el backend, CU-19): desde Pendiente o Asignada, o
+ * En pausa si antes estaba en uno de esos.
+ */
+export function puedeAnularse(estado: EstadoOT, estadoAnteriorPausa: EstadoOT | null) {
+  if (estado === 'EN_PAUSA') {
+    return estadoAnteriorPausa !== null && ESTADOS_ANULABLES.includes(estadoAnteriorPausa)
+  }
+  return ESTADOS_ANULABLES.includes(estado)
+}
