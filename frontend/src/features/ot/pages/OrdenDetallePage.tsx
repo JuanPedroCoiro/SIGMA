@@ -1,6 +1,6 @@
 import { Link, useParams } from 'react-router-dom'
 import { obtenerProblemDetail } from '../../../shared/api/problemDetail'
-import { formatearHoraMontevideo } from '../../../shared/lib/fechas'
+import { formatearFechaHoraMontevideo, formatearHoraMontevideo } from '../../../shared/lib/fechas'
 import { AccionesPausa } from '../components/AccionesPausa'
 import { formatearDuracion } from '../duracion'
 import { useOrden } from '../hooks/useOrden'
@@ -103,8 +103,8 @@ export function OrdenDetallePage() {
                 <tr key={pausa.inicio}>
                   <td>{ETIQUETA_MOTIVO[pausa.motivo]}</td>
                   <td>{pausa.detalle ?? '—'}</td>
-                  <td>{formatearHoraMontevideo(pausa.inicio)}</td>
-                  <td>{pausa.fin ? formatearHoraMontevideo(pausa.fin) : 'En curso'}</td>
+                  <td>{formatearFechaHoraMontevideo(pausa.inicio)}</td>
+                  <td>{pausa.fin ? formatearFechaHoraMontevideo(pausa.fin) : 'En curso'}</td>
                 </tr>
               ))}
             </tbody>

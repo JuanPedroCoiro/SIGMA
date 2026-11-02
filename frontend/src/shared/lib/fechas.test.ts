@@ -1,5 +1,16 @@
 import { describe, expect, it } from 'vitest'
-import { formatearHoraMontevideo } from './fechas'
+import { formatearFechaHoraMontevideo, formatearHoraMontevideo } from './fechas'
+
+describe('formatearFechaHoraMontevideo', () => {
+  it('formatear_siempreAgregaLaFecha', () => {
+    expect(formatearFechaHoraMontevideo('2026-11-04T00:41:00Z')).toBe('21:41 del 3/11')
+  })
+
+  it('formatear_pasadaLaMedianocheUtc_usaElDiaDeMontevideo', () => {
+    // 01:00 UTC del 28 todavía es el 27 a las 22:00 en Montevideo.
+    expect(formatearFechaHoraMontevideo('2026-10-28T01:00:00Z')).toBe('22:00 del 27/10')
+  })
+})
 
 describe('formatearHoraMontevideo', () => {
   const ahora = new Date('2026-10-27T15:00:00Z')

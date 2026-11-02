@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { base } from '../../mocks/datos'
 import { problema } from '../../mocks/problemas'
 import { servidor } from '../../mocks/servidor'
+import { formatearFechaHoraMontevideo } from '../../shared/lib/fechas'
 import { renderizarRuta } from '../../test/renderizarRuta'
 import { formatearDuracion } from './duracion'
 
@@ -37,6 +38,18 @@ describe('detalle de OT y pausas (#39)', () => {
     // En pausa por un tercero no vence, aunque ya pasó la fecha límite.
     expect(screen.queryByText('Vencida')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Reanudar' })).toBeVisible()
+  })
+
+  it('historial_desdeYHastaConFechaYHoraAunqueSeaHoy', async () => {
+    const inicio = new Date().toISOString()
+    orden(2).pausas[0].inicio = inicio
+    renderizarRuta('/ordenes/2')
+
+    const fila = await screen.findByRole('row', { name: /UTE/ })
+    const celdas = within(fila).getAllByRole('cell')
+    expect(celdas[2]).toHaveTextContent(formatearFechaHoraMontevideo(inicio))
+    expect(celdas[2]).toHaveTextContent(/^\d{2}:\d{2} del \d{1,2}\/\d{1,2}$/)
+    expect(celdas[3]).toHaveTextContent('En curso')
   })
 
   it('detalle_sinSla_loIndica', async () => {
@@ -110,6 +123,8 @@ describe('detalle de OT y pausas (#39)', () => {
     expect(screen.getByRole('button', { name: 'Pausar' })).toBeVisible()
     expect(screen.getByRole('cell', { name: 'UTE' })).toBeInTheDocument()
     const reanudada = orden(2)
+    const hasta = within(screen.getByRole('row', { name: /UTE/ })).getAllByRole('cell')[3]
+    expect(hasta).toHaveTextContent(formatearFechaHoraMontevideo(reanudada.pausas[0].fin!))
     expect(
       new Date(reanudada.fechaLimite!).getTime() - new Date(reanudada.inicioSla!).getTime(),
     ).toBe(plazo)

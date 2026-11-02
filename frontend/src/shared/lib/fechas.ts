@@ -27,7 +27,14 @@ const formatoFechaCompleta = new Intl.DateTimeFormat('es-UY', {
  */
 export function formatearHoraMontevideo(instante: string | Date, ahora: Date = new Date()) {
   const fecha = new Date(instante)
-  const hora = formatoHora.format(fecha)
-  if (formatoFechaCompleta.format(fecha) === formatoFechaCompleta.format(ahora)) return hora
-  return `${hora} del ${formatoDia.format(fecha)}`
+  if (formatoFechaCompleta.format(fecha) === formatoFechaCompleta.format(ahora)) {
+    return formatoHora.format(fecha)
+  }
+  return formatearFechaHoraMontevideo(fecha)
+}
+
+/** Hora y fecha en Montevideo, siempre con la fecha («15:30 del 28/10»), aunque sea hoy. */
+export function formatearFechaHoraMontevideo(instante: string | Date) {
+  const fecha = new Date(instante)
+  return `${formatoHora.format(fecha)} del ${formatoDia.format(fecha)}`
 }
