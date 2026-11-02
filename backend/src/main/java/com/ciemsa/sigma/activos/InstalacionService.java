@@ -1,9 +1,11 @@
 package com.ciemsa.sigma.activos;
 
 import com.ciemsa.sigma.activos.dto.InstalacionResponse;
+import com.ciemsa.sigma.activos.dto.InstalacionResumen;
 import com.ciemsa.sigma.activos.dto.NuevaInstalacion;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -22,6 +24,15 @@ public class InstalacionService {
   @Transactional(readOnly = true)
   public Page<InstalacionResponse> listar(Pageable pageable) {
     return instalacionRepository.findAll(pageable).map(InstalacionResponse::de);
+  }
+
+  /** La instalación, si existe y está activa (CU-1 3a). */
+  @Transactional(readOnly = true)
+  public Optional<InstalacionResumen> buscarActiva(Long id) {
+    return instalacionRepository
+        .findById(id)
+        .filter(Instalacion::isActiva)
+        .map(InstalacionResumen::de);
   }
 
   /** De los códigos recibidos, los que ya tienen una instalación. */
