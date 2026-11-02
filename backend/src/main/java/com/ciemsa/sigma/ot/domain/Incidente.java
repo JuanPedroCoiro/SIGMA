@@ -11,6 +11,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.Objects;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -89,11 +90,12 @@ public class Incidente extends BaseEntity {
   }
 
   /**
-   * Genera la OT correctiva PENDIENTE (CU-1). El SLA arranca en {@code inicioSla}; sin regla para
-   * el organismo y la prioridad, la fecha límite queda null («SLA sin definir», 8a).
+   * Genera la OT correctiva PENDIENTE (CU-1), al registrarlo o al resolver la espera de un tercero
+   * (el tercero no volvió a comunicar). El SLA arranca en {@code inicioSla}; sin regla para el
+   * organismo y la prioridad, la fecha límite queda null («SLA sin definir», 8a).
    */
   public OrdenTrabajo generarOrdenCorrectiva(Instant inicioSla, ReglaSLA regla) {
-    exigirAbierto();
+    exigirEstado(EstadoIncidente.ABIERTO, EstadoIncidente.EN_ESPERA_TERCERO);
     if (regla != null && regla.getPrioridad() != prioridad) {
       throw new IllegalArgumentException(
           "La regla de SLA es de prioridad " + regla.getPrioridad() + ", no " + prioridad + ".");
@@ -105,7 +107,7 @@ public class Incidente extends BaseEntity {
 
   /** Falla de un tercero (CU-1 4b): queda en espera, sin OT ni SLA. */
   public void ponerEnEsperaDeTercero(String tercero, String causa) {
-    exigirAbierto();
+    exigirEstado(EstadoIncidente.ABIERTO);
     if (tercero == null || tercero.isBlank()) {
       throw new ReglaNegocioException("Indicá el tercero responsable de la falla.");
     }
@@ -114,13 +116,20 @@ public class Incidente extends BaseEntity {
     this.estado = EstadoIncidente.EN_ESPERA_TERCERO;
   }
 
+  /** Resuelve la espera sin OT: el tercero volvió a comunicar y la falla se resolvió (4b). */
+  public void cerrarSinOt() {
+    exigirEstado(EstadoIncidente.EN_ESPERA_TERCERO);
+    this.estado = EstadoIncidente.CERRADO_SIN_OT;
+  }
+
   public boolean estaEnEsperaDeTercero() {
     return estado == EstadoIncidente.EN_ESPERA_TERCERO;
   }
 
-  private void exigirAbierto() {
-    if (estado != EstadoIncidente.ABIERTO) {
-      throw new ReglaNegocioException("El incidente ya está en estado " + estado + ".");
+  private void exigirEstado(EstadoIncidente... permitidos) {
+    if (!Arrays.asList(permitidos).contains(estado)) {
+      throw new ReglaNegocioException(
+          "No se puede realizar la operación: el incidente está en estado " + estado + ".");
     }
   }
 }
