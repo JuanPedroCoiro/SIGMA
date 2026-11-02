@@ -53,7 +53,8 @@ public record OrdenPendiente(
 
   /**
    * La misma regla que OrdenTrabajo.estaVencida, sin cargar la entidad: en pausa por un tercero no
-   * vence. Todas las OTs del tablero están abiertas.
+   * vence. Todas las OTs del tablero están abiertas. El orden por vencimiento de PendientesService
+   * aplica la misma regla en JPQL.
    */
   private static boolean vencida(FilaOrdenPendiente fila, Instant ahora) {
     boolean reiniciaSla = fila.motivoPausa() != null && fila.motivoPausa().reiniciaSla();

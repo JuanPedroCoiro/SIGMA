@@ -42,7 +42,9 @@ public class PendientesService {
     order by\s""";
 
   // Primero las que corren, por fecha límite; después las pausadas por un tercero (no vencen
-  // hasta reanudar) y al final las que no tienen SLA (sin regla o preventivas).
+  // hasta reanudar) y al final las que no tienen SLA (sin regla o preventivas). TERCERO es el único
+  // MotivoPausa con reiniciaSla(), que JPQL no puede llamar: si cambia esa regla, cambiar también
+  // este CASE y OrdenPendiente.vencida.
   private static final String POR_VENCIMIENTO =
       """
     case

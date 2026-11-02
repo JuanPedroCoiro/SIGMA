@@ -1,5 +1,4 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { Paginacion } from '../../../shared/components/Paginacion'
 import { usePaginado } from '../../../shared/hooks/usePaginado'
 import { formatearHoraMontevideo } from '../../../shared/lib/fechas'
@@ -24,15 +23,25 @@ import { AccionAnular } from '../../ot/components/AccionAnular'
 /** HU-04 (CU-9): OTs abiertas por vencimiento y, aparte, los incidentes en espera de tercero. */
 export function PendientesPage() {
   const { pagina, irAPagina } = usePaginado()
-  const [orden, setOrden] = useState<CriterioOrden>('VENCIMIENTO')
+
+  // El criterio va en la URL (?orden=PRIORIDAD), como la página, para que se conserve al volver
+  // de una OT (#61).
+  const [parametros, setParametros] = useSearchParams()
+  const orden = criterioDeUrl(parametros.get('orden'))
   const ordenes = useOrdenesPendientes(orden, pagina)
   const sesion = useSesion()
   // Anular es solo de la Jefatura (CU-19): el Operador no ve la columna.
   const esJefatura = sesion.estado === 'autenticado' && sesion.usuario.rol === 'JEFATURA'
 
+  /** Al cambiar el criterio se vuelve a la primera página. */
   function cambiarOrden(nuevo: CriterioOrden) {
-    setOrden(nuevo)
-    irAPagina(0)
+    setParametros((actuales) => {
+      const siguientes = new URLSearchParams(actuales)
+      if (nuevo === 'VENCIMIENTO') siguientes.delete('orden')
+      else siguientes.set('orden', nuevo)
+      siguientes.delete('pagina')
+      return siguientes
+    })
   }
 
   return (
@@ -142,4 +151,9 @@ function Vencimiento({ orden }: { orden: OrdenPendiente }) {
       {orden.vencida && <span className="marca marca-peligro">Vencida</span>}
     </>
   )
+}
+
+/** El criterio de la URL; si falta o no es válido, por vencimiento. */
+function criterioDeUrl(valor: string | null): CriterioOrden {
+  return CRITERIOS_ORDEN.find((criterio) => criterio === valor) ?? 'VENCIMIENTO'
 }
