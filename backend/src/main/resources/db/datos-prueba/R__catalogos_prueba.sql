@@ -10,7 +10,8 @@ INSERT INTO categoria_falla (nombre, prioridad_sugerida) VALUES
     ('Lámpara quemada',           'MEDIA'),
     ('Falla de sincronización',   'MEDIA'),
     ('Pulsador peatonal roto',    'BAJA'),
-    ('Daño en estructura',        'BAJA')
+    ('Daño en estructura',        'BAJA'),
+    ('Otra',                      'MEDIA')  -- CU-1 4a: el detalle va en la descripción
 ON CONFLICT (nombre) DO NOTHING;
 
 INSERT INTO regla_sla (id_organismo, prioridad, horas_respuesta, horas_resolucion)
