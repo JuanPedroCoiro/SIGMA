@@ -1,4 +1,10 @@
-import type { EstadoOT, MotivoPausa, PausaOT } from '../features/ot/types'
+import type {
+  EstadoIncidente,
+  EstadoOT,
+  MotivoPausa,
+  PausaOT,
+  Prioridad,
+} from '../features/ot/types'
 import type { Rol } from '../shared/lib/roles'
 
 // Datos FICTICIOS de la API simulada (solo `npm run dev:simulado` y los tests).
@@ -44,6 +50,21 @@ export type OrdenSimulada = {
   creadaEn: string
   estadoAnteriorPausa: EstadoOT | null
   pausas: PausaOT[]
+  prioridad: Prioridad | null
+  idInstalacion: number
+  numeroIncidente: string | null
+}
+
+export type IncidenteSimulado = {
+  id: number
+  numero: string
+  estado: EstadoIncidente
+  prioridad: Prioridad
+  idInstalacion: number
+  descripcion: string
+  tercero: string | null
+  causa: string | null
+  creadoEn: string
 }
 
 type Base = {
@@ -51,6 +72,7 @@ type Base = {
   cuadrillas: CuadrillaSimulada[]
   instalaciones: InstalacionSimulada[]
   ordenes: OrdenSimulada[]
+  incidentes: IncidenteSimulado[]
   /** Usuario con la sesión abierta, o null. */
   idSesion: number | null
 }
@@ -128,6 +150,9 @@ function crearOrdenes(): OrdenSimulada[] {
       creadaEn: haceHoras(2),
       estadoAnteriorPausa: null,
       pausas: [],
+      prioridad: 'MEDIA',
+      idInstalacion: 1,
+      numeroIncidente: 'INC-0001',
     },
     {
       id: 2,
@@ -139,6 +164,9 @@ function crearOrdenes(): OrdenSimulada[] {
       creadaEn: haceHoras(30),
       estadoAnteriorPausa: 'ASIGNADA',
       pausas: [pausaAbierta('TERCERO', 'UTE', 10)],
+      prioridad: 'ALTA',
+      idInstalacion: 2,
+      numeroIncidente: 'INC-0002',
     },
     {
       id: 3,
@@ -150,6 +178,25 @@ function crearOrdenes(): OrdenSimulada[] {
       creadaEn: haceHoras(1),
       estadoAnteriorPausa: null,
       pausas: [],
+      prioridad: 'MEDIA',
+      idInstalacion: 3,
+      numeroIncidente: 'INC-0003',
+    },
+  ]
+}
+
+function crearIncidentes(): IncidenteSimulado[] {
+  return [
+    {
+      id: 4,
+      numero: 'INC-0004',
+      estado: 'EN_ESPERA_TERCERO',
+      prioridad: 'MEDIA',
+      idInstalacion: 4,
+      descripcion: 'Semáforo apagado',
+      tercero: 'UTE',
+      causa: 'Corte de energía en la zona',
+      creadoEn: haceHoras(3),
     },
   ]
 }
@@ -194,6 +241,7 @@ function crearBaseInicial(): Base {
     cuadrillas,
     instalaciones: crearInstalaciones(),
     ordenes: crearOrdenes(),
+    incidentes: crearIncidentes(),
     idSesion: null,
   }
 }
