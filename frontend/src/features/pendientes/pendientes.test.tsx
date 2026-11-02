@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { base } from '../../mocks/datos'
 import { renderizarRuta } from '../../test/renderizarRuta'
@@ -37,6 +37,21 @@ describe('tablero de pendientes (#43)', () => {
     fireEvent.change(screen.getByLabelText('Ordenar por'), { target: { value: 'PRIORIDAD' } })
 
     await waitFor(() => expect(numerosDelTablero()).toEqual(['OT-0002', 'OT-0001', 'OT-0003']))
+  })
+
+  it('criterioDeOrden_quedaEnLaUrlYSeConservaAlVolverDeUnaOt', async () => {
+    const { router } = renderizarRuta('/pendientes')
+    await screen.findByRole('link', { name: 'OT-0001' })
+
+    fireEvent.change(screen.getByLabelText('Ordenar por'), { target: { value: 'PRIORIDAD' } })
+    await waitFor(() => expect(router.state.location.search).toBe('?orden=PRIORIDAD'))
+
+    fireEvent.click(screen.getByRole('link', { name: 'OT-0002' }))
+    expect(await screen.findByRole('heading', { name: 'Orden OT-0002' })).toBeInTheDocument()
+    await act(() => router.navigate(-1))
+
+    await waitFor(() => expect(numerosDelTablero()).toEqual(['OT-0002', 'OT-0001', 'OT-0003']))
+    expect(screen.getByLabelText('Ordenar por')).toHaveValue('PRIORIDAD')
   })
 
   it('marcaVencidasDetenidasPorTerceroYSinSla', async () => {
