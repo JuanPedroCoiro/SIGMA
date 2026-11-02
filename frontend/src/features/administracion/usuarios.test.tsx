@@ -214,6 +214,22 @@ describe('usuarios (CU-13)', () => {
     expect(screen.queryByRole('button', { name: 'Desactivar' })).not.toBeInTheDocument()
   })
 
+  it('desactivar_tecnicoConOtsEnSuCuadrilla_avisaCuantasYQuedaInactivo', async () => {
+    // El técnico de prueba es de Cuadrilla Norte: OT-0001 asignada y OT-0002 en pausa.
+    renderizarRuta(`/usuarios/${ID_TECNICO}`)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Desactivar' }))
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Desactivar' }))
+
+    const aviso = await screen.findByRole('dialog', { name: 'Usuario desactivado' })
+    expect(aviso).toHaveTextContent('Cuadrilla Norte tiene 2 OTs asignadas, en proceso o en pausa')
+    fireEvent.click(within(aviso).getByRole('button', { name: 'Entendido' }))
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(await screen.findByText('Inactivo')).toBeInTheDocument()
+    expect(base.usuarios.find((u) => u.id === ID_TECNICO)?.activo).toBe(false)
+  })
+
   it('detalle_propioUsuario_noOfreceDesactivar', async () => {
     renderizarRuta(`/usuarios/${ID_JEFATURA}`)
 

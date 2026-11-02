@@ -37,3 +37,9 @@ export type DatosCuadrilla = {
   nombre: string
   zona: string | null
 }
+
+/** POST /api/v1/usuarios/{id}/desactivar (CU-13d 3a). Para quien no es técnico: null y 0. */
+export type DesactivacionResponse = {
+  cuadrilla: string | null
+  otsAbiertas: number
+}

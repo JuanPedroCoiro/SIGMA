@@ -5,11 +5,14 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.ciemsa.sigma.administracion.dto.CrearUsuarioRequest;
+import com.ciemsa.sigma.administracion.dto.DesactivacionResponse;
 import com.ciemsa.sigma.administracion.dto.ModificarUsuarioRequest;
 import com.ciemsa.sigma.administracion.dto.UsuarioResponse;
+import com.ciemsa.sigma.ot.application.OrdenTrabajoConsultaService;
 import com.ciemsa.sigma.shared.domain.ConflictoException;
 import com.ciemsa.sigma.shared.domain.NoEncontradoException;
 import com.ciemsa.sigma.shared.domain.ReglaNegocioException;
@@ -34,6 +37,7 @@ class UsuarioServiceTest {
   @Mock private CuadrillaRepository cuadrillaRepository;
   @Mock private PasswordEncoder passwordEncoder;
   @Mock private UsuarioActual usuarioActual;
+  @Mock private OrdenTrabajoConsultaService ordenTrabajoConsultaService;
   @InjectMocks private UsuarioService usuarioService;
 
   // --- Alta (CU-13a) ---
@@ -150,6 +154,28 @@ class UsuarioServiceTest {
     usuarioService.desactivar(2L);
 
     assertThat(operador.isActivo()).isFalse();
+  }
+
+  @Test
+  void desactivar_tecnico_avisaLasOtsDeSuCuadrillaYLoDesactivaIgual() {
+    Cuadrilla norte = Cuadrilla.crear("Cuadrilla Norte", null);
+    Usuario tecnico = Usuario.crear("Juan", "juan@ciemsa.com", HASH, Rol.TECNICO, norte);
+    when(usuarioRepository.findById(5L)).thenReturn(Optional.of(tecnico));
+    when(ordenTrabajoConsultaService.contarAbiertasDeCuadrilla(norte.getId())).thenReturn(3L);
+
+    DesactivacionResponse respuesta = usuarioService.desactivar(5L);
+
+    assertThat(tecnico.isActivo()).isFalse();
+    assertThat(respuesta).isEqualTo(new DesactivacionResponse("Cuadrilla Norte", 3));
+  }
+
+  @Test
+  void desactivar_noTecnico_noConsultaLasOts() {
+    Usuario operador = operador("ana@ciemsa.com");
+    when(usuarioRepository.findById(2L)).thenReturn(Optional.of(operador));
+
+    assertThat(usuarioService.desactivar(2L)).isEqualTo(DesactivacionResponse.sinAviso());
+    verifyNoInteractions(ordenTrabajoConsultaService);
   }
 
   @Test

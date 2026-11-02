@@ -161,7 +161,19 @@ export const handlersUsuarios = [
     if (usuario.id === base.idSesion) return reglaNegocio('No podés desactivar tu propia cuenta.')
     usuario.activo = false
     guardarBase()
-    return new HttpResponse(null, { status: 204 })
+    // Como el backend: si es un técnico, avisa las OTs de su cuadrilla (CU-13d 3a).
+    const cuadrilla =
+      usuario.rol === 'TECNICO'
+        ? base.cuadrillas.find((c) => c.id === usuario.idCuadrilla)
+        : undefined
+    const otsAbiertas = cuadrilla
+      ? base.ordenes.filter(
+          (o) =>
+            o.idCuadrilla === cuadrilla.id &&
+            ['ASIGNADA', 'EN_PROCESO', 'EN_PAUSA'].includes(o.estado),
+        ).length
+      : 0
+    return HttpResponse.json({ cuadrilla: cuadrilla?.nombre ?? null, otsAbiertas })
   }),
 
   http.post('/api/v1/usuarios/:id/activar', ({ params }) => {
