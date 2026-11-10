@@ -185,9 +185,13 @@ public class OrdenTrabajo extends BaseEntity {
 
   // Operaciones (Fig. 7 y Fig. 18): delegan en el estado
 
-  /** Asignar, tomar o reasignar. */
+  /**
+   * Asignar, tomar o reasignar. Deja pendiente un {@link OrdenAsignada} con la cuadrilla anterior.
+   */
   public void asignar(Long idCuadrilla, LocalDate fechaEjecucion, Instant ahora) {
+    Long anterior = this.idCuadrilla;
     estado.asignar(this, idCuadrilla, fechaEjecucion, ahora);
+    pendientes.add(new AsignacionPendiente(anterior, idCuadrilla, fechaEjecucion, ahora));
   }
 
   public void liberar(Instant ahora) {
@@ -232,8 +236,9 @@ public class OrdenTrabajo extends BaseEntity {
 
   /**
    * Devuelve los eventos de dominio pendientes ({@link OrdenGenerada}, {@link EstadoOrdenCambiado},
-   * {@link OrdenPausada}, {@link OrdenReanudada}) en el orden en que ocurrieron y los descarta. Se
-   * llama después de guardar, porque los eventos llevan el id de la OT.
+   * {@link OrdenAsignada}, {@link OrdenPausada}, {@link OrdenReanudada}) en el orden en que
+   * ocurrieron y los descarta. Se llama después de guardar, porque los eventos llevan el id de la
+   * OT.
    */
   public List<Object> extraerEventos() {
     if (id == null) {
@@ -250,6 +255,9 @@ public class OrdenTrabajo extends BaseEntity {
           new OrdenGenerada(id, incidente == null ? null : incidente.getId(), c.ocurridoEn());
       case CambioPendiente c ->
           new EstadoOrdenCambiado(id, c.anterior(), c.nuevo(), c.ocurridoEn());
+      case AsignacionPendiente a ->
+          new OrdenAsignada(
+              id, a.cuadrillaAnterior(), a.cuadrillaNueva(), a.fechaEjecucion(), a.ocurridoEn());
       case PausaPendiente p ->
           new OrdenPausada(id, p.motivo(), p.detalle(), p.idUsuario(), p.ocurridoEn());
       case ReanudacionPendiente r ->
@@ -319,7 +327,7 @@ public class OrdenTrabajo extends BaseEntity {
 
   /** Evento todavía sin publicar: le falta el id de la OT, que se conoce al guardar. */
   private sealed interface Pendiente
-      permits CambioPendiente, PausaPendiente, ReanudacionPendiente {}
+      permits CambioPendiente, AsignacionPendiente, PausaPendiente, ReanudacionPendiente {}
 
   /** Cambio de estado; anterior null = la OT recién generada. */
   private record CambioPendiente(EstadoOT anterior, EstadoOT nuevo, Instant ocurridoEn)
@@ -327,6 +335,10 @@ public class OrdenTrabajo extends BaseEntity {
 
   private record PausaPendiente(
       MotivoPausa motivo, String detalle, Long idUsuario, Instant ocurridoEn)
+      implements Pendiente {}
+
+  private record AsignacionPendiente(
+      Long cuadrillaAnterior, Long cuadrillaNueva, LocalDate fechaEjecucion, Instant ocurridoEn)
       implements Pendiente {}
 
   /** {@code fechaLimite} es la vigente después de reanudar. */

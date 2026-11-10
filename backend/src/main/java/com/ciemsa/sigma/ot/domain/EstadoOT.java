@@ -33,7 +33,6 @@ public enum EstadoOT {
     @Override
     void asignar(OrdenTrabajo ot, Long idCuadrilla, LocalDate fechaEjecucion, Instant ahora) {
       ot.registrarAsignacion(idCuadrilla, fechaEjecucion, ahora); // asignar o tomar // reasignar
-      ot.cambiarEstado(ASIGNADA, ahora);
     }
 
     @Override

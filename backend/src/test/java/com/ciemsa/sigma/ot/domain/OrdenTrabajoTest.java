@@ -90,7 +90,48 @@ class OrdenTrabajoTest {
         .containsExactly(
             new OrdenGenerada(99L, null, INICIO),
             new EstadoOrdenCambiado(99L, EstadoOT.PENDIENTE, EstadoOT.ASIGNADA, asignada),
+            new OrdenAsignada(99L, null, 7L, FECHA, asignada),
             new EstadoOrdenCambiado(99L, EstadoOT.ASIGNADA, EstadoOT.EN_PROCESO, iniciada));
+    assertThat(ot.extraerEventos()).isEmpty();
+  }
+
+  @Test
+  void extraerEventos_reasignar_soloOrdenAsignadaConLaCuadrillaAnterior() {
+    OrdenTrabajo ot = correctiva(null);
+    ot.asignar(7L, FECHA, INICIO);
+    ReflectionTestUtils.setField(ot, "id", 99L);
+    ot.extraerEventos();
+    Instant reasignada = INICIO.plusSeconds(3600);
+
+    ot.asignar(8L, FECHA.plusDays(1), reasignada);
+
+    assertThat(ot.extraerEventos())
+        .containsExactly(new OrdenAsignada(99L, 7L, 8L, FECHA.plusDays(1), reasignada));
+  }
+
+  @Test
+  void extraerEventos_mismaCuadrillaOtraFecha_ordenAsignadaConLaMismaCuadrilla() {
+    OrdenTrabajo ot = correctiva(null);
+    ot.asignar(7L, FECHA, INICIO);
+    ReflectionTestUtils.setField(ot, "id", 99L);
+    ot.extraerEventos();
+
+    ot.asignar(7L, FECHA.plusDays(2), INICIO.plusSeconds(60));
+
+    assertThat(ot.extraerEventos())
+        .containsExactly(new OrdenAsignada(99L, 7L, 7L, FECHA.plusDays(2), INICIO.plusSeconds(60)));
+  }
+
+  @Test
+  void extraerEventos_asignarEnProceso_noAgregaOrdenAsignada() {
+    OrdenTrabajo ot = correctiva(null);
+    ot.asignar(7L, FECHA, INICIO);
+    ot.iniciar(INICIO);
+    ReflectionTestUtils.setField(ot, "id", 99L);
+    ot.extraerEventos();
+
+    assertThatThrownBy(() -> ot.asignar(8L, FECHA, INICIO))
+        .isInstanceOf(TransicionInvalidaException.class);
     assertThat(ot.extraerEventos()).isEmpty();
   }
 
