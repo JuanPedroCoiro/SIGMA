@@ -16,3 +16,11 @@ export async function importarInstalaciones(archivo: File): Promise<ResultadoImp
   const res = await cliente.post<ResultadoImportacion>('/instalaciones/importar', datos)
   return res.data
 }
+
+/** Instalaciones activas cuyo código o nombre contiene el texto (HU-03), las primeras 10. */
+export async function buscarInstalaciones(texto: string): Promise<PageResponse<Instalacion>> {
+  const res = await cliente.get<PageResponse<Instalacion>>('/instalaciones', {
+    params: { buscar: texto, size: 10, sort: 'codigo,asc' },
+  })
+  return res.data
+}

@@ -10,6 +10,7 @@ import { UsuariosPage } from '../features/administracion/pages/UsuariosPage'
 import { InicioSesionPage } from '../features/autenticacion/pages/InicioSesionPage'
 import { EstadoPage } from '../features/estado/pages/EstadoPage'
 import { OrdenDetallePage } from '../features/ot/pages/OrdenDetallePage'
+import { RegistrarIncidentePage } from '../features/ot/pages/RegistrarIncidentePage'
 import { InicioPage } from './InicioPage'
 import { Layout } from './layout/Layout'
 import { NoEncontradaPage } from './NoEncontradaPage'
@@ -30,6 +31,7 @@ export const rutas: RouteObject[] = [
             children: [
               { path: 'instalaciones', element: <InstalacionesPage /> },
               { path: 'pendientes', element: <PendientesPage /> },
+              { path: 'incidentes/nuevo', element: <RegistrarIncidentePage /> },
             ],
           },
           {

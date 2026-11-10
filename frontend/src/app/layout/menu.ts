@@ -11,6 +11,11 @@ export type OpcionMenu = {
 export const opcionesMenu: OpcionMenu[] = [
   { ruta: '/', etiqueta: 'Inicio' },
   { ruta: '/pendientes', etiqueta: 'Pendientes', roles: ['JEFATURA', 'OPERADOR'] },
+  {
+    ruta: '/incidentes/nuevo',
+    etiqueta: 'Registrar incidente',
+    roles: ['JEFATURA', 'OPERADOR'],
+  },
   { ruta: '/instalaciones', etiqueta: 'Instalaciones', roles: ['JEFATURA', 'OPERADOR'] },
   { ruta: '/usuarios', etiqueta: 'Usuarios', roles: ['JEFATURA'] },
   { ruta: '/cuadrillas', etiqueta: 'Cuadrillas', roles: ['JEFATURA'] },
