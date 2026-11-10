@@ -95,6 +95,14 @@ public class OrdenTrabajo extends BaseEntity {
   @Getter(AccessLevel.NONE)
   private final List<PausaOT> pausas = new ArrayList<>();
 
+  /**
+   * Qué cuadrilla tuvo la OT y cuándo; a lo sumo un tramo abierto (uq_tramo_cuadrilla_ot_abierto).
+   */
+  @OneToMany(mappedBy = "ordenTrabajo", cascade = CascadeType.ALL, orphanRemoval = true)
+  @OrderBy("desde")
+  @Getter(AccessLevel.NONE)
+  private final List<TramoCuadrillaOT> tramos = new ArrayList<>();
+
   @Transient
   @Getter(AccessLevel.NONE)
   private final List<Pendiente> pendientes = new ArrayList<>();
@@ -143,6 +151,16 @@ public class OrdenTrabajo extends BaseEntity {
   /** Las pausas de la OT, de la más vieja a la más nueva. */
   public List<PausaOT> getPausas() {
     return Collections.unmodifiableList(pausas);
+  }
+
+  /** El tramo de la cuadrilla que tiene la OT a cargo, si alguna la tiene. */
+  public Optional<TramoCuadrillaOT> tramoAbierto() {
+    return tramos.stream().filter(TramoCuadrillaOT::estaAbierto).findFirst();
+  }
+
+  /** Los tramos de la OT, del más viejo al más nuevo. */
+  public List<TramoCuadrillaOT> getTramos() {
+    return Collections.unmodifiableList(tramos);
   }
 
   /**
@@ -241,12 +259,22 @@ public class OrdenTrabajo extends BaseEntity {
 
   // Solo las usa EstadoOT
 
-  void registrarAsignacion(Long idCuadrilla, LocalDate fechaEjecucion) {
-    this.idCuadrilla = Objects.requireNonNull(idCuadrilla);
+  /**
+   * Una cuadrilla nueva cierra el tramo de la anterior y abre el suyo. Si es la misma cuadrilla,
+   * solo cambia la fecha de ejecución.
+   */
+  void registrarAsignacion(Long idCuadrilla, LocalDate fechaEjecucion, Instant ahora) {
+    Objects.requireNonNull(idCuadrilla);
+    if (!idCuadrilla.equals(this.idCuadrilla)) {
+      cerrarTramo(ahora);
+      tramos.add(TramoCuadrillaOT.abrir(this, idCuadrilla, ahora));
+    }
+    this.idCuadrilla = idCuadrilla;
     this.fechaEjecucion = fechaEjecucion;
   }
 
-  void quitarCuadrilla() {
+  void quitarCuadrilla(Instant ahora) {
+    cerrarTramo(ahora);
     this.idCuadrilla = null;
   }
 
@@ -272,11 +300,16 @@ public class OrdenTrabajo extends BaseEntity {
     }
   }
 
-  void registrarAnulacion(String motivo) {
+  void registrarAnulacion(String motivo, Instant ahora) {
     if (motivo == null || motivo.isBlank()) {
       throw new ReglaNegocioException("El motivo de anulación es obligatorio.");
     }
     this.motivoAnulacion = motivo.trim();
+    cerrarTramo(ahora);
+  }
+
+  private void cerrarTramo(Instant ahora) {
+    tramoAbierto().ifPresent(tramo -> tramo.cerrar(ahora));
   }
 
   void cambiarEstado(EstadoOT nuevo, Instant ahora) {

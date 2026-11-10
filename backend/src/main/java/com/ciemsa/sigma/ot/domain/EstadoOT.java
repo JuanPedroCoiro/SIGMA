@@ -13,7 +13,8 @@ public enum EstadoOT {
   PENDIENTE {
     @Override
     void asignar(OrdenTrabajo ot, Long idCuadrilla, LocalDate fechaEjecucion, Instant ahora) {
-      ot.registrarAsignacion(idCuadrilla, fechaEjecucion); // asignar o tomar
+      ot.registrarAsignacion(
+          idCuadrilla, fechaEjecucion, ahora); // asignar o tomar // asignar o tomar
       ot.cambiarEstado(ASIGNADA, ahora);
     }
 
@@ -31,7 +32,7 @@ public enum EstadoOT {
   ASIGNADA {
     @Override
     void asignar(OrdenTrabajo ot, Long idCuadrilla, LocalDate fechaEjecucion, Instant ahora) {
-      ot.registrarAsignacion(idCuadrilla, fechaEjecucion); // reasignar
+      ot.registrarAsignacion(idCuadrilla, fechaEjecucion, ahora); // asignar o tomar // reasignar
       ot.cambiarEstado(ASIGNADA, ahora);
     }
 
@@ -92,7 +93,10 @@ public enum EstadoOT {
       if (anterior != PENDIENTE && anterior != ASIGNADA) {
         throw new TransicionInvalidaException(this, "anular");
       }
-      ot.registrarAnulacion(motivo); // valida el motivo antes de tocar la pausa
+      ot.registrarAnulacion(
+          motivo,
+          ahora); // valida el motivo antes de tocar la pausa // valida el motivo antes de tocar la
+      // pausa
       ot.cerrarPausa(idUsuario, ahora, false);
       ot.cambiarEstado(ANULADA, ahora);
     }
@@ -176,12 +180,12 @@ public enum EstadoOT {
   }
 
   private static void pasarALiberada(OrdenTrabajo ot, Instant ahora) {
-    ot.quitarCuadrilla();
+    ot.quitarCuadrilla(ahora);
     ot.cambiarEstado(PENDIENTE, ahora);
   }
 
   private static void pasarAAnulada(OrdenTrabajo ot, String motivo, Instant ahora) {
-    ot.registrarAnulacion(motivo);
+    ot.registrarAnulacion(motivo, ahora);
     ot.cambiarEstado(ANULADA, ahora);
   }
 }
