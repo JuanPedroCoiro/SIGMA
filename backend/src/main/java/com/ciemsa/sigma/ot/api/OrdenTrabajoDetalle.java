@@ -8,6 +8,7 @@ import com.ciemsa.sigma.ot.domain.PausaOT;
 import com.ciemsa.sigma.ot.domain.TiemposOT;
 import com.ciemsa.sigma.ot.domain.TipoOT;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
@@ -22,6 +23,7 @@ public record OrdenTrabajoDetalle(
     TipoOT tipo,
     EstadoOT estado,
     Long idCuadrilla,
+    LocalDate fechaEjecucion,
     Instant inicioSla,
     Instant fechaLimite,
     boolean slaDefinido,
@@ -39,6 +41,7 @@ public record OrdenTrabajoDetalle(
         ot.getTipo(),
         ot.getEstado(),
         ot.getIdCuadrilla(),
+        ot.getFechaEjecucion(),
         ot.getInicioSla(),
         ot.getFechaLimite(),
         ot.getFechaLimite() != null,
