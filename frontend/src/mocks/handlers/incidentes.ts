@@ -65,6 +65,7 @@ export const handlersIncidentes = [
       numero: `OT-${String(id).padStart(4, '0')}`,
       estado: 'PENDIENTE',
       idCuadrilla: null,
+      fechaEjecucion: null,
       inicioSla: ahora.toISOString(),
       fechaLimite: new Date(
         ahora.getTime() + HORAS_RESOLUCION[incidente.prioridad] * HORA,

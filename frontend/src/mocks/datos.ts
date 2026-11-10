@@ -5,6 +5,7 @@ import type {
   PausaOT,
   Prioridad,
 } from '../features/ot/types'
+import { hoyEnMontevideo } from '../shared/lib/fechas'
 import type { Rol } from '../shared/lib/roles'
 
 // Datos FICTICIOS de la API simulada (solo `npm run dev:simulado` y los tests).
@@ -45,6 +46,8 @@ export type OrdenSimulada = {
   numero: string
   estado: EstadoOT
   idCuadrilla: number | null
+  /** «2026-11-12»; null si no está asignada (#41). */
+  fechaEjecucion: string | null
   inicioSla: string | null
   fechaLimite: string | null
   creadaEn: string
@@ -78,8 +81,8 @@ type Base = {
 }
 
 // Con versión: cuando cambia la forma de los datos se sube, y la base vieja guardada en la
-// pestaña se descarta en lugar de mezclarse con la nueva (#61).
-const CLAVE_ALMACEN = 'sigma.apiSimulada.v2'
+// pestaña se descarta en lugar de mezclarse con la nueva (#61). v3: fechaEjecucion (#41).
+const CLAVE_ALMACEN = 'sigma.apiSimulada.v3'
 
 const NOMBRES = ['Ana', 'Bruno', 'Carla', 'Diego', 'Elena', 'Fabián', 'Gabriela', 'Hernán']
 const APELLIDOS = ['Acosta', 'Benítez', 'Cabrera', 'Duarte']
@@ -139,7 +142,10 @@ function pausaAbierta(motivo: MotivoPausa, detalle: string | null, horas: number
   }
 }
 
-/** OTs correctivas ficticias (#39): una asignada a Norte, una en pausa por un tercero y una sin SLA. */
+/**
+ * OTs correctivas ficticias (#39): una asignada a Norte para hoy, una en pausa por un tercero
+ * (también de Norte, para hoy) y una pendiente sin SLA.
+ */
 function crearOrdenes(): OrdenSimulada[] {
   return [
     {
@@ -147,6 +153,7 @@ function crearOrdenes(): OrdenSimulada[] {
       numero: 'OT-0001',
       estado: 'ASIGNADA',
       idCuadrilla: 1,
+      fechaEjecucion: hoyEnMontevideo(),
       inicioSla: haceHoras(2),
       fechaLimite: new Date(Date.now() + 46 * HORA).toISOString(),
       creadaEn: haceHoras(2),
@@ -161,6 +168,7 @@ function crearOrdenes(): OrdenSimulada[] {
       numero: 'OT-0002',
       estado: 'EN_PAUSA',
       idCuadrilla: 1,
+      fechaEjecucion: hoyEnMontevideo(),
       inicioSla: haceHoras(30),
       fechaLimite: haceHoras(6),
       creadaEn: haceHoras(30),
@@ -175,6 +183,7 @@ function crearOrdenes(): OrdenSimulada[] {
       numero: 'OT-0003',
       estado: 'PENDIENTE',
       idCuadrilla: null,
+      fechaEjecucion: null,
       inicioSla: haceHoras(1),
       fechaLimite: null,
       creadaEn: haceHoras(1),
