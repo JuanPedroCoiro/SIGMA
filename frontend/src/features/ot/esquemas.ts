@@ -6,6 +6,8 @@ import {
   type MotivoPausa,
 } from './types'
 
+import { hoyEnMontevideo } from '../../shared/lib/fechas'
+
 const MENSAJE_DETALLE: Partial<Record<MotivoPausa, string>> = {
   TERCERO: 'Indicá qué tercero causa la pausa.',
   OTRO: 'Detallá el motivo de la pausa.',
@@ -47,5 +49,30 @@ export const esquemaAnulacion = z
     return { motivo: datos.detalle ? `${etiqueta}: ${datos.detalle}` : etiqueta }
   })
 
+/**
+ * Asignación (HU-05): las mismas reglas que AsignarOtsRequest y AsignacionOtService. La fecha no
+ * puede ser anterior a hoy en Montevideo (2a). El select entrega el id de la cuadrilla como texto.
+ */
+export const esquemaAsignacion = z
+  .object({
+    fechaEjecucion: z.string().min(1, 'Elegí la fecha de ejecución.'),
+    idCuadrilla: z.string().min(1, 'Elegí la cuadrilla.'),
+  })
+  .superRefine((datos, ctx) => {
+    if (datos.fechaEjecucion && datos.fechaEjecucion < hoyEnMontevideo()) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['fechaEjecucion'],
+        message: 'La fecha no puede ser anterior a hoy.',
+      })
+    }
+  })
+  .transform((datos) => ({
+    fechaEjecucion: datos.fechaEjecucion,
+    idCuadrilla: Number(datos.idCuadrilla),
+  }))
+
+export type CamposAsignacion = z.input<typeof esquemaAsignacion>
+export type ValoresAsignacion = z.output<typeof esquemaAsignacion>
 export type CamposAnulacion = z.input<typeof esquemaAnulacion>
 export type ValoresAnulacion = z.output<typeof esquemaAnulacion>

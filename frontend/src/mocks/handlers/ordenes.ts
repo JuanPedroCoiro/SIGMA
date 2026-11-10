@@ -1,16 +1,30 @@
 import { http, HttpResponse } from 'msw/http'
-import { puedeAnularse, type MotivoPausa } from '../../features/ot/types'
+import { puedeAnularse, puedeAsignarse, type MotivoPausa } from '../../features/ot/types'
 import { TIPOS_PROBLEMA, type ErrorCampo } from '../../shared/api/problemDetail'
+import { hoyEnMontevideo } from '../../shared/lib/fechas'
 import { base, guardarBase, type OrdenSimulada } from '../datos'
-import { problema, reglaNegocio, sinPermiso, sinSesion, usuarioEnSesion } from '../problemas'
+import {
+  exigirJefatura,
+  problema,
+  reglaNegocio,
+  sinPermiso,
+  sinSesion,
+  usuarioEnSesion,
+} from '../problemas'
 
 // Detalle, pausar y reanudar una OT (#39). Técnico (solo su cuadrilla), Operador y Jefatura.
+// Asignar y carga por cuadrilla (#41), solo la Jefatura.
 
 const MINUTO = 60_000
 const PAUSABLES = ['PENDIENTE', 'ASIGNADA', 'EN_PROCESO']
 const ROLES = ['JEFATURA', 'OPERADOR', 'TECNICO']
 
+/** Las que una cuadrilla tiene entre manos, como OrdenTrabajoConsultaService. */
+const EN_MANOS_DE_LA_CUADRILLA = ['ASIGNADA', 'EN_PROCESO', 'EN_PAUSA']
+
 type DatosPausa = { motivo?: MotivoPausa; detalle?: string | null }
+
+type DatosAsignacion = { idsOrdenTrabajo?: number[]; idCuadrilla?: number; fechaEjecucion?: string }
 
 function minutos(desde: string, hasta: number) {
   return Math.floor((hasta - new Date(desde).getTime()) / MINUTO)
@@ -35,6 +49,7 @@ function respuesta(orden: OrdenSimulada) {
     tipo: 'CORRECTIVA',
     estado: orden.estado,
     idCuadrilla: orden.idCuadrilla,
+    fechaEjecucion: orden.fechaEjecucion,
     inicioSla: orden.inicioSla,
     fechaLimite: orden.fechaLimite,
     slaDefinido: orden.fechaLimite !== null,
@@ -77,6 +92,92 @@ const transicionInvalida = (operacion: string, orden: OrdenSimulada) =>
   )
 
 export const handlersOrdenes = [
+  // Antes que /ordenes/:id: si no, MSW tomaría «carga-por-cuadrilla» como el id de una OT.
+  http.get('/api/v1/ordenes/carga-por-cuadrilla', ({ request }) => {
+    const rechazo = exigirJefatura()
+    if (rechazo) return rechazo
+    const fecha = new URL(request.url).searchParams.get('fecha')
+    if (!fecha) {
+      return problema(400, TIPOS_PROBLEMA.validacion, 'Datos inválidos', 'Falta la fecha.')
+    }
+    const carga = new Map<number, number>()
+    for (const orden of base.ordenes) {
+      if (
+        orden.idCuadrilla !== null &&
+        orden.fechaEjecucion === fecha &&
+        EN_MANOS_DE_LA_CUADRILLA.includes(orden.estado)
+      ) {
+        carga.set(orden.idCuadrilla, (carga.get(orden.idCuadrilla) ?? 0) + 1)
+      }
+    }
+    return HttpResponse.json([...carga].map(([idCuadrilla, ordenes]) => ({ idCuadrilla, ordenes })))
+  }),
+
+  // Como AsignacionOtService: todas o ninguna.
+  http.post('/api/v1/ordenes/asignar', async ({ request }) => {
+    const rechazo = exigirJefatura()
+    if (rechazo) return rechazo
+    const { idsOrdenTrabajo, idCuadrilla, fechaEjecucion } =
+      (await request.json()) as DatosAsignacion
+
+    const errores: ErrorCampo[] = []
+    if (!idsOrdenTrabajo?.length) {
+      errores.push({ campo: 'idsOrdenTrabajo', mensaje: 'Elegí al menos una OT.' })
+    }
+    if (!idCuadrilla) errores.push({ campo: 'idCuadrilla', mensaje: 'Elegí la cuadrilla.' })
+    if (!fechaEjecucion) {
+      errores.push({ campo: 'fechaEjecucion', mensaje: 'Elegí la fecha de ejecución.' })
+    }
+    if (!idsOrdenTrabajo?.length || !idCuadrilla || !fechaEjecucion) {
+      return problema(400, TIPOS_PROBLEMA.validacion, 'Datos inválidos', 'Revisá los campos.', {
+        errores,
+      })
+    }
+
+    const cuadrilla = base.cuadrillas.find((c) => c.id === idCuadrilla && c.activa)
+    if (!cuadrilla) {
+      return reglaNegocio(`La cuadrilla ${idCuadrilla} no existe o está inactiva.`)
+    }
+    // Las fechas «AAAA-MM-DD» se comparan bien como texto.
+    if (fechaEjecucion < hoyEnMontevideo()) {
+      return problema(
+        400,
+        TIPOS_PROBLEMA.fechaAnterior,
+        'Regla de negocio no cumplida',
+        'La fecha de ejecución no puede ser anterior a hoy.',
+      )
+    }
+
+    const ids = [...new Set(idsOrdenTrabajo)]
+    const faltantes = ids.filter((id) => !base.ordenes.some((o) => o.id === id))
+    if (faltantes.length > 0) {
+      return problema(
+        404,
+        'no-encontrado',
+        'Recurso no encontrado',
+        `No existen las órdenes de trabajo [${faltantes.join(', ')}].`,
+      )
+    }
+    const ordenes = base.ordenes.filter((o) => ids.includes(o.id))
+    // Primero se revisan todas; recién después se asigna (todas o ninguna).
+    const noAsignable = ordenes.find((o) => !puedeAsignarse(o.estado))
+    if (noAsignable) {
+      return problema(
+        400,
+        TIPOS_PROBLEMA.transicionInvalida,
+        'Regla de negocio no cumplida',
+        `${noAsignable.numero}: No se puede asignar una OT en estado ${noAsignable.estado}.`,
+      )
+    }
+    for (const orden of ordenes) {
+      orden.estado = 'ASIGNADA'
+      orden.idCuadrilla = cuadrilla.id
+      orden.fechaEjecucion = fechaEjecucion
+    }
+    guardarBase()
+    return HttpResponse.json(ordenes.map(respuesta))
+  }),
+
   http.get('/api/v1/ordenes/:id', ({ params }) => {
     const { rechazo, orden } = buscarAccesible(params.id)
     if (rechazo) return rechazo

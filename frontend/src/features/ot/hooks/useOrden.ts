@@ -1,6 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { anularOrden, obtenerOrden, pausarOrden, reanudarOrden } from '../api/ordenesApi'
-import type { DatosPausa, OrdenTrabajoDetalle } from '../types'
+import {
+  anularOrden,
+  asignarOrdenes,
+  obtenerCargaPorCuadrilla,
+  obtenerOrden,
+  pausarOrden,
+  reanudarOrden,
+} from '../api/ordenesApi'
+import type { DatosAsignacion, DatosPausa, OrdenTrabajoDetalle } from '../types'
 
 export const CLAVE_ORDENES = 'ordenes'
 
@@ -41,5 +48,26 @@ export function useAnularOrden(id: number) {
   return useMutation({
     mutationFn: (motivo: string) => anularOrden(id, motivo),
     onSuccess: actualizar,
+  })
+}
+
+/**
+ * HU-05: asignar o reasignar varias OTs. Invalida todas las consultas de órdenes: el tablero, los
+ * detalles y la carga por cuadrilla.
+ */
+export function useAsignarOrdenes() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (datos: DatosAsignacion) => asignarOrdenes(datos),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: [CLAVE_ORDENES] }),
+  })
+}
+
+/** HU-05 (3): la carga de cada cuadrilla para la fecha elegida, como referencia al asignar. */
+export function useCargaPorCuadrilla(fecha: string) {
+  return useQuery({
+    queryKey: [CLAVE_ORDENES, 'carga-por-cuadrilla', fecha],
+    queryFn: () => obtenerCargaPorCuadrilla(fecha),
+    enabled: fecha !== '',
   })
 }

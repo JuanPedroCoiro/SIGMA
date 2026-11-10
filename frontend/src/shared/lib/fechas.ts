@@ -38,3 +38,15 @@ export function formatearFechaHoraMontevideo(instante: string | Date) {
   const fecha = new Date(instante)
   return `${formatoHora.format(fecha)} del ${formatoDia.format(fecha)}`
 }
+
+const formatoIso = new Intl.DateTimeFormat('en-CA', {
+  timeZone: ZONA,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+})
+
+/** Hoy en Montevideo como «2026-11-10», el formato de los <input type="date"> y del backend. */
+export function hoyEnMontevideo(ahora: Date = new Date()) {
+  return formatoIso.format(ahora)
+}

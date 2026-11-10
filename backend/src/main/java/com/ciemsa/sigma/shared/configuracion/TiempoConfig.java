@@ -3,6 +3,7 @@ package com.ciemsa.sigma.shared.configuracion;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.Optional;
 import org.springframework.context.annotation.Bean;
@@ -27,5 +28,14 @@ public class TiempoConfig {
   @Bean
   DateTimeProvider proveedorFechaAuditoria(Clock clock) {
     return () -> Optional.of(Instant.now(clock));
+  }
+
+  /**
+   * Zona de CIEMSA, para decidir qué día es «hoy» (por ejemplo, una fecha de ejecución no puede ser
+   * anterior). Las fechas y horas se siguen guardando en UTC.
+   */
+  @Bean
+  ZoneId zonaHoraria() {
+    return ZoneId.of("America/Montevideo");
   }
 }

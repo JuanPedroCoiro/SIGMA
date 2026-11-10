@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Paginacion } from '../../../shared/components/Paginacion'
 import { usePaginado } from '../../../shared/hooks/usePaginado'
@@ -7,6 +8,7 @@ import {
   ETIQUETA_MOTIVO,
   ETIQUETA_PRIORIDAD,
   MOTIVO_QUE_REINICIA_SLA,
+  puedeAsignarse,
 } from '../../ot/types'
 import { SeccionIncidentesEnEspera } from '../components/SeccionIncidentesEnEspera'
 import { useOrdenesPendientes } from '../hooks/usePendientes'
@@ -19,6 +21,7 @@ import {
 import './PendientesPage.css'
 import { useSesion } from '../../../app/sesion/useSesion'
 import { AccionAnular } from '../../ot/components/AccionAnular'
+import { DialogoAsignacion } from '../../ot/components/DialogoAsignacion'
 
 /** HU-04 (CU-9): OTs abiertas por vencimiento y, aparte, los incidentes en espera de tercero. */
 export function PendientesPage() {
@@ -30,8 +33,13 @@ export function PendientesPage() {
   const orden = criterioDeUrl(parametros.get('orden'))
   const ordenes = useOrdenesPendientes(orden, pagina)
   const sesion = useSesion()
-  // Anular es solo de la Jefatura (CU-19): el Operador no ve la columna.
+  // Anular y asignar son solo de la Jefatura (CU-19, HU-05): el Operador no ve esas columnas.
   const esJefatura = sesion.estado === 'autenticado' && sesion.usuario.rol === 'JEFATURA'
+
+  // OTs marcadas para asignar (id → número). Se conservan al cambiar de página, para poder juntar
+  // OTs de varias; se limpian al asignar.
+  const [seleccion, setSeleccion] = useState<Map<number, string>>(new Map())
+  const [asignando, setAsignando] = useState(false)
 
   /** Al cambiar el criterio se vuelve a la primera página. */
   function cambiarOrden(nuevo: CriterioOrden) {
@@ -41,6 +49,15 @@ export function PendientesPage() {
       else siguientes.set('orden', nuevo)
       siguientes.delete('pagina')
       return siguientes
+    })
+  }
+
+  function alternarSeleccion(ot: OrdenPendiente) {
+    setSeleccion((actual) => {
+      const nueva = new Map(actual)
+      if (nueva.has(ot.id)) nueva.delete(ot.id)
+      else nueva.set(ot.id, ot.numero)
+      return nueva
     })
   }
 
@@ -71,9 +88,34 @@ export function PendientesPage() {
 
       {ordenes.data && ordenes.data.totalElementos > 0 && (
         <>
+          {esJefatura && (
+            <div className="pendientes-seleccion">
+              <button
+                type="button"
+                className="boton"
+                disabled={seleccion.size === 0}
+                onClick={() => setAsignando(true)}
+              >
+                {seleccion.size === 0 ? 'Asignar' : `Asignar (${seleccion.size})`}
+              </button>
+              {seleccion.size > 0 && (
+                <button
+                  type="button"
+                  className="boton boton-secundario"
+                  onClick={() => setSeleccion(new Map())}
+                >
+                  Quitar selección
+                </button>
+              )}
+              <span className="pendientes-secundario">
+                Marcá las OTs que querés asignar o reasignar a una cuadrilla.
+              </span>
+            </div>
+          )}
           <table className="tabla-pendientes">
             <thead>
               <tr>
+                {esJefatura && <th scope="col" aria-label="Seleccionar" />}
                 <th scope="col">OT</th>
                 <th scope="col">Vencimiento</th>
                 <th scope="col">Estado</th>
@@ -86,6 +128,18 @@ export function PendientesPage() {
             <tbody>
               {ordenes.data.contenido.map((ot) => (
                 <tr key={ot.id} className={ot.vencida ? 'fila-vencida' : undefined}>
+                  {esJefatura && (
+                    <td data-etiqueta="Seleccionar">
+                      {puedeAsignarse(ot.estado) && (
+                        <input
+                          type="checkbox"
+                          aria-label={`Seleccionar ${ot.numero}`}
+                          checked={seleccion.has(ot.id)}
+                          onChange={() => alternarSeleccion(ot)}
+                        />
+                      )}
+                    </td>
+                  )}
                   <td data-etiqueta="OT">
                     <Link to={`/ordenes/${ot.id}`}>{ot.numero}</Link>
                     {ot.numeroIncidente && (
@@ -127,6 +181,17 @@ export function PendientesPage() {
             onCambiar={irAPagina}
           />
         </>
+      )}
+
+      {asignando && (
+        <DialogoAsignacion
+          ordenes={[...seleccion].map(([id, numero]) => ({ id, numero }))}
+          onCerrar={() => setAsignando(false)}
+          onAsignadas={() => {
+            setAsignando(false)
+            setSeleccion(new Map())
+          }}
+        />
       )}
 
       <SeccionIncidentesEnEspera />

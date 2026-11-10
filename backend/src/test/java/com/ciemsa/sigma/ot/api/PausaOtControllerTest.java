@@ -119,9 +119,12 @@ class PausaOtControllerTest {
 
   @AfterEach
   void tearDown() {
+    String ordenesDeLaInstalacion =
+        " (SELECT id_orden_trabajo FROM orden_trabajo WHERE id_instalacion = ?)";
     jdbc.update(
-        "DELETE FROM pausa_ot WHERE id_orden_trabajo IN"
-            + " (SELECT id_orden_trabajo FROM orden_trabajo WHERE id_instalacion = ?)",
+        "DELETE FROM pausa_ot WHERE id_orden_trabajo IN" + ordenesDeLaInstalacion, idInstalacion);
+    jdbc.update(
+        "DELETE FROM tramo_cuadrilla_ot WHERE id_orden_trabajo IN" + ordenesDeLaInstalacion,
         idInstalacion);
     jdbc.update("DELETE FROM orden_trabajo WHERE id_instalacion = ?", idInstalacion);
     jdbc.update("DELETE FROM incidente WHERE id_instalacion = ?", idInstalacion);

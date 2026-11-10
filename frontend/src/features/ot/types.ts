@@ -60,6 +60,8 @@ export type OrdenTrabajoDetalle = {
   tipo: TipoOT
   estado: EstadoOT
   idCuadrilla: number | null
+  /** Fecha de ejecución asignada («2026-11-12»); null si no está asignada. */
+  fechaEjecucion: string | null
   inicioSla: string | null
   /** null = «SLA sin definir» (o preventiva). */
   fechaLimite: string | null
@@ -126,4 +128,25 @@ export function puedeAnularse(estado: EstadoOT, estadoAnteriorPausa: EstadoOT | 
     return estadoAnteriorPausa !== null && ESTADOS_ANULABLES.includes(estadoAnteriorPausa)
   }
   return ESTADOS_ANULABLES.includes(estado)
+}
+
+/** Desde qué estados se puede asignar o reasignar (Fig. 18): lo mismo que decide EstadoOT. */
+const ESTADOS_ASIGNABLES: readonly EstadoOT[] = ['PENDIENTE', 'ASIGNADA']
+
+export function puedeAsignarse(estado: EstadoOT) {
+  return ESTADOS_ASIGNABLES.includes(estado)
+}
+
+/** POST /api/v1/ordenes/asignar (HU-05). */
+export type DatosAsignacion = {
+  idsOrdenTrabajo: number[]
+  idCuadrilla: number
+  /** «2026-11-12»: fecha sin hora. */
+  fechaEjecucion: string
+}
+
+/** Un elemento de GET /api/v1/ordenes/carga-por-cuadrilla. Las que no vienen tienen 0. */
+export type CargaCuadrilla = {
+  idCuadrilla: number
+  ordenes: number
 }

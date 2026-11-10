@@ -3,6 +3,7 @@ package com.ciemsa.sigma.ot.domain;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.ciemsa.sigma.shared.domain.ReglaNegocioException;
 import java.time.Instant;
 import java.time.LocalDate;
 import org.junit.jupiter.api.Test;
@@ -89,7 +90,48 @@ class OrdenTrabajoTest {
         .containsExactly(
             new OrdenGenerada(99L, null, INICIO),
             new EstadoOrdenCambiado(99L, EstadoOT.PENDIENTE, EstadoOT.ASIGNADA, asignada),
+            new OrdenAsignada(99L, null, 7L, FECHA, asignada),
             new EstadoOrdenCambiado(99L, EstadoOT.ASIGNADA, EstadoOT.EN_PROCESO, iniciada));
+    assertThat(ot.extraerEventos()).isEmpty();
+  }
+
+  @Test
+  void extraerEventos_reasignar_soloOrdenAsignadaConLaCuadrillaAnterior() {
+    OrdenTrabajo ot = correctiva(null);
+    ot.asignar(7L, FECHA, INICIO);
+    ReflectionTestUtils.setField(ot, "id", 99L);
+    ot.extraerEventos();
+    Instant reasignada = INICIO.plusSeconds(3600);
+
+    ot.asignar(8L, FECHA.plusDays(1), reasignada);
+
+    assertThat(ot.extraerEventos())
+        .containsExactly(new OrdenAsignada(99L, 7L, 8L, FECHA.plusDays(1), reasignada));
+  }
+
+  @Test
+  void extraerEventos_mismaCuadrillaOtraFecha_ordenAsignadaConLaMismaCuadrilla() {
+    OrdenTrabajo ot = correctiva(null);
+    ot.asignar(7L, FECHA, INICIO);
+    ReflectionTestUtils.setField(ot, "id", 99L);
+    ot.extraerEventos();
+
+    ot.asignar(7L, FECHA.plusDays(2), INICIO.plusSeconds(60));
+
+    assertThat(ot.extraerEventos())
+        .containsExactly(new OrdenAsignada(99L, 7L, 7L, FECHA.plusDays(2), INICIO.plusSeconds(60)));
+  }
+
+  @Test
+  void extraerEventos_asignarEnProceso_noAgregaOrdenAsignada() {
+    OrdenTrabajo ot = correctiva(null);
+    ot.asignar(7L, FECHA, INICIO);
+    ot.iniciar(INICIO);
+    ReflectionTestUtils.setField(ot, "id", 99L);
+    ot.extraerEventos();
+
+    assertThatThrownBy(() -> ot.asignar(8L, FECHA, INICIO))
+        .isInstanceOf(TransicionInvalidaException.class);
     assertThat(ot.extraerEventos()).isEmpty();
   }
 
@@ -113,5 +155,79 @@ class OrdenTrabajoTest {
   private static OrdenTrabajo correctiva(ReglaSLA regla) {
     return Incidente.registrar(10L, OrigenIncidente.MONITOREO, 2L, Prioridad.ALTA, "Apagado", 3L)
         .generarOrdenCorrectiva(INICIO, regla);
+  }
+
+  // --- Tramos por cuadrilla (HU-05) ---
+
+  @Test
+  void asignar_pendiente_abreUnTramoDeLaCuadrilla() {
+    OrdenTrabajo ot = correctiva(null);
+
+    ot.asignar(7L, FECHA, INICIO);
+
+    assertThat(ot.getTramos())
+        .singleElement()
+        .satisfies(
+            tramo -> {
+              assertThat(tramo.getIdCuadrilla()).isEqualTo(7L);
+              assertThat(tramo.getDesde()).isEqualTo(INICIO);
+              assertThat(tramo.estaAbierto()).isTrue();
+            });
+  }
+
+  @Test
+  void asignar_otraCuadrilla_cierraElTramoAnteriorYAbreOtro() {
+    OrdenTrabajo ot = correctiva(null);
+    Instant despues = INICIO.plusSeconds(3600);
+    ot.asignar(7L, FECHA, INICIO);
+
+    ot.asignar(8L, FECHA, despues);
+
+    assertThat(ot.getTramos()).hasSize(2);
+    assertThat(ot.getTramos().getFirst().getHasta()).isEqualTo(despues);
+    assertThat(ot.tramoAbierto())
+        .hasValueSatisfying(tramo -> assertThat(tramo.getIdCuadrilla()).isEqualTo(8L));
+  }
+
+  @Test
+  void asignar_mismaCuadrillaOtraFecha_soloCambiaLaFecha() {
+    OrdenTrabajo ot = correctiva(null);
+    ot.asignar(7L, FECHA, INICIO);
+
+    ot.asignar(7L, FECHA.plusDays(1), INICIO.plusSeconds(3600));
+
+    assertThat(ot.getTramos()).hasSize(1);
+    assertThat(ot.getFechaEjecucion()).isEqualTo(FECHA.plusDays(1));
+  }
+
+  @Test
+  void liberar_asignada_cierraElTramo() {
+    OrdenTrabajo ot = correctiva(null);
+    ot.asignar(7L, FECHA, INICIO);
+
+    ot.liberar(INICIO.plusSeconds(3600));
+
+    assertThat(ot.tramoAbierto()).isEmpty();
+    assertThat(ot.getTramos().getFirst().getHasta()).isEqualTo(INICIO.plusSeconds(3600));
+  }
+
+  @Test
+  void anular_asignada_cierraElTramo() {
+    OrdenTrabajo ot = correctiva(null);
+    ot.asignar(7L, FECHA, INICIO);
+
+    ot.anular("Incidente duplicado", 3L, INICIO.plusSeconds(3600));
+
+    assertThat(ot.tramoAbierto()).isEmpty();
+  }
+
+  @Test
+  void anular_sinMotivo_noCierraElTramo() {
+    OrdenTrabajo ot = correctiva(null);
+    ot.asignar(7L, FECHA, INICIO);
+
+    assertThatThrownBy(() -> ot.anular(" ", 3L, INICIO.plusSeconds(3600)))
+        .isInstanceOf(ReglaNegocioException.class);
+    assertThat(ot.tramoAbierto()).isPresent();
   }
 }

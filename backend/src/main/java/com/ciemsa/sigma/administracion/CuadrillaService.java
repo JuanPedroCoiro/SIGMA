@@ -2,10 +2,12 @@ package com.ciemsa.sigma.administracion;
 
 import com.ciemsa.sigma.administracion.dto.CuadrillaRequest;
 import com.ciemsa.sigma.administracion.dto.CuadrillaResponse;
+import com.ciemsa.sigma.administracion.dto.CuadrillaResumen;
 import com.ciemsa.sigma.shared.domain.ConflictoException;
 import com.ciemsa.sigma.shared.domain.NoEncontradoException;
 import com.ciemsa.sigma.shared.seguridad.Rol;
 import java.util.List;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -34,6 +36,12 @@ public class CuadrillaService {
     Cuadrilla cuadrilla = Cuadrilla.crear(nombre, req.zona());
     guardar(cuadrilla);
     return CuadrillaResponse.de(cuadrilla, 0);
+  }
+
+  /** La cuadrilla, si existe y está activa: para asignarle OTs (HU-05). */
+  @Transactional(readOnly = true)
+  public Optional<CuadrillaResumen> buscarActiva(Long id) {
+    return cuadrillaRepository.findById(id).filter(Cuadrilla::isActiva).map(CuadrillaResumen::de);
   }
 
   public CuadrillaResponse modificar(Long id, CuadrillaRequest req) {

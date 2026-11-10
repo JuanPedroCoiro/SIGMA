@@ -95,6 +95,14 @@ public class OrdenTrabajo extends BaseEntity {
   @Getter(AccessLevel.NONE)
   private final List<PausaOT> pausas = new ArrayList<>();
 
+  /**
+   * Qué cuadrilla tuvo la OT y cuándo; a lo sumo un tramo abierto (uq_tramo_cuadrilla_ot_abierto).
+   */
+  @OneToMany(mappedBy = "ordenTrabajo", cascade = CascadeType.ALL, orphanRemoval = true)
+  @OrderBy("desde")
+  @Getter(AccessLevel.NONE)
+  private final List<TramoCuadrillaOT> tramos = new ArrayList<>();
+
   @Transient
   @Getter(AccessLevel.NONE)
   private final List<Pendiente> pendientes = new ArrayList<>();
@@ -145,6 +153,16 @@ public class OrdenTrabajo extends BaseEntity {
     return Collections.unmodifiableList(pausas);
   }
 
+  /** El tramo de la cuadrilla que tiene la OT a cargo, si alguna la tiene. */
+  public Optional<TramoCuadrillaOT> tramoAbierto() {
+    return tramos.stream().filter(TramoCuadrillaOT::estaAbierto).findFirst();
+  }
+
+  /** Los tramos de la OT, del más viejo al más nuevo. */
+  public List<TramoCuadrillaOT> getTramos() {
+    return Collections.unmodifiableList(tramos);
+  }
+
   /**
    * Tiempos de la OT hasta {@code ahora}: total desde que se generó, en pausa por motivo (la
    * abierta cuenta hasta ahora) y efectivo. Null si ya no está abierta: no se guarda cuándo se
@@ -167,9 +185,13 @@ public class OrdenTrabajo extends BaseEntity {
 
   // Operaciones (Fig. 7 y Fig. 18): delegan en el estado
 
-  /** Asignar, tomar o reasignar. */
+  /**
+   * Asignar, tomar o reasignar. Deja pendiente un {@link OrdenAsignada} con la cuadrilla anterior.
+   */
   public void asignar(Long idCuadrilla, LocalDate fechaEjecucion, Instant ahora) {
+    Long anterior = this.idCuadrilla;
     estado.asignar(this, idCuadrilla, fechaEjecucion, ahora);
+    pendientes.add(new AsignacionPendiente(anterior, idCuadrilla, fechaEjecucion, ahora));
   }
 
   public void liberar(Instant ahora) {
@@ -214,8 +236,9 @@ public class OrdenTrabajo extends BaseEntity {
 
   /**
    * Devuelve los eventos de dominio pendientes ({@link OrdenGenerada}, {@link EstadoOrdenCambiado},
-   * {@link OrdenPausada}, {@link OrdenReanudada}) en el orden en que ocurrieron y los descarta. Se
-   * llama después de guardar, porque los eventos llevan el id de la OT.
+   * {@link OrdenAsignada}, {@link OrdenPausada}, {@link OrdenReanudada}) en el orden en que
+   * ocurrieron y los descarta. Se llama después de guardar, porque los eventos llevan el id de la
+   * OT.
    */
   public List<Object> extraerEventos() {
     if (id == null) {
@@ -232,6 +255,9 @@ public class OrdenTrabajo extends BaseEntity {
           new OrdenGenerada(id, incidente == null ? null : incidente.getId(), c.ocurridoEn());
       case CambioPendiente c ->
           new EstadoOrdenCambiado(id, c.anterior(), c.nuevo(), c.ocurridoEn());
+      case AsignacionPendiente a ->
+          new OrdenAsignada(
+              id, a.cuadrillaAnterior(), a.cuadrillaNueva(), a.fechaEjecucion(), a.ocurridoEn());
       case PausaPendiente p ->
           new OrdenPausada(id, p.motivo(), p.detalle(), p.idUsuario(), p.ocurridoEn());
       case ReanudacionPendiente r ->
@@ -241,12 +267,22 @@ public class OrdenTrabajo extends BaseEntity {
 
   // Solo las usa EstadoOT
 
-  void registrarAsignacion(Long idCuadrilla, LocalDate fechaEjecucion) {
-    this.idCuadrilla = Objects.requireNonNull(idCuadrilla);
+  /**
+   * Una cuadrilla nueva cierra el tramo de la anterior y abre el suyo. Si es la misma cuadrilla,
+   * solo cambia la fecha de ejecución.
+   */
+  void registrarAsignacion(Long idCuadrilla, LocalDate fechaEjecucion, Instant ahora) {
+    Objects.requireNonNull(idCuadrilla);
+    if (!idCuadrilla.equals(this.idCuadrilla)) {
+      cerrarTramo(ahora);
+      tramos.add(TramoCuadrillaOT.abrir(this, idCuadrilla, ahora));
+    }
+    this.idCuadrilla = idCuadrilla;
     this.fechaEjecucion = fechaEjecucion;
   }
 
-  void quitarCuadrilla() {
+  void quitarCuadrilla(Instant ahora) {
+    cerrarTramo(ahora);
     this.idCuadrilla = null;
   }
 
@@ -272,11 +308,16 @@ public class OrdenTrabajo extends BaseEntity {
     }
   }
 
-  void registrarAnulacion(String motivo) {
+  void registrarAnulacion(String motivo, Instant ahora) {
     if (motivo == null || motivo.isBlank()) {
       throw new ReglaNegocioException("El motivo de anulación es obligatorio.");
     }
     this.motivoAnulacion = motivo.trim();
+    cerrarTramo(ahora);
+  }
+
+  private void cerrarTramo(Instant ahora) {
+    tramoAbierto().ifPresent(tramo -> tramo.cerrar(ahora));
   }
 
   void cambiarEstado(EstadoOT nuevo, Instant ahora) {
@@ -286,7 +327,7 @@ public class OrdenTrabajo extends BaseEntity {
 
   /** Evento todavía sin publicar: le falta el id de la OT, que se conoce al guardar. */
   private sealed interface Pendiente
-      permits CambioPendiente, PausaPendiente, ReanudacionPendiente {}
+      permits CambioPendiente, AsignacionPendiente, PausaPendiente, ReanudacionPendiente {}
 
   /** Cambio de estado; anterior null = la OT recién generada. */
   private record CambioPendiente(EstadoOT anterior, EstadoOT nuevo, Instant ocurridoEn)
@@ -294,6 +335,10 @@ public class OrdenTrabajo extends BaseEntity {
 
   private record PausaPendiente(
       MotivoPausa motivo, String detalle, Long idUsuario, Instant ocurridoEn)
+      implements Pendiente {}
+
+  private record AsignacionPendiente(
+      Long cuadrillaAnterior, Long cuadrillaNueva, LocalDate fechaEjecucion, Instant ocurridoEn)
       implements Pendiente {}
 
   /** {@code fechaLimite} es la vigente después de reanudar. */
