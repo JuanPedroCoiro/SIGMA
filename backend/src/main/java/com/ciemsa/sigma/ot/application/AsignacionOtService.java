@@ -40,6 +40,7 @@ public class AsignacionOtService {
   private final Clock clock;
   private final ZoneId zonaHoraria;
   private final ApplicationEventPublisher eventos;
+  private final ArmadorDetalleOt armadorDetalleOt;
 
   public List<DetalleOt> asignar(
       Collection<Long> idsOrdenTrabajo, Long idCuadrilla, LocalDate fechaEjecucion) {
@@ -58,7 +59,7 @@ public class AsignacionOtService {
 
     ordenTrabajoRepository.saveAll(ordenes);
     ordenes.forEach(ot -> ot.extraerEventos().forEach(eventos::publishEvent));
-    return ordenes.stream().map(ot -> DetalleOt.de(ot, ahora)).toList();
+    return armadorDetalleOt.armar(ordenes, ahora);
   }
 
   private CuadrillaResumen cuadrillaActiva(Long idCuadrilla) {

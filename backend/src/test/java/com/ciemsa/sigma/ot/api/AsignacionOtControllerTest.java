@@ -150,7 +150,9 @@ class AsignacionOtControllerTest {
     asignar(jefatura, List.of(ot1.getId(), ot2.getId()), norte.getId(), hoy)
         .andExpect(status().isOk())
         .andExpect(jsonPath("$[*].estado", contains("ASIGNADA", "ASIGNADA")))
-        .andExpect(jsonPath("$[0].fechaEjecucion").value(hoy.toString()));
+        .andExpect(jsonPath("$[0].fechaEjecucion").value(hoy.toString()))
+        .andExpect(
+            jsonPath("$[*].cuadrilla.nombre", contains(norte.getNombre(), norte.getNombre())));
 
     for (OrdenTrabajo ot : List.of(ot1, ot2)) {
       OrdenTrabajo guardada = ordenTrabajoRepository.findById(ot.getId()).orElseThrow();
@@ -169,7 +171,8 @@ class AsignacionOtControllerTest {
 
     asignar(jefatura, List.of(ot.getId()), sur.getId(), hoy.plusDays(1))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$[0].idCuadrilla").value(sur.getId()));
+        .andExpect(jsonPath("$[0].cuadrilla.id").value(sur.getId()))
+        .andExpect(jsonPath("$[0].cuadrilla.nombre").value("Cuadrilla Asignar Sur"));
 
     List<Map<String, Object>> tramos = tramos(ot);
     assertThat(tramos).hasSize(2);

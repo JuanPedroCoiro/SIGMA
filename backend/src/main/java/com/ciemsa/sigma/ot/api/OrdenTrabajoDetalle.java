@@ -14,15 +14,18 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Detalle de una OT: estado, SLA, pausa en curso, tiempos e historial de pausas. {@code tiempos} es
- * null si la OT ya no está abierta.
+ * Detalle de una OT: estado, instalación, cuadrilla, incidente, SLA, pausa en curso, tiempos e
+ * historial de pausas con quién pausó y reanudó (#57). {@code cuadrilla} es null si no está
+ * asignada; {@code incidente}, si es preventiva; {@code tiempos}, si la OT ya no está abierta.
  */
 public record OrdenTrabajoDetalle(
     Long id,
     String numero,
     TipoOT tipo,
     EstadoOT estado,
-    Long idCuadrilla,
+    DetalleOt.Instalacion instalacion,
+    DetalleOt.Cuadrilla cuadrilla,
+    DetalleOt.Incidente incidente,
     LocalDate fechaEjecucion,
     Instant inicioSla,
     Instant fechaLimite,
@@ -34,13 +37,16 @@ public record OrdenTrabajoDetalle(
 
   static OrdenTrabajoDetalle de(DetalleOt detalle) {
     OrdenTrabajo ot = detalle.ordenTrabajo();
-    List<Pausa> pausas = detalle.pausas().stream().map(Pausa::de).toList();
+    List<Pausa> pausas =
+        detalle.pausas().stream().map(p -> Pausa.de(p, detalle.nombresUsuarios())).toList();
     return new OrdenTrabajoDetalle(
         ot.getId(),
         ot.getNumero(),
         ot.getTipo(),
         ot.getEstado(),
-        ot.getIdCuadrilla(),
+        detalle.instalacion(),
+        detalle.cuadrilla(),
+        detalle.incidente(),
         ot.getFechaEjecucion(),
         ot.getInicioSla(),
         ot.getFechaLimite(),
@@ -51,22 +57,28 @@ public record OrdenTrabajoDetalle(
         pausas);
   }
 
+  /** {@code nombreUsuarioReanudacion} es null mientras la pausa sigue abierta. */
   public record Pausa(
       MotivoPausa motivo,
       String detalle,
       Instant inicio,
       Instant fin,
       Long idUsuarioPausa,
-      Long idUsuarioReanudacion) {
+      String nombreUsuarioPausa,
+      Long idUsuarioReanudacion,
+      String nombreUsuarioReanudacion) {
 
-    static Pausa de(PausaOT pausa) {
+    static Pausa de(PausaOT pausa, Map<Long, String> nombresUsuarios) {
+      Long reanudo = pausa.getIdUsuarioReanudacion();
       return new Pausa(
           pausa.getMotivo(),
           pausa.getDetalle(),
           pausa.getInicio(),
           pausa.getFin(),
           pausa.getIdUsuarioPausa(),
-          pausa.getIdUsuarioReanudacion());
+          nombresUsuarios.get(pausa.getIdUsuarioPausa()),
+          reanudo,
+          reanudo == null ? null : nombresUsuarios.get(reanudo));
     }
   }
 

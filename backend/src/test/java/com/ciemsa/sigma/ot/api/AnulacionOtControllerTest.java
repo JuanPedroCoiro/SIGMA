@@ -173,7 +173,9 @@ class AnulacionOtControllerTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.estado").value("ANULADA"))
         .andExpect(jsonPath("$.pausaAbierta", nullValue()))
-        .andExpect(jsonPath("$.pausas[0].fin", notNullValue()));
+        .andExpect(jsonPath("$.pausas[0].fin", notNullValue()))
+        .andExpect(jsonPath("$.pausas[0].nombreUsuarioPausa").value("Operador"))
+        .andExpect(jsonPath("$.pausas[0].nombreUsuarioReanudacion").value("Jefatura"));
   }
 
   // --- Desde dónde no (5a) ---

@@ -24,6 +24,7 @@ public class AnulacionOtService {
   private final UsuarioActual usuarioActual;
   private final Clock clock;
   private final ApplicationEventPublisher eventos;
+  private final ArmadorDetalleOt armadorDetalleOt;
 
   public DetalleOt anular(Long idOrdenTrabajo, String motivo) {
     OrdenTrabajo ot =
@@ -37,6 +38,6 @@ public class AnulacionOtService {
     ot.anular(motivo, usuarioActual.id(), ahora);
     ordenTrabajoRepository.save(ot);
     ot.extraerEventos().forEach(eventos::publishEvent);
-    return DetalleOt.de(ot, ahora);
+    return armadorDetalleOt.armar(ot, ahora);
   }
 }
