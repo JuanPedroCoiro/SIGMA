@@ -2,6 +2,7 @@ package com.ciemsa.sigma.ot.application;
 
 import com.ciemsa.sigma.administracion.CuadrillaService;
 import com.ciemsa.sigma.administracion.dto.CuadrillaResumen;
+import com.ciemsa.sigma.ot.domain.FechaAnteriorException;
 import com.ciemsa.sigma.ot.domain.OrdenTrabajo;
 import com.ciemsa.sigma.ot.domain.TransicionInvalidaException;
 import com.ciemsa.sigma.ot.infrastructure.OrdenTrabajoRepository;
@@ -51,7 +52,7 @@ public class AsignacionOtService {
       try {
         ot.asignar(cuadrilla.id(), fechaEjecucion, ahora);
       } catch (TransicionInvalidaException ex) {
-        throw new ReglaNegocioException(ex.getTipo(), ot.getNumero() + ": " + ex.getMessage());
+        throw ex.deLaOt(ot.getNumero());
       }
     }
 
@@ -73,8 +74,7 @@ public class AsignacionOtService {
   private void verificarFecha(LocalDate fechaEjecucion, Instant ahora) {
     LocalDate hoy = LocalDate.ofInstant(ahora, zonaHoraria);
     if (Objects.requireNonNull(fechaEjecucion).isBefore(hoy)) {
-      throw new ReglaNegocioException(
-          "fecha-anterior", "La fecha de ejecución no puede ser anterior a hoy.");
+      throw new FechaAnteriorException();
     }
   }
 

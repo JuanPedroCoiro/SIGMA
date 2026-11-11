@@ -123,6 +123,19 @@ class OrdenTrabajoTest {
   }
 
   @Test
+  void extraerEventos_mismaCuadrillaYMismaFecha_noAgregaEvento() {
+    OrdenTrabajo ot = correctiva(null);
+    ot.asignar(7L, FECHA, INICIO);
+    ReflectionTestUtils.setField(ot, "id", 99L);
+    ot.extraerEventos();
+
+    ot.asignar(7L, FECHA, INICIO.plusSeconds(60));
+
+    assertThat(ot.extraerEventos()).isEmpty();
+    assertThat(ot.getTramos()).hasSize(1);
+  }
+
+  @Test
   void extraerEventos_asignarEnProceso_noAgregaOrdenAsignada() {
     OrdenTrabajo ot = correctiva(null);
     ot.asignar(7L, FECHA, INICIO);
@@ -219,6 +232,19 @@ class OrdenTrabajoTest {
     ot.anular("Incidente duplicado", 3L, INICIO.plusSeconds(3600));
 
     assertThat(ot.tramoAbierto()).isEmpty();
+  }
+
+  @Test
+  void anular_enPausaDesdeAsignada_cierraElTramoYLaPausa() {
+    OrdenTrabajo ot = correctiva(null);
+    ot.asignar(7L, FECHA, INICIO);
+    ot.pausar(MotivoPausa.TERCERO, "UTE", 3L, INICIO.plusSeconds(60));
+
+    ot.anular("El tercero resolvió la falla", 3L, INICIO.plusSeconds(3600));
+
+    assertThat(ot.getEstado()).isEqualTo(EstadoOT.ANULADA);
+    assertThat(ot.tramoAbierto()).isEmpty();
+    assertThat(ot.pausaAbierta()).isEmpty();
   }
 
   @Test

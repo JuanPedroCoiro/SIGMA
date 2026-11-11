@@ -11,7 +11,7 @@ public class ReglaNegocioException extends DomainException {
   }
 
   /** Con un tipo propio, cuando el frontend necesita distinguir el caso (transicion-invalida). */
-  public ReglaNegocioException(String tipo, String mensaje) {
+  protected ReglaNegocioException(String tipo, String mensaje) {
     super(tipo, mensaje);
   }
 }

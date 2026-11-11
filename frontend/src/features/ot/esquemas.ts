@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { hoyEnMontevideo } from '../../shared/lib/fechas'
 import {
   esCategoriaOtra,
   ETIQUETA_MOTIVO_ANULACION,
@@ -10,8 +11,6 @@ import {
   type DatosIncidente,
   type MotivoPausa,
 } from './types'
-
-import { hoyEnMontevideo } from '../../shared/lib/fechas'
 
 const MENSAJE_DETALLE: Partial<Record<MotivoPausa, string>> = {
   TERCERO: 'Indicá qué tercero causa la pausa.',
