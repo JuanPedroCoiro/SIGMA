@@ -101,6 +101,89 @@ class InstalacionControllerTest {
   }
 
   @Test
+  void buscar_porCodigoParcial_devuelveLasQueCoinciden() throws Exception {
+    guardar("INST-001", "Cruce Ficticio 1");
+    guardar("INST-012", "Cruce Ficticio 12");
+    guardar("PEAT-120", "Pasaje Ficticio");
+
+    mvc.perform(
+            get(INSTALACIONES)
+                .param("buscar", "inst-0")
+                .with(user("ana@ciemsa.com").roles("OPERADOR")))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.contenido.length()").value(2))
+        .andExpect(jsonPath("$.contenido[0].codigo").value("INST-001"))
+        .andExpect(jsonPath("$.contenido[1].codigo").value("INST-012"))
+        .andExpect(jsonPath("$.totalElementos").value(2));
+  }
+
+  @Test
+  void buscar_porNombre_noDistingueMayusculasNiTildes() throws Exception {
+    guardar("INST-001", "Cruce Peñarol");
+    guardar("INST-002", "Avenida Itálica");
+    guardar("INST-003", "Plaza Ficticia");
+
+    for (String texto : new String[] {"PEÑAROL", "penarol", "Peñ"}) {
+      mvc.perform(
+              get(INSTALACIONES)
+                  .param("buscar", texto)
+                  .with(user("jefa@ciemsa.com").roles("JEFATURA")))
+          .andExpect(status().isOk())
+          .andExpect(jsonPath("$.contenido.length()").value(1))
+          .andExpect(jsonPath("$.contenido[0].nombre").value("Cruce Peñarol"));
+    }
+    mvc.perform(
+            get(INSTALACIONES)
+                .param("buscar", "italica")
+                .with(user("jefa@ciemsa.com").roles("JEFATURA")))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.contenido[0].nombre").value("Avenida Itálica"))
+        .andExpect(jsonPath("$.totalElementos").value(1));
+  }
+
+  @Test
+  void buscar_noDevuelveLasInactivas() throws Exception {
+    guardar("INST-001", "Cruce Ficticio 1");
+    guardar("INST-002", "Cruce Ficticio 2");
+    jdbc.update("update instalacion set activa = false where codigo = 'INST-002'");
+
+    mvc.perform(
+            get(INSTALACIONES)
+                .param("buscar", "cruce")
+                .with(user("ana@ciemsa.com").roles("OPERADOR")))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.contenido.length()").value(1))
+        .andExpect(jsonPath("$.contenido[0].codigo").value("INST-001"));
+  }
+
+  @Test
+  void buscar_conComodines_losBuscaComoTexto() throws Exception {
+    guardar("INST-001", "Cruce Ficticio 1");
+    guardar("INST_002", "Cruce 100% Ficticio");
+
+    mvc.perform(
+            get(INSTALACIONES).param("buscar", "%").with(user("ana@ciemsa.com").roles("OPERADOR")))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.contenido.length()").value(1))
+        .andExpect(jsonPath("$.contenido[0].codigo").value("INST_002"));
+    mvc.perform(
+            get(INSTALACIONES).param("buscar", "_").with(user("ana@ciemsa.com").roles("OPERADOR")))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.contenido.length()").value(1))
+        .andExpect(jsonPath("$.contenido[0].codigo").value("INST_002"));
+  }
+
+  @Test
+  void buscar_conTecnico_devuelve403() throws Exception {
+    mvc.perform(
+            get(INSTALACIONES)
+                .param("buscar", "cruce")
+                .with(user("tecnico@ciemsa.com").roles("TECNICO")))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.type").value("/errores/sin-permiso"));
+  }
+
+  @Test
   void listar_sinInstalaciones_devuelvePaginaVacia() throws Exception {
     mvc.perform(get(INSTALACIONES).with(user("jefa@ciemsa.com").roles("JEFATURA")))
         .andExpect(status().isOk())

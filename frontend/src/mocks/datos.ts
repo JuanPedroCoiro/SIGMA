@@ -39,6 +39,8 @@ export type InstalacionSimulada = {
   rutaZona: string
   latitud: number
   longitud: number
+  /** La instalación es de un organismo sin reglas de SLA: su OT queda «SLA sin definir» (8a). */
+  sinReglaSla?: boolean
 }
 
 export type OrdenSimulada = {
@@ -76,13 +78,15 @@ type Base = {
   instalaciones: InstalacionSimulada[]
   ordenes: OrdenSimulada[]
   incidentes: IncidenteSimulado[]
+  categorias: CategoriaSimulada[]
   /** Usuario con la sesión abierta, o null. */
   idSesion: number | null
 }
 
 // Con versión: cuando cambia la forma de los datos se sube, y la base vieja guardada en la
-// pestaña se descarta en lugar de mezclarse con la nueva (#61). v3: fechaEjecucion (#41).
-const CLAVE_ALMACEN = 'sigma.apiSimulada.v3'
+// pestaña se descarta en lugar de mezclarse con la nueva (#61). v3: fechaEjecucion (#41). v4:
+// categorías de falla e instalación sin regla de SLA (#40).
+const CLAVE_ALMACEN = 'sigma.apiSimulada.v4'
 
 const NOMBRES = ['Ana', 'Bruno', 'Carla', 'Diego', 'Elena', 'Fabián', 'Gabriela', 'Hernán']
 const APELLIDOS = ['Acosta', 'Benítez', 'Cabrera', 'Duarte']
@@ -110,19 +114,50 @@ function usuario(
 
 const RUTAS = ['Ruta 1', 'Ruta 5', 'Ruta 8', 'Zona Este', 'Zona Oeste']
 
+/** Sin regla de SLA para su organismo: para probar «SLA sin definir» (CU-1 8a). */
+export const ID_INSTALACION_SIN_SLA = 25
+
 /** 25 cruces ficticios alrededor de Montevideo, para probar la paginación del listado. */
 function crearInstalaciones(): InstalacionSimulada[] {
   return Array.from({ length: 25 }, (_, i) => {
     const numero = i + 1
+    const sinReglaSla = numero === ID_INSTALACION_SIN_SLA
     return {
       id: numero,
       codigo: `INST-${String(numero).padStart(3, '0')}`,
-      nombre: `Cruce Ficticio ${numero}`,
+      nombre: sinReglaSla ? 'Cruce Peñarol (sin regla de SLA)' : `Cruce Ficticio ${numero}`,
       rutaZona: RUTAS[i % RUTAS.length],
       latitud: Number((-34.9 + i * 0.012345).toFixed(6)),
       longitud: Number((-56.2 + i * 0.023456).toFixed(6)),
+      ...(sinReglaSla && { sinReglaSla }),
     }
   })
+}
+
+export type CategoriaSimulada = {
+  id: number
+  nombre: string
+  prioridadSugerida: Prioridad
+  activa: boolean
+}
+
+/** Las mismas de db/datos-prueba del backend, más una inactiva que no se ofrece. */
+function crearCategorias(): CategoriaSimulada[] {
+  const categoria = (id: number, nombre: string, prioridadSugerida: Prioridad, activa = true) => ({
+    id,
+    nombre,
+    prioridadSugerida,
+    activa,
+  })
+  return [
+    categoria(1, 'Semáforo apagado', 'ALTA'),
+    categoria(2, 'Lámpara quemada', 'MEDIA'),
+    categoria(3, 'Falla de sincronización', 'MEDIA'),
+    categoria(4, 'Pulsador peatonal roto', 'BAJA'),
+    categoria(5, 'Daño en estructura', 'BAJA'),
+    categoria(6, 'Otra', 'MEDIA'),
+    categoria(7, 'Categoría dada de baja', 'BAJA', false),
+  ]
 }
 
 const HORA = 3_600_000
@@ -253,6 +288,7 @@ function crearBaseInicial(): Base {
     instalaciones: crearInstalaciones(),
     ordenes: crearOrdenes(),
     incidentes: crearIncidentes(),
+    categorias: crearCategorias(),
     idSesion: null,
   }
 }

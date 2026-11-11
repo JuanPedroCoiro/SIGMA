@@ -89,7 +89,7 @@ export const ETIQUETA_PRIORIDAD: Record<Prioridad, string> = {
 
 export type EstadoIncidente = 'ABIERTO' | 'EN_ESPERA_TERCERO' | 'CON_OT' | 'CERRADO_SIN_OT'
 
-/** Respuesta de POST /api/v1/incidentes/{id}/cerrar-sin-ot y /generar-ot (#38). */
+/** Respuesta de POST /api/v1/incidentes (#40) y de /{id}/cerrar-sin-ot y /generar-ot (#38). */
 export type IncidenteResponse = {
   id: number
   numero: string
@@ -149,4 +149,43 @@ export type DatosAsignacion = {
 export type CargaCuadrilla = {
   idCuadrilla: number
   ordenes: number
+}
+
+/** Un elemento de GET /api/v1/categorias-falla (HU-03): solo las activas. */
+export type CategoriaFalla = {
+  id: number
+  nombre: string
+  prioridadSugerida: Prioridad
+}
+
+/** La categoría genérica (CategoriaFalla.OTRA en el backend): el detalle va en la descripción. */
+export const CATEGORIA_OTRA = 'Otra'
+
+/** Mínimo de la descripción con «Otra» (CategoriaFalla.MINIMO_DETALLE_OTRA en el backend). */
+export const MINIMO_DETALLE_OTRA = 10
+
+export function esCategoriaOtra(categoria: CategoriaFalla | undefined) {
+  return categoria?.nombre.toLowerCase() === CATEGORIA_OTRA.toLowerCase()
+}
+
+export const ORIGENES_INCIDENTE = ['RECLAMO_ORGANISMO', 'MONITOREO'] as const
+
+export type OrigenIncidente = (typeof ORIGENES_INCIDENTE)[number]
+
+export const ETIQUETA_ORIGEN: Record<OrigenIncidente, string> = {
+  RECLAMO_ORGANISMO: 'Reclamo de un organismo',
+  MONITOREO: 'Detección en el monitoreo',
+}
+
+export const PRIORIDADES: readonly Prioridad[] = ['ALTA', 'MEDIA', 'BAJA']
+
+/** POST /api/v1/incidentes (CU-1). Con `tercero`, queda en espera sin OT (4b). */
+export type DatosIncidente = {
+  idInstalacion: number
+  origen: OrigenIncidente
+  idCategoriaFalla: number
+  prioridad: Prioridad
+  descripcion: string
+  tercero: string | null
+  causa: string | null
 }

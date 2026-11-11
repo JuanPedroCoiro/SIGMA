@@ -1,8 +1,13 @@
 import { z } from 'zod'
 import {
+  esCategoriaOtra,
   ETIQUETA_MOTIVO_ANULACION,
+  MINIMO_DETALLE_OTRA,
   MOTIVOS_ANULACION,
   MOTIVOS_PAUSA,
+  ORIGENES_INCIDENTE,
+  type CategoriaFalla,
+  type DatosIncidente,
   type MotivoPausa,
 } from './types'
 
@@ -76,3 +81,70 @@ export type CamposAsignacion = z.input<typeof esquemaAsignacion>
 export type ValoresAsignacion = z.output<typeof esquemaAsignacion>
 export type CamposAnulacion = z.input<typeof esquemaAnulacion>
 export type ValoresAnulacion = z.output<typeof esquemaAnulacion>
+
+/**
+ * Por defecto zod no corre las reglas entre campos si algún campo ya falló; así, al enviar el
+ * formulario vacío, también se marcan la instalación y el tercero. Las reglas toleran campos
+ * inválidos.
+ */
+const CON_LOS_DEMAS_ERRORES = { when: () => true }
+
+/**
+ * Registro de un incidente (CU-1, HU-03): las mismas reglas que RegistrarIncidenteRequest. Con
+ * «La falla es de un tercero», el tercero es obligatorio y la causa no (4b). Con la categoría
+ * «Otra», la descripción tiene que detallar la falla (4a): por eso el esquema recibe el catálogo.
+ */
+export function crearEsquemaIncidente(categorias: readonly CategoriaFalla[]) {
+  return z
+    .object({
+      idInstalacion: z.number({ error: 'Elegí la instalación.' }).nullable(),
+      origen: z.enum(ORIGENES_INCIDENTE, { error: 'Indicá el origen.' }),
+      idCategoriaFalla: z.string().min(1, 'Elegí la categoría de la falla.'),
+      prioridad: z.enum(['ALTA', 'MEDIA', 'BAJA'], { error: 'Elegí la prioridad.' }),
+      descripcion: z
+        .string()
+        .trim()
+        .min(1, 'Describí la falla.')
+        .max(2000, 'La descripción admite hasta 2000 caracteres.'),
+      esTercero: z.boolean(),
+      tercero: z.string().trim().max(150, 'El tercero admite hasta 150 caracteres.'),
+      causa: z.string().trim().max(500, 'La causa admite hasta 500 caracteres.'),
+    })
+    .superRefine((datos, ctx) => {
+      if (datos.idInstalacion === null) {
+        ctx.addIssue({ code: 'custom', path: ['idInstalacion'], message: 'Elegí la instalación.' })
+      }
+      if (datos.esTercero && !datos.tercero) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['tercero'],
+          message: 'Indicá el tercero responsable de la falla.',
+        })
+      }
+      const categoria = categorias.find((c) => String(c.id) === datos.idCategoriaFalla)
+      if (
+        esCategoriaOtra(categoria) &&
+        datos.descripcion &&
+        datos.descripcion.length < MINIMO_DETALLE_OTRA
+      ) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['descripcion'],
+          message: `Con la categoría «Otra», detallá la falla en la descripción (al menos ${MINIMO_DETALLE_OTRA} caracteres).`,
+        })
+      }
+    }, CON_LOS_DEMAS_ERRORES)
+    .transform((datos): DatosIncidente => ({
+      idInstalacion: datos.idInstalacion!,
+      origen: datos.origen,
+      idCategoriaFalla: Number(datos.idCategoriaFalla),
+      prioridad: datos.prioridad,
+      descripcion: datos.descripcion,
+      tercero: datos.esTercero ? datos.tercero : null,
+      causa: datos.esTercero && datos.causa ? datos.causa : null,
+    }))
+}
+
+type EsquemaIncidente = ReturnType<typeof crearEsquemaIncidente>
+export type CamposIncidente = z.input<EsquemaIncidente>
+export type ValoresIncidente = z.output<EsquemaIncidente>

@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react'
+import { cleanup, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { renderizarRuta } from '../test/renderizarRuta'
 import type { Sesion } from './sesion/sesion'
@@ -52,6 +52,25 @@ describe('router', () => {
     expect(screen.getByRole('link', { name: 'Instalaciones' })).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Usuarios' })).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Cuadrillas' })).not.toBeInTheDocument()
+  })
+
+  it('menu_registrarIncidente_loVenOperadorYJefaturaPeroNoElTecnico', () => {
+    renderizarRuta('/', sesionDe('OPERADOR'))
+    expect(screen.getByRole('link', { name: 'Registrar incidente' })).toBeInTheDocument()
+    cleanup()
+
+    renderizarRuta('/', sesionDe('JEFATURA'))
+    expect(screen.getByRole('link', { name: 'Registrar incidente' })).toBeInTheDocument()
+    cleanup()
+
+    renderizarRuta('/', sesionDe('TECNICO'))
+    expect(screen.queryByRole('link', { name: 'Registrar incidente' })).not.toBeInTheDocument()
+  })
+
+  it('rutaDeRegistrarIncidente_tecnico_loRedirigeAlInicio', () => {
+    const { router } = renderizarRuta('/incidentes/nuevo', sesionDe('TECNICO'))
+
+    expect(router.state.location.pathname).toBe('/')
   })
 
   it('rutaDeCuadrillas_operador_loRedirigeAlInicio', () => {

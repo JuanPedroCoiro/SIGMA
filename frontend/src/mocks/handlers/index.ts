@@ -1,5 +1,6 @@
 import { http, HttpResponse } from 'msw/http'
 import { sinSesion, usuarioEnSesion } from '../problemas'
+import { handlersCategorias } from './categorias'
 import { handlersCuadrillas } from './cuadrillas'
 import { handlersInstalaciones } from './instalaciones'
 import { handlersOrdenes } from './ordenes'
@@ -27,5 +28,6 @@ export const handlers = [
   ...handlersOrdenes,
   ...handlersPendientes,
   ...handlersIncidentes,
+  ...handlersCategorias,
   handlerPing,
 ]
