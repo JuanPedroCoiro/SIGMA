@@ -186,12 +186,18 @@ public class OrdenTrabajo extends BaseEntity {
   // Operaciones (Fig. 7 y Fig. 18): delegan en el estado
 
   /**
-   * Asignar, tomar o reasignar. Deja pendiente un {@link OrdenAsignada} con la cuadrilla anterior.
+   * Asignar, tomar o reasignar. Deja pendiente un {@link OrdenAsignada} con la cuadrilla anterior;
+   * si la cuadrilla y la fecha son las mismas, no cambia nada y no hay evento.
    */
   public void asignar(Long idCuadrilla, LocalDate fechaEjecucion, Instant ahora) {
     Long anterior = this.idCuadrilla;
+    boolean sinCambios =
+        Objects.equals(idCuadrilla, anterior)
+            && Objects.equals(fechaEjecucion, this.fechaEjecucion);
     estado.asignar(this, idCuadrilla, fechaEjecucion, ahora);
-    pendientes.add(new AsignacionPendiente(anterior, idCuadrilla, fechaEjecucion, ahora));
+    if (!sinCambios) {
+      pendientes.add(new AsignacionPendiente(anterior, idCuadrilla, fechaEjecucion, ahora));
+    }
   }
 
   public void liberar(Instant ahora) {
