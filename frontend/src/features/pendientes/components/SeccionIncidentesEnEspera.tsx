@@ -66,7 +66,7 @@ export function SeccionIncidentesEnEspera() {
             {incidentes.data.map((incidente) => (
               <tr key={incidente.id}>
                 <td data-etiqueta="Incidente">
-                  {incidente.numero}
+                  <span className="pendientes-numero">{incidente.numero}</span>
                   <span className="pendientes-secundario">{incidente.descripcion}</span>
                 </td>
                 <td data-etiqueta="Tercero">
