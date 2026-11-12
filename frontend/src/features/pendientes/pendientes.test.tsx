@@ -90,7 +90,7 @@ describe('tablero de pendientes (#43)', () => {
     fireEvent.click(within(dialogo).getByRole('button', { name: 'Cerrar sin OT' }))
 
     expect(await screen.findByText('No hay incidentes en espera de tercero.')).toBeVisible()
-    expect(base.incidentes[0].estado).toBe('CERRADO_SIN_OT')
+    expect(base.incidentes.find((i) => i.numero === 'INC-0004')!.estado).toBe('CERRADO_SIN_OT')
     expect(base.ordenes).toHaveLength(3)
   })
 

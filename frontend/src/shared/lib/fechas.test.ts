@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest'
-import { formatearFechaHoraMontevideo, formatearHoraMontevideo } from './fechas'
+import {
+  formatearFechaHoraMontevideo,
+  formatearFechaMontevideo,
+  formatearHoraMontevideo,
+} from './fechas'
+
+describe('formatearFechaMontevideo', () => {
+  it('formatear_fechaSinHora_diaMesAnio', () => {
+    expect(formatearFechaMontevideo('2026-11-12')).toBe('12/11/2026')
+  })
+})
 
 describe('formatearFechaHoraMontevideo', () => {
   it('formatear_siempreAgregaLaFecha', () => {

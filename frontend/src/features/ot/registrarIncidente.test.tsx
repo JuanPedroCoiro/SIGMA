@@ -129,7 +129,7 @@ describe('registrar incidente (#40)', () => {
     expect(screen.getByText('Indicá el tercero responsable de la falla.')).toBeInTheDocument()
     // La causa es opcional.
     expect(screen.getByLabelText('Causa (opcional)')).not.toHaveAttribute('aria-invalid')
-    expect(base.incidentes).toHaveLength(1)
+    expect(base.incidentes.some((i) => i.numero === 'INC-0005')).toBe(false)
   })
 
   it('categoriaOtra_pideDetalleEnLaDescripcion', async () => {

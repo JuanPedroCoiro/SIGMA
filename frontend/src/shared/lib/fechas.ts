@@ -39,6 +39,16 @@ export function formatearFechaHoraMontevideo(instante: string | Date) {
   return `${formatoHora.format(fecha)} del ${formatoDia.format(fecha)}`
 }
 
+/**
+ * Fecha sin hora («2026-11-12» → «12/11/2026»), como la fecha de ejecución de una OT. Ya es una
+ * fecha de Montevideo: se arma desde el texto, porque `new Date` la tomaría como medianoche UTC y
+ * en Montevideo la mostraría un día antes.
+ */
+export function formatearFechaMontevideo(fecha: string) {
+  const [anio, mes, dia] = fecha.split('-')
+  return `${dia}/${mes}/${anio}`
+}
+
 const formatoIso = new Intl.DateTimeFormat('en-CA', {
   timeZone: ZONA,
   year: 'numeric',
