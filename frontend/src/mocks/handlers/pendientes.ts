@@ -93,11 +93,12 @@ export const handlersPendientes = [
     if (rechazo) return rechazo
     const url = new URL(request.url)
     const criterio = (url.searchParams.get('orden') ?? 'VENCIMIENTO') as CriterioOrden
+    const estado = url.searchParams.get('estado')
     const pagina = Math.max(0, Number(url.searchParams.get('page') ?? 0))
     const tamanio =
       Number(url.searchParams.get('size') ?? TAMANIO_POR_DEFECTO) || TAMANIO_POR_DEFECTO
     const filas = base.ordenes
-      .filter((o) => ABIERTAS.includes(o.estado))
+      .filter((o) => ABIERTAS.includes(o.estado) && (!estado || o.estado === estado))
       .map(aFila)
       .sort(COMPARADORES[criterio])
     return HttpResponse.json({
