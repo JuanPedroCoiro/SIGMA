@@ -30,6 +30,20 @@ describe('tablero de pendientes (#43)', () => {
     expect(numerosDelTablero()).toEqual(['OT-0001', 'OT-0002', 'OT-0003'])
   })
 
+  it('filtroPorEstado_vieneDeLaUrlYSePuedeQuitar', async () => {
+    // Así llega el enlace «En pausa» del inicio (#72).
+    const { router } = renderizarRuta('/pendientes?estado=EN_PAUSA')
+    await screen.findByRole('link', { name: 'OT-0002' })
+
+    expect(numerosDelTablero()).toEqual(['OT-0002'])
+    expect(screen.getByLabelText('Estado')).toHaveValue('EN_PAUSA')
+
+    fireEvent.change(screen.getByLabelText('Estado'), { target: { value: '' } })
+
+    await waitFor(() => expect(numerosDelTablero()).toEqual(['OT-0001', 'OT-0002', 'OT-0003']))
+    expect(router.state.location.search).toBe('')
+  })
+
   it('porPrioridad_primeroLaAlta', async () => {
     renderizarRuta('/pendientes')
     await screen.findByRole('link', { name: 'OT-0001' })

@@ -86,7 +86,9 @@ describe('inicio de sesión (CU-12)', () => {
     const { router } = renderizarRuta('/')
     await iniciarSesionComo('operador@sigma.test')
     expect(await screen.findByRole('heading', { name: /Hola/ })).toBeInTheDocument()
-
+    // Que termine de cargar el resumen del inicio (#72): si no, su pedido llega después del
+    // logout, responde 401 y se toma como sesión vencida.
+    await screen.findByRole('list', { name: 'Resumen' })
     fireEvent.click(screen.getByRole('button', { name: 'Cerrar sesión' }))
 
     await waitFor(() => expect(router.state.location.pathname).toBe('/iniciar-sesion'))

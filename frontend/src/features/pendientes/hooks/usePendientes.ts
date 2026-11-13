@@ -2,16 +2,20 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { CLAVE_INCIDENTES } from '../../ot/hooks/useIncidentes'
 import { CLAVE_ORDENES } from '../../ot/hooks/useOrden'
 import { listarIncidentesEnEspera, listarOrdenesPendientes } from '../api/pendientesApi'
-import type { CriterioOrden } from '../types'
+import type { CriterioOrden, EstadoTablero } from '../types'
 
 /**
  * Bajo la clave de órdenes a propósito: pausar y reanudar (y después asignar y anular) invalidan
  * [CLAVE_ORDENES], así que el tablero se recarga solo.
  */
-export function useOrdenesPendientes(orden: CriterioOrden, pagina: number) {
+export function useOrdenesPendientes(
+  orden: CriterioOrden,
+  estado: EstadoTablero | null,
+  pagina: number,
+) {
   return useQuery({
-    queryKey: [CLAVE_ORDENES, 'pendientes', orden, pagina],
-    queryFn: () => listarOrdenesPendientes(orden, { page: pagina }),
+    queryKey: [CLAVE_ORDENES, 'pendientes', orden, estado, pagina],
+    queryFn: () => listarOrdenesPendientes(orden, estado, { page: pagina }),
     placeholderData: keepPreviousData,
   })
 }

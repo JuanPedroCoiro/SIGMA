@@ -216,6 +216,42 @@ class PendientesControllerTest {
                     preventiva.getNumero())));
   }
 
+  // --- Filtro por estado (#72) ---
+
+  @Test
+  void porEstadoPendiente_soloLasPendientesEnElOrdenPedido() throws Exception {
+    mvc.perform(get(ORDENES).param("size", "100").param("estado", "PENDIENTE").with(user(jefatura)))
+        .andExpect(status().isOk())
+        .andExpect(
+            jsonPath(
+                NUMEROS,
+                contains(
+                    vencida.getNumero(),
+                    media.getNumero(),
+                    sinSla.getNumero(),
+                    preventiva.getNumero())));
+  }
+
+  @Test
+  void porEstadoEnPausa_soloLaPausada() throws Exception {
+    mvc.perform(get(ORDENES).param("size", "100").param("estado", "EN_PAUSA").with(user(jefatura)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath(NUMEROS, contains(enPausaPorTercero.getNumero())));
+  }
+
+  @Test
+  void porEstadoNoAbierto_paginaVacia() throws Exception {
+    mvc.perform(get(ORDENES).param("estado", "ANULADA").with(user(jefatura)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.totalElementos").value(0));
+  }
+
+  @Test
+  void estadoInvalido_400() throws Exception {
+    mvc.perform(get(ORDENES).param("estado", "OTRO").with(user(jefatura)))
+        .andExpect(status().isBadRequest());
+  }
+
   // --- Datos de cada fila ---
 
   @Test

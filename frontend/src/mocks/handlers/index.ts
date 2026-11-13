@@ -8,6 +8,7 @@ import { handlersSesion } from './sesion'
 import { handlersUsuarios } from './usuarios'
 import { handlersIncidentes } from './incidentes'
 import { handlersPendientes } from './pendientes'
+import { handlersInicio } from './inicio'
 
 const handlerPing = http.get('/api/v1/ping', () => {
   // El ping real es público; acá se exige sesión para poder probar la sesión vencida desde
@@ -27,6 +28,7 @@ export const handlers = [
   ...handlersInstalaciones,
   ...handlersOrdenes,
   ...handlersPendientes,
+  ...handlersInicio,
   ...handlersIncidentes,
   ...handlersCategorias,
   handlerPing,
