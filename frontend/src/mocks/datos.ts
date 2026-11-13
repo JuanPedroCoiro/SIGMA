@@ -2,6 +2,7 @@ import type {
   EstadoIncidente,
   EstadoOT,
   MotivoPausa,
+  OrigenIncidente,
   PausaOT,
   Prioridad,
 } from '../features/ot/types'
@@ -43,6 +44,9 @@ export type InstalacionSimulada = {
   sinReglaSla?: boolean
 }
 
+/** Se guardan solo los ids: los nombres se buscan al responder, como hace el backend. */
+export type PausaSimulada = Omit<PausaOT, 'nombreUsuarioPausa' | 'nombreUsuarioReanudacion'>
+
 export type OrdenSimulada = {
   id: number
   numero: string
@@ -54,16 +58,19 @@ export type OrdenSimulada = {
   fechaLimite: string | null
   creadaEn: string
   estadoAnteriorPausa: EstadoOT | null
-  pausas: PausaOT[]
+  pausas: PausaSimulada[]
   prioridad: Prioridad | null
   idInstalacion: number
-  numeroIncidente: string | null
+  /** El incidente que la originó; null si es preventiva. */
+  idIncidente: number | null
 }
 
 export type IncidenteSimulado = {
   id: number
   numero: string
   estado: EstadoIncidente
+  origen: OrigenIncidente
+  idCategoriaFalla: number
   prioridad: Prioridad
   idInstalacion: number
   descripcion: string
@@ -85,8 +92,9 @@ type Base = {
 
 // Con versión: cuando cambia la forma de los datos se sube, y la base vieja guardada en la
 // pestaña se descarta en lugar de mezclarse con la nueva (#61). v3: fechaEjecucion (#41). v4:
-// categorías de falla e instalación sin regla de SLA (#40).
-const CLAVE_ALMACEN = 'sigma.apiSimulada.v4'
+// categorías de falla e instalación sin regla de SLA (#40). v5: detalle de OT con instalación,
+// cuadrilla e incidente (#57).
+const CLAVE_ALMACEN = 'sigma.apiSimulada.v5'
 
 const NOMBRES = ['Ana', 'Bruno', 'Carla', 'Diego', 'Elena', 'Fabián', 'Gabriela', 'Hernán']
 const APELLIDOS = ['Acosta', 'Benítez', 'Cabrera', 'Duarte']
@@ -166,7 +174,7 @@ function haceHoras(horas: number) {
   return new Date(Date.now() - horas * HORA).toISOString()
 }
 
-function pausaAbierta(motivo: MotivoPausa, detalle: string | null, horas: number): PausaOT {
+function pausaAbierta(motivo: MotivoPausa, detalle: string | null, horas: number): PausaSimulada {
   return {
     motivo,
     detalle,
@@ -196,7 +204,7 @@ function crearOrdenes(): OrdenSimulada[] {
       pausas: [],
       prioridad: 'MEDIA',
       idInstalacion: 1,
-      numeroIncidente: 'INC-0001',
+      idIncidente: 1,
     },
     {
       id: 2,
@@ -211,7 +219,7 @@ function crearOrdenes(): OrdenSimulada[] {
       pausas: [pausaAbierta('TERCERO', 'UTE', 10)],
       prioridad: 'ALTA',
       idInstalacion: 2,
-      numeroIncidente: 'INC-0002',
+      idIncidente: 2,
     },
     {
       id: 3,
@@ -226,17 +234,59 @@ function crearOrdenes(): OrdenSimulada[] {
       pausas: [],
       prioridad: 'MEDIA',
       idInstalacion: 3,
-      numeroIncidente: 'INC-0003',
+      idIncidente: 3,
     },
   ]
 }
 
+/** Los incidentes de OT-0001 a OT-0003 (con OT) y uno en espera de un tercero (#38). */
 function crearIncidentes(): IncidenteSimulado[] {
   return [
+    {
+      id: 1,
+      numero: 'INC-0001',
+      estado: 'CON_OT',
+      origen: 'RECLAMO_ORGANISMO',
+      idCategoriaFalla: 2,
+      prioridad: 'MEDIA',
+      idInstalacion: 1,
+      descripcion: 'Lámpara roja quemada en el semáforo vehicular norte',
+      tercero: null,
+      causa: null,
+      creadoEn: haceHoras(2),
+    },
+    {
+      id: 2,
+      numero: 'INC-0002',
+      estado: 'CON_OT',
+      origen: 'MONITOREO',
+      idCategoriaFalla: 1,
+      prioridad: 'ALTA',
+      idInstalacion: 2,
+      descripcion: 'El cruce dejó de reportar en el monitoreo',
+      tercero: null,
+      causa: null,
+      creadoEn: haceHoras(30),
+    },
+    {
+      id: 3,
+      numero: 'INC-0003',
+      estado: 'CON_OT',
+      origen: 'RECLAMO_ORGANISMO',
+      idCategoriaFalla: 3,
+      prioridad: 'MEDIA',
+      idInstalacion: 3,
+      descripcion: 'Los semáforos del cruce no están sincronizados',
+      tercero: null,
+      causa: null,
+      creadoEn: haceHoras(1),
+    },
     {
       id: 4,
       numero: 'INC-0004',
       estado: 'EN_ESPERA_TERCERO',
+      origen: 'MONITOREO',
+      idCategoriaFalla: 1,
       prioridad: 'MEDIA',
       idInstalacion: 4,
       descripcion: 'Semáforo apagado',

@@ -58,7 +58,7 @@ function crearOrden(incidente: IncidenteSimulado): OrdenSimulada {
     pausas: [],
     prioridad: incidente.prioridad,
     idInstalacion: incidente.idInstalacion,
-    numeroIncidente: incidente.numero,
+    idIncidente: incidente.id,
   }
   base.ordenes.push(orden)
   incidente.estado = 'CON_OT'
@@ -143,6 +143,8 @@ export const handlersIncidentes = [
       id,
       numero: `INC-${String(id).padStart(4, '0')}`,
       estado: esTercero ? 'EN_ESPERA_TERCERO' : 'ABIERTO',
+      origen: datos.origen!,
+      idCategoriaFalla: categoria.id,
       prioridad: datos.prioridad ?? categoria.prioridadSugerida,
       idInstalacion: datos.idInstalacion!,
       descripcion,

@@ -1,5 +1,7 @@
 .orden-detalle {
   display: grid;
+  /* Sin esto, la tabla de pausas estira la columna y la página se pasa del ancho del celular. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 1rem;
   max-width: 44rem;
 }
@@ -49,6 +51,12 @@
   padding: 0.5rem;
   text-align: left;
   border-bottom: 1px solid var(--borde);
+}
+
+/* Fechas y nombres en una línea; Motivo y Detalle se pueden partir. */
+.orden-pausas th,
+.orden-pausas .orden-pausas-fija {
+  white-space: nowrap;
 }
 
 @media (max-width: 767px) {

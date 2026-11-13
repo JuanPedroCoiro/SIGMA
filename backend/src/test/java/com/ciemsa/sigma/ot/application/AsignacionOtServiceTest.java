@@ -3,6 +3,7 @@ package com.ciemsa.sigma.ot.application;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -22,6 +23,7 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -43,6 +45,7 @@ class AsignacionOtServiceTest {
   @Mock private OrdenTrabajoRepository ordenTrabajoRepository;
   @Mock private CuadrillaService cuadrillaService;
   @Mock private ApplicationEventPublisher eventos;
+  @Mock private ArmadorDetalleOt armadorDetalleOt;
   private AsignacionOtService servicio;
 
   @BeforeEach
@@ -53,7 +56,8 @@ class AsignacionOtServiceTest {
             cuadrillaService,
             Clock.fixed(AHORA, ZoneOffset.UTC),
             ZoneId.of("America/Montevideo"),
-            eventos);
+            eventos,
+            armadorDetalleOt);
   }
 
   @Test
@@ -62,6 +66,8 @@ class AsignacionOtServiceTest {
     OrdenTrabajo ot2 = ot(2L, "OT-0002");
     when(cuadrillaService.buscarActiva(7L)).thenReturn(Optional.of(NORTE));
     when(ordenTrabajoRepository.findAllById(any())).thenReturn(List.of(ot2, ot1));
+    when(armadorDetalleOt.armar(anyList(), any()))
+        .thenAnswer(inv -> detallesDe(inv.getArgument(0)));
 
     List<DetalleOt> resultado = servicio.asignar(List.of(1L, 2L), 7L, HOY_MONTEVIDEO);
 
@@ -142,6 +148,8 @@ class AsignacionOtServiceTest {
     OrdenTrabajo ot1 = ot(1L, "OT-0001");
     when(cuadrillaService.buscarActiva(7L)).thenReturn(Optional.of(NORTE));
     when(ordenTrabajoRepository.findAllById(any())).thenReturn(List.of(ot1));
+    when(armadorDetalleOt.armar(anyList(), any()))
+        .thenAnswer(inv -> detallesDe(inv.getArgument(0)));
 
     List<DetalleOt> resultado = servicio.asignar(List.of(1L, 1L), 7L, HOY_MONTEVIDEO);
 
@@ -157,5 +165,14 @@ class AsignacionOtServiceTest {
     ReflectionTestUtils.setField(ot, "creadoEn", AHORA.minusSeconds(3600));
     ot.extraerEventos();
     return ot;
+  }
+
+  /**
+   * Lo que arma ArmadorDetalleOt, sin la lectura de otras tablas (eso se prueba contra la base).
+   */
+  private static List<DetalleOt> detallesDe(List<OrdenTrabajo> ordenes) {
+    return ordenes.stream()
+        .map(o -> new DetalleOt(o, false, null, List.of(), null, null, null, Map.of()))
+        .toList();
   }
 }

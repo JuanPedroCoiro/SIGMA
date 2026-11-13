@@ -4,12 +4,19 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { base } from '../../mocks/datos'
 import { problema } from '../../mocks/problemas'
 import { servidor } from '../../mocks/servidor'
-import { formatearFechaHoraMontevideo } from '../../shared/lib/fechas'
+import {
+  formatearFechaHoraMontevideo,
+  formatearFechaMontevideo,
+  hoyEnMontevideo,
+} from '../../shared/lib/fechas'
 import { renderizarRuta } from '../../test/renderizarRuta'
 import { formatearDuracion } from './duracion'
+import { ETIQUETA_ORIGEN, ETIQUETA_PRIORIDAD } from './types'
 
-// Datos de la API simulada (src/mocks/datos.ts): OT-0001 asignada a Norte, OT-0002 en pausa por
-// UTE (cuadrilla Norte) y OT-0003 pendiente sin cuadrilla ni SLA.
+// Datos de la API simulada (src/mocks/datos.ts):
+// - OT-0001: asignada a Norte para hoy, INST-001, de INC-0001 (reclamo, «Lámpara quemada», media).
+// - OT-0002: en pausa por UTE (la pausó el Operador de Prueba), cuadrilla Norte, de INC-0002.
+// - OT-0003: pendiente sin cuadrilla, fecha de ejecución ni SLA, de INC-0003.
 const ID_OPERADOR = 3
 const ID_TECNICO_NORTE = 2
 const ID_TECNICO_SUR = 11 // usuario de relleno: técnico activo de la cuadrilla 2
@@ -196,5 +203,67 @@ describe('detalle de OT y pausas (#39)', () => {
     expect(formatearDuracion(45)).toBe('45 min')
     expect(formatearDuracion(125)).toBe('2 h 05 min')
     expect(formatearDuracion(3 * 1440 + 4 * 60)).toBe('3 d 4 h')
+  })
+})
+
+describe('detalle de OT con instalación, cuadrilla e incidente (#57)', () => {
+  beforeEach(() => {
+    base.idSesion = ID_OPERADOR
+  })
+
+  it('detalle_muestraInstalacionCuadrillaYFechaDeEjecucion', async () => {
+    renderizarRuta('/ordenes/1')
+
+    expect(
+      await screen.findByText('INST-001 — Cruce Ficticio 1', { selector: 'dd' }),
+    ).toBeInTheDocument()
+    expect(screen.getByText('Cuadrilla Norte', { selector: 'dd' })).toBeInTheDocument()
+    expect(
+      screen.getByText(formatearFechaMontevideo(hoyEnMontevideo()), { selector: 'dd' }),
+    ).toBeInTheDocument()
+  })
+
+  it('detalle_sinCuadrilla_muestraSinAsignar', async () => {
+    renderizarRuta('/ordenes/3')
+
+    expect(await screen.findByText('Sin asignar', { selector: 'dd' })).toBeInTheDocument()
+    const fechaEjecucion = screen.getByText('Fecha de ejecución').nextElementSibling
+    expect(fechaEjecucion).toHaveTextContent('—')
+  })
+
+  it('detalle_muestraElIncidente', async () => {
+    renderizarRuta('/ordenes/1')
+
+    const incidente = await screen.findByRole('region', { name: 'Incidente' })
+    expect(within(incidente).getByText('INC-0001')).toBeInTheDocument()
+    expect(within(incidente).getByText(ETIQUETA_ORIGEN.RECLAMO_ORGANISMO)).toBeInTheDocument()
+    expect(within(incidente).getByText('Lámpara quemada')).toBeInTheDocument()
+    expect(within(incidente).getByText(ETIQUETA_PRIORIDAD.MEDIA)).toBeInTheDocument()
+    // Sin tercero ni causa, no se muestran.
+    expect(within(incidente).queryByText('Tercero')).not.toBeInTheDocument()
+    expect(within(incidente).queryByText('Causa')).not.toBeInTheDocument()
+  })
+
+  it('historial_muestraQuienPausoYReanudoConGuionSiSigueAbierta', async () => {
+    renderizarRuta('/ordenes/2')
+
+    expect(await screen.findByRole('columnheader', { name: 'Pausó' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'Reanudó' })).toBeInTheDocument()
+    const celdas = within(screen.getByRole('row', { name: /UTE/ })).getAllByRole('cell')
+    expect(celdas[4]).toHaveTextContent('Operador de Prueba')
+    expect(celdas[5]).toHaveTextContent('—')
+  })
+
+  it('reanudar_muestraQuienReanudo', async () => {
+    // Reanuda alguien distinto de quien pausó, para distinguir los nombres.
+    base.idSesion = ID_TECNICO_NORTE
+    renderizarRuta('/ordenes/2')
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Reanudar' }))
+
+    await screen.findByText('Asignada', { selector: 'dd' })
+    const celdas = within(screen.getByRole('row', { name: /UTE/ })).getAllByRole('cell')
+    expect(celdas[4]).toHaveTextContent('Operador de Prueba')
+    expect(celdas[5]).toHaveTextContent('Técnico de Prueba')
   })
 })

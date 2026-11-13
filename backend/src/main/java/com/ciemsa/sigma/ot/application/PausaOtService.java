@@ -29,6 +29,7 @@ public class PausaOtService {
   private final UsuarioActual usuarioActual;
   private final Clock clock;
   private final ApplicationEventPublisher eventos;
+  private final ArmadorDetalleOt armadorDetalleOt;
 
   public DetalleOt pausar(Long idOrdenTrabajo, MotivoPausa motivo, String detalle) {
     OrdenTrabajo ot = buscarAccesible(idOrdenTrabajo);
@@ -46,13 +47,13 @@ public class PausaOtService {
 
   @Transactional(readOnly = true)
   public DetalleOt obtener(Long idOrdenTrabajo) {
-    return DetalleOt.de(buscarAccesible(idOrdenTrabajo), Instant.now(clock));
+    return armadorDetalleOt.armar(buscarAccesible(idOrdenTrabajo), Instant.now(clock));
   }
 
   private DetalleOt guardarYPublicar(OrdenTrabajo ot, Instant ahora) {
     ordenTrabajoRepository.save(ot);
     ot.extraerEventos().forEach(eventos::publishEvent);
-    return DetalleOt.de(ot, ahora);
+    return armadorDetalleOt.armar(ot, ahora);
   }
 
   /** 404 si no existe; 403 si es un técnico y la OT no está asignada a su cuadrilla actual. */

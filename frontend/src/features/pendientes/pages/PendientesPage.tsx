@@ -112,68 +112,74 @@ export function PendientesPage() {
               </span>
             </div>
           )}
-          <table className="tabla-pendientes">
-            <thead>
-              <tr>
-                {esJefatura && <th scope="col" aria-label="Seleccionar" />}
-                <th scope="col">OT</th>
-                <th scope="col">Vencimiento</th>
-                <th scope="col">Estado</th>
-                <th scope="col">Prioridad</th>
-                <th scope="col">Instalación</th>
-                <th scope="col">Cuadrilla</th>
-                {esJefatura && <th scope="col">Acciones</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {ordenes.data.contenido.map((ot) => (
-                <tr key={ot.id} className={ot.vencida ? 'fila-vencida' : undefined}>
-                  {esJefatura && (
-                    <td data-etiqueta="Seleccionar">
-                      {puedeAsignarse(ot.estado) && (
-                        <input
-                          type="checkbox"
-                          aria-label={`Seleccionar ${ot.numero}`}
-                          checked={seleccion.has(ot.id)}
-                          onChange={() => alternarSeleccion(ot)}
-                        />
+          <div className="pendientes-tabla">
+            <table className="tabla-pendientes">
+              <thead>
+                <tr>
+                  {esJefatura && <th scope="col" aria-label="Seleccionar" />}
+                  <th scope="col">OT</th>
+                  <th scope="col">Vencimiento</th>
+                  <th scope="col">Estado</th>
+                  <th scope="col">Prioridad</th>
+                  <th scope="col">Instalación</th>
+                  <th scope="col">Cuadrilla</th>
+                  {esJefatura && <th scope="col">Acciones</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {ordenes.data.contenido.map((ot) => (
+                  <tr key={ot.id} className={ot.vencida ? 'fila-vencida' : undefined}>
+                    {esJefatura && (
+                      <td data-etiqueta="Seleccionar">
+                        {puedeAsignarse(ot.estado) && (
+                          <input
+                            type="checkbox"
+                            aria-label={`Seleccionar ${ot.numero}`}
+                            checked={seleccion.has(ot.id)}
+                            onChange={() => alternarSeleccion(ot)}
+                          />
+                        )}
+                      </td>
+                    )}
+                    <td data-etiqueta="OT">
+                      <Link to={`/ordenes/${ot.id}`} className="pendientes-numero">
+                        {ot.numero}
+                      </Link>
+                      {ot.numeroIncidente && (
+                        <span className="pendientes-secundario pendientes-numero">
+                          {ot.numeroIncidente}
+                        </span>
                       )}
                     </td>
-                  )}
-                  <td data-etiqueta="OT">
-                    <Link to={`/ordenes/${ot.id}`}>{ot.numero}</Link>
-                    {ot.numeroIncidente && (
-                      <span className="pendientes-secundario">{ot.numeroIncidente}</span>
-                    )}
-                  </td>
-                  <td data-etiqueta="Vencimiento">
-                    <Vencimiento orden={ot} />
-                  </td>
-                  <td data-etiqueta="Estado">
-                    {ETIQUETA_ESTADO_OT[ot.estado]}
-                    {ot.pausa && (
-                      <span className="pendientes-secundario">
-                        {ETIQUETA_MOTIVO[ot.pausa.motivo]}
-                        {ot.pausa.detalle ? `: ${ot.pausa.detalle}` : ''}
-                      </span>
-                    )}
-                  </td>
-                  <td data-etiqueta="Prioridad">
-                    {ot.prioridad ? ETIQUETA_PRIORIDAD[ot.prioridad] : '—'}
-                  </td>
-                  <td data-etiqueta="Instalación">
-                    {ot.codigoInstalacion} · {ot.nombreInstalacion}
-                  </td>
-                  <td data-etiqueta="Cuadrilla">{ot.cuadrilla ?? 'Sin asignar'}</td>
-                  {esJefatura && (
-                    <td data-etiqueta="Acciones">
-                      <AccionAnular orden={ot} />
+                    <td data-etiqueta="Vencimiento">
+                      <Vencimiento orden={ot} />
                     </td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                    <td data-etiqueta="Estado">
+                      {ETIQUETA_ESTADO_OT[ot.estado]}
+                      {ot.pausa && (
+                        <span className="pendientes-secundario">
+                          {ETIQUETA_MOTIVO[ot.pausa.motivo]}
+                          {ot.pausa.detalle ? `: ${ot.pausa.detalle}` : ''}
+                        </span>
+                      )}
+                    </td>
+                    <td data-etiqueta="Prioridad">
+                      {ot.prioridad ? ETIQUETA_PRIORIDAD[ot.prioridad] : '—'}
+                    </td>
+                    <td data-etiqueta="Instalación">
+                      {ot.codigoInstalacion} · {ot.nombreInstalacion}
+                    </td>
+                    <td data-etiqueta="Cuadrilla">{ot.cuadrilla ?? 'Sin asignar'}</td>
+                    {esJefatura && (
+                      <td data-etiqueta="Acciones">
+                        <AccionAnular orden={ot} />
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
           <Paginacion
             pagina={ordenes.data.pagina}
             totalPaginas={ordenes.data.totalPaginas}

@@ -1,14 +1,21 @@
 import { Link, useParams } from 'react-router-dom'
 import { obtenerProblemDetail } from '../../../shared/api/problemDetail'
-import { formatearFechaHoraMontevideo, formatearHoraMontevideo } from '../../../shared/lib/fechas'
+import {
+  formatearFechaHoraMontevideo,
+  formatearFechaMontevideo,
+  formatearHoraMontevideo,
+} from '../../../shared/lib/fechas'
 import { AccionesPausa } from '../components/AccionesPausa'
 import { formatearDuracion } from '../duracion'
 import { useOrden } from '../hooks/useOrden'
 import {
   ETIQUETA_ESTADO_OT,
   ETIQUETA_MOTIVO,
+  ETIQUETA_ORIGEN,
+  ETIQUETA_PRIORIDAD,
   MOTIVO_QUE_REINICIA_SLA,
   MOTIVOS_PAUSA,
+  type IncidenteDeOT,
   type OrdenTrabajoDetalle,
 } from '../types'
 import './OrdenDetallePage.css'
@@ -20,7 +27,10 @@ function mensajeDeError(error: unknown) {
   return 'No se pudo cargar la OT. Volvé a intentar en unos minutos.'
 }
 
-/** Detalle de una OT: estado, vencimiento, pausa en curso, tiempos e historial de pausas (#39). */
+/**
+ * Detalle de una OT: estado, vencimiento, pausa en curso, tiempos e historial de pausas (#39);
+ * instalación, cuadrilla, incidente y quién pausó y reanudó (#57).
+ */
 export function OrdenDetallePage() {
   const id = Number(useParams().id)
   const orden = useOrden(id)
@@ -44,6 +54,14 @@ export function OrdenDetallePage() {
         <dd>{ETIQUETA_ESTADO_OT[datos.estado]}</dd>
         <dt>Tipo</dt>
         <dd>{datos.tipo === 'CORRECTIVA' ? 'Correctiva' : 'Preventiva'}</dd>
+        <dt>Instalación</dt>
+        <dd>
+          {datos.instalacion.codigo} — {datos.instalacion.nombre}
+        </dd>
+        <dt>Cuadrilla</dt>
+        <dd>{datos.cuadrilla?.nombre ?? 'Sin asignar'}</dd>
+        <dt>Fecha de ejecución</dt>
+        <dd>{datos.fechaEjecucion ? formatearFechaMontevideo(datos.fechaEjecucion) : '—'}</dd>
         <dt>Fecha límite</dt>
         <dd>
           <FechaLimite orden={datos} />
@@ -62,6 +80,8 @@ export function OrdenDetallePage() {
       )}
 
       <AccionesPausa orden={datos} />
+
+      {datos.incidente && <Incidente incidente={datos.incidente} />}
 
       {datos.tiempos && (
         <section aria-labelledby="titulo-tiempos">
@@ -96,6 +116,8 @@ export function OrdenDetallePage() {
                 <th scope="col">Detalle</th>
                 <th scope="col">Desde</th>
                 <th scope="col">Hasta</th>
+                <th scope="col">Pausó</th>
+                <th scope="col">Reanudó</th>
               </tr>
             </thead>
             <tbody>
@@ -103,14 +125,37 @@ export function OrdenDetallePage() {
                 <tr key={pausa.inicio}>
                   <td>{ETIQUETA_MOTIVO[pausa.motivo]}</td>
                   <td>{pausa.detalle ?? '—'}</td>
-                  <td>{formatearFechaHoraMontevideo(pausa.inicio)}</td>
-                  <td>{pausa.fin ? formatearFechaHoraMontevideo(pausa.fin) : 'En curso'}</td>
+                  <td className="orden-pausas-fija">
+                    {formatearFechaHoraMontevideo(pausa.inicio)}
+                  </td>
+                  <td className="orden-pausas-fija">
+                    {pausa.fin ? formatearFechaHoraMontevideo(pausa.fin) : 'En curso'}
+                  </td>
+                  <td className="orden-pausas-fija">{pausa.nombreUsuarioPausa}</td>
+                  <td className="orden-pausas-fija">{pausa.nombreUsuarioReanudacion ?? '—'}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         )}
       </section>
+    </section>
+  )
+}
+
+function Incidente({ incidente }: { incidente: IncidenteDeOT }) {
+  return (
+    <section aria-labelledby="titulo-incidente">
+      <h2 id="titulo-incidente">Incidente</h2>
+      <dl className="orden-datos">
+        <Fila termino="Número" valor={incidente.numero} />
+        <Fila termino="Origen" valor={ETIQUETA_ORIGEN[incidente.origen]} />
+        <Fila termino="Categoría" valor={incidente.categoria} />
+        <Fila termino="Prioridad" valor={ETIQUETA_PRIORIDAD[incidente.prioridad]} />
+        <Fila termino="Descripción" valor={incidente.descripcion} />
+        {incidente.tercero && <Fila termino="Tercero" valor={incidente.tercero} />}
+        {incidente.causa && <Fila termino="Causa" valor={incidente.causa} />}
+      </dl>
     </section>
   )
 }

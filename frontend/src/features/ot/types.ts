@@ -43,7 +43,10 @@ export type PausaOT = {
   /** null mientras está abierta. */
   fin: string | null
   idUsuarioPausa: number
+  nombreUsuarioPausa: string
   idUsuarioReanudacion: number | null
+  /** null mientras está abierta. */
+  nombreUsuarioReanudacion: string | null
 }
 
 /** En minutos. */
@@ -53,13 +56,29 @@ export type TiemposOT = {
   efectivoMinutos: number
 }
 
-/** GET /api/v1/ordenes/{id}, y la respuesta de pausar y reanudar. */
+/** El incidente que originó una OT correctiva; `categoria` es el nombre de la categoría de falla. */
+export type IncidenteDeOT = {
+  id: number
+  numero: string
+  origen: OrigenIncidente
+  categoria: string
+  prioridad: Prioridad
+  descripcion: string
+  tercero: string | null
+  causa: string | null
+}
+
+/** GET /api/v1/ordenes/{id}, y la respuesta de pausar, reanudar, anular y asignar (#57). */
 export type OrdenTrabajoDetalle = {
   id: number
   numero: string
   tipo: TipoOT
   estado: EstadoOT
-  idCuadrilla: number | null
+  instalacion: { id: number; codigo: string; nombre: string }
+  /** null si no está asignada. */
+  cuadrilla: { id: number; nombre: string } | null
+  /** null si es preventiva. */
+  incidente: IncidenteDeOT | null
   /** Fecha de ejecución asignada («2026-11-12»); null si no está asignada. */
   fechaEjecucion: string | null
   inicioSla: string | null

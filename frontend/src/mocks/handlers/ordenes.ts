@@ -1,8 +1,15 @@
 import { http, HttpResponse } from 'msw/http'
-import { puedeAnularse, puedeAsignarse, type MotivoPausa } from '../../features/ot/types'
+import {
+  puedeAnularse,
+  puedeAsignarse,
+  type IncidenteDeOT,
+  type MotivoPausa,
+  type OrdenTrabajoDetalle,
+  type PausaOT,
+} from '../../features/ot/types'
 import { TIPOS_PROBLEMA, type ErrorCampo } from '../../shared/api/problemDetail'
 import { hoyEnMontevideo } from '../../shared/lib/fechas'
-import { base, guardarBase, type OrdenSimulada } from '../datos'
+import { base, guardarBase, type OrdenSimulada, type PausaSimulada } from '../datos'
 import {
   exigirJefatura,
   problema,
@@ -12,7 +19,7 @@ import {
   usuarioEnSesion,
 } from '../problemas'
 
-// Detalle, pausar y reanudar una OT (#39). Técnico (solo su cuadrilla), Operador y Jefatura.
+// Detalle (con instalación, cuadrilla e incidente, #57), pausar y reanudar una OT (#39). Técnico (solo su cuadrilla), Operador y Jefatura.
 // Asignar y carga por cuadrilla (#41), solo la Jefatura.
 
 const MINUTO = 60_000
@@ -30,8 +37,38 @@ function minutos(desde: string, hasta: number) {
   return Math.floor((hasta - new Date(desde).getTime()) / MINUTO)
 }
 
-/** La OT como la devuelve OrdenTrabajoDetalle, con lo que se calcula al consultarla. */
-function respuesta(orden: OrdenSimulada) {
+function nombreUsuario(id: number) {
+  return base.usuarios.find((u) => u.id === id)?.nombre ?? ''
+}
+
+/** La pausa con los nombres de quién pausó y quién reanudó. */
+function conNombres(pausa: PausaSimulada): PausaOT {
+  return {
+    ...pausa,
+    nombreUsuarioPausa: nombreUsuario(pausa.idUsuarioPausa),
+    nombreUsuarioReanudacion:
+      pausa.idUsuarioReanudacion === null ? null : nombreUsuario(pausa.idUsuarioReanudacion),
+  }
+}
+
+/** El incidente que originó la OT, con el nombre de la categoría (DetalleOt.Incidente). */
+function incidenteDe(orden: OrdenSimulada): IncidenteDeOT | null {
+  const incidente = base.incidentes.find((i) => i.id === orden.idIncidente)
+  if (!incidente) return null
+  return {
+    id: incidente.id,
+    numero: incidente.numero,
+    origen: incidente.origen,
+    categoria: base.categorias.find((c) => c.id === incidente.idCategoriaFalla)?.nombre ?? '',
+    prioridad: incidente.prioridad,
+    descripcion: incidente.descripcion,
+    tercero: incidente.tercero,
+    causa: incidente.causa,
+  }
+}
+
+/** La OT como la devuelve OrdenTrabajoDetalle, con lo que se calcula al consultarla (#57). */
+function respuesta(orden: OrdenSimulada): OrdenTrabajoDetalle {
   const ahora = Date.now()
   const abierta = orden.pausas.find((p) => p.fin === null) ?? null
   const enPausaPorTercero = abierta?.motivo === 'TERCERO'
@@ -43,12 +80,20 @@ function respuesta(orden: OrdenSimulada) {
   }
   const totalMinutos = minutos(orden.creadaEn, ahora)
   const pausado = Object.values(enPausaMinutos).reduce((a, b) => a + b, 0)
+  const instalacion = base.instalaciones.find((i) => i.id === orden.idInstalacion)
+  const cuadrilla = base.cuadrillas.find((c) => c.id === orden.idCuadrilla)
   return {
     id: orden.id,
     numero: orden.numero,
-    tipo: 'CORRECTIVA',
+    tipo: orden.idIncidente === null ? 'PREVENTIVA' : 'CORRECTIVA',
     estado: orden.estado,
-    idCuadrilla: orden.idCuadrilla,
+    instalacion: {
+      id: orden.idInstalacion,
+      codigo: instalacion?.codigo ?? '',
+      nombre: instalacion?.nombre ?? '',
+    },
+    cuadrilla: cuadrilla ? { id: cuadrilla.id, nombre: cuadrilla.nombre } : null,
+    incidente: incidenteDe(orden),
     fechaEjecucion: orden.fechaEjecucion,
     inicioSla: orden.inicioSla,
     fechaLimite: orden.fechaLimite,
@@ -58,11 +103,11 @@ function respuesta(orden: OrdenSimulada) {
       !enPausaPorTercero &&
       orden.fechaLimite !== null &&
       new Date(orden.fechaLimite).getTime() < ahora,
-    pausaAbierta: abierta,
+    pausaAbierta: abierta && conNombres(abierta),
     tiempos: cerrada
       ? null
       : { totalMinutos, enPausaMinutos, efectivoMinutos: totalMinutos - pausado },
-    pausas: orden.pausas,
+    pausas: orden.pausas.map(conNombres),
   }
 }
 

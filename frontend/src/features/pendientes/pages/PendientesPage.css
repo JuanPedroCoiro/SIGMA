@@ -32,6 +32,22 @@
   overflow-wrap: anywhere;
 }
 
+/*
+ * Números y marcas enteros (#64): el texto largo (instalación, detalle) sí se parte. Hace falta
+ * también overflow-wrap: normal; con el anywhere del td, la columna podría achicarse por debajo
+ * del número.
+ */
+.tabla-pendientes .marca,
+.pendientes-numero {
+  white-space: nowrap;
+  overflow-wrap: normal;
+}
+
+/* Si la tabla no entra (pantallas medianas con el menú abierto), se desplaza dentro de su caja. */
+.pendientes-tabla {
+  overflow-x: auto;
+}
+
 /* Vencidas: fondo rojo suave en toda la fila, además de la marca «Vencida». */
 .fila-vencida td {
   background: color-mix(in srgb, var(--error) 8%, transparent);

@@ -198,7 +198,8 @@ class PausaOtControllerTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.numero").value(ot.getNumero()))
         .andExpect(jsonPath("$.tipo").value("CORRECTIVA"))
-        .andExpect(jsonPath("$.idCuadrilla").value(norte.getId()))
+        .andExpect(jsonPath("$.cuadrilla.id").value(norte.getId()))
+        .andExpect(jsonPath("$.cuadrilla.nombre").value("Cuadrilla Pausas Norte"))
         .andExpect(jsonPath("$.slaDefinido").value(true))
         .andExpect(jsonPath("$.pausaAbierta.motivo").value("OTRO"))
         .andExpect(jsonPath("$.pausas.length()").value(2))
@@ -208,6 +209,70 @@ class PausaOtControllerTest {
         .andExpect(jsonPath("$.tiempos.enPausaMinutos.CLIMA").isNumber())
         .andExpect(jsonPath("$.tiempos.enPausaMinutos.OTRO").isNumber())
         .andExpect(jsonPath("$.tiempos.efectivoMinutos").isNumber());
+  }
+
+  @Test
+  void obtener_correctiva_traeInstalacionEIncidente() throws Exception {
+    mvc.perform(get(ORDENES + "/" + ot.getId()).with(user(operador)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.instalacion.id").value(idInstalacion))
+        .andExpect(jsonPath("$.instalacion.codigo").value("TEST-PAUSA-1"))
+        .andExpect(jsonPath("$.instalacion.nombre").value("Cruce de pausas"))
+        .andExpect(jsonPath("$.incidente.id").value(ot.getIncidente().getId()))
+        .andExpect(jsonPath("$.incidente.numero").value(ot.getIncidente().getNumero()))
+        .andExpect(jsonPath("$.incidente.origen").value("MONITOREO"))
+        .andExpect(jsonPath("$.incidente.categoria").value("Lámpara quemada"))
+        .andExpect(jsonPath("$.incidente.prioridad").value("MEDIA"))
+        .andExpect(jsonPath("$.incidente.descripcion").value("Lámpara roja quemada"))
+        .andExpect(jsonPath("$.incidente.tercero", nullValue()))
+        .andExpect(jsonPath("$.incidente.causa", nullValue()))
+        .andExpect(jsonPath("$.fechaEjecucion").value(LocalDate.now().toString()));
+  }
+
+  @Test
+  void obtener_sinCuadrilla_cuadrillaYFechaNull() throws Exception {
+    OrdenTrabajo pendiente = guardarOt(false);
+
+    mvc.perform(get(ORDENES + "/" + pendiente.getId()).with(user(operador)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.estado").value("PENDIENTE"))
+        .andExpect(jsonPath("$.cuadrilla", nullValue()))
+        .andExpect(jsonPath("$.fechaEjecucion", nullValue()))
+        .andExpect(jsonPath("$.incidente.numero").value(pendiente.getIncidente().getNumero()));
+  }
+
+  @Test
+  void obtener_preventiva_sinIncidente() throws Exception {
+    OrdenTrabajo preventiva =
+        ordenTrabajoRepository.save(
+            OrdenTrabajo.preventiva(idInstalacion, LocalDate.now(), Instant.now()));
+
+    mvc.perform(get(ORDENES + "/" + preventiva.getId()).with(user(operador)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.tipo").value("PREVENTIVA"))
+        .andExpect(jsonPath("$.incidente", nullValue()))
+        .andExpect(jsonPath("$.instalacion.codigo").value("TEST-PAUSA-1"))
+        .andExpect(jsonPath("$.cuadrilla", nullValue()));
+  }
+
+  @Test
+  void pausarYReanudar_traeLosNombresDeQuienPausoYQuienReanudo() throws Exception {
+    pausar(tecnicoNorte, ot, "CLIMA", null)
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.pausaAbierta.idUsuarioPausa").value(tecnicoNorte.getId()))
+        .andExpect(jsonPath("$.pausaAbierta.nombreUsuarioPausa").value("Técnico Norte"))
+        .andExpect(jsonPath("$.pausaAbierta.nombreUsuarioReanudacion", nullValue()));
+
+    reanudar(operador, ot)
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.pausas[0].nombreUsuarioPausa").value("Técnico Norte"))
+        .andExpect(jsonPath("$.pausas[0].nombreUsuarioReanudacion").value("Operador"));
+
+    mvc.perform(get(ORDENES + "/" + ot.getId()).with(user(tecnicoNorte)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.pausas[0].idUsuarioReanudacion").value(operador.getId()))
+        .andExpect(jsonPath("$.pausas[0].nombreUsuarioPausa").value("Técnico Norte"))
+        .andExpect(jsonPath("$.pausas[0].nombreUsuarioReanudacion").value("Operador"));
   }
 
   @Test

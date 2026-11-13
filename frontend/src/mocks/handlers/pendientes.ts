@@ -42,7 +42,7 @@ function aFila(orden: OrdenSimulada): OrdenPendiente {
     codigoInstalacion: instalacion?.codigo ?? '',
     nombreInstalacion: instalacion?.nombre ?? '',
     cuadrilla: cuadrilla?.nombre ?? null,
-    numeroIncidente: orden.numeroIncidente,
+    numeroIncidente: base.incidentes.find((i) => i.id === orden.idIncidente)?.numero ?? null,
     pausa: pausa && { motivo: pausa.motivo, detalle: pausa.detalle, inicio: pausa.inicio },
     creadoEn: orden.creadaEn,
   }
