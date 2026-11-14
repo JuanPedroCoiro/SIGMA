@@ -5,11 +5,21 @@ export const CRITERIOS_ORDEN = ['VENCIMIENTO', 'PRIORIDAD', 'CREACION'] as const
 
 export type CriterioOrden = (typeof CRITERIOS_ORDEN)[number]
 
+export type EstadoTablero = (typeof ESTADOS_TABLERO)[number]
+
 export const ETIQUETA_CRITERIO: Record<CriterioOrden, string> = {
   VENCIMIENTO: 'Vencimiento',
   PRIORIDAD: 'Prioridad',
   CREACION: 'Fecha de creación',
 }
+
+/** Estados que muestra el tablero, para filtrar (?estado=PENDIENTE, #72). */
+export const ESTADOS_TABLERO = [
+  'PENDIENTE',
+  'ASIGNADA',
+  'EN_PROCESO',
+  'EN_PAUSA',
+] as const satisfies readonly EstadoOT[]
 
 /** Una fila de GET /api/v1/pendientes/ordenes. */
 export type OrdenPendiente = {
@@ -47,4 +57,15 @@ export type IncidenteEnEspera = {
   tercero: string
   causa: string | null
   creadoEn: string
+}
+
+/** GET /api/v1/inicio/resumen (#72): null en lo que no corresponde al rol. */
+export type ResumenInicio = {
+  pendientesDeAsignar: number | null
+  vencidas: number | null
+  porVencer: number | null
+  enPausa: number | null
+  incidentesEnEspera: number | null
+  incidentesHoy: number | null
+  otsDeHoy: number | null
 }

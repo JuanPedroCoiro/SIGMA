@@ -14,8 +14,10 @@ import { SeccionIncidentesEnEspera } from '../components/SeccionIncidentesEnEspe
 import { useOrdenesPendientes } from '../hooks/usePendientes'
 import {
   CRITERIOS_ORDEN,
+  ESTADOS_TABLERO,
   ETIQUETA_CRITERIO,
   type CriterioOrden,
+  type EstadoTablero,
   type OrdenPendiente,
 } from '../types'
 import './PendientesPage.css'
@@ -31,7 +33,9 @@ export function PendientesPage() {
   // de una OT (#61).
   const [parametros, setParametros] = useSearchParams()
   const orden = criterioDeUrl(parametros.get('orden'))
-  const ordenes = useOrdenesPendientes(orden, pagina)
+  // El filtro por estado también va en la URL: el inicio enlaza a ?estado=PENDIENTE (#72).
+  const estado = estadoDeUrl(parametros.get('estado'))
+  const ordenes = useOrdenesPendientes(orden, estado, pagina)
   const sesion = useSesion()
   // Anular y asignar son solo de la Jefatura (CU-19, HU-05): el Operador no ve esas columnas.
   const esJefatura = sesion.estado === 'autenticado' && sesion.usuario.rol === 'JEFATURA'
@@ -41,15 +45,19 @@ export function PendientesPage() {
   const [seleccion, setSeleccion] = useState<Map<number, string>>(new Map())
   const [asignando, setAsignando] = useState(false)
 
-  /** Al cambiar el criterio se vuelve a la primera página. */
-  function cambiarOrden(nuevo: CriterioOrden) {
+  /** Al cambiar el orden o el filtro se vuelve a la primera página. */
+  function cambiarParametro(nombre: 'orden' | 'estado', valor: string | null) {
     setParametros((actuales) => {
       const siguientes = new URLSearchParams(actuales)
-      if (nuevo === 'VENCIMIENTO') siguientes.delete('orden')
-      else siguientes.set('orden', nuevo)
+      if (valor === null) siguientes.delete(nombre)
+      else siguientes.set(nombre, valor)
       siguientes.delete('pagina')
       return siguientes
     })
+  }
+
+  function cambiarOrden(nuevo: CriterioOrden) {
+    cambiarParametro('orden', nuevo === 'VENCIMIENTO' ? null : nuevo)
   }
 
   function alternarSeleccion(ot: OrdenPendiente) {
@@ -65,16 +73,32 @@ export function PendientesPage() {
     <section className="pendientes">
       <div className="encabezado-pagina">
         <h1>Pendientes</h1>
-        <label className="pendientes-orden">
-          Ordenar por{' '}
-          <select value={orden} onChange={(e) => cambiarOrden(e.target.value as CriterioOrden)}>
-            {CRITERIOS_ORDEN.map((criterio) => (
-              <option key={criterio} value={criterio}>
-                {ETIQUETA_CRITERIO[criterio]}
-              </option>
-            ))}
-          </select>
-        </label>
+        <div className="pendientes-filtros">
+          <label className="pendientes-orden">
+            Estado{' '}
+            <select
+              value={estado ?? ''}
+              onChange={(e) => cambiarParametro('estado', e.target.value || null)}
+            >
+              <option value="">Todos</option>
+              {ESTADOS_TABLERO.map((opcion) => (
+                <option key={opcion} value={opcion}>
+                  {ETIQUETA_ESTADO_OT[opcion]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="pendientes-orden">
+            Ordenar por{' '}
+            <select value={orden} onChange={(e) => cambiarOrden(e.target.value as CriterioOrden)}>
+              {CRITERIOS_ORDEN.map((criterio) => (
+                <option key={criterio} value={criterio}>
+                  {ETIQUETA_CRITERIO[criterio]}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
       </div>
 
       <h2>Órdenes de trabajo</h2>
@@ -84,8 +108,13 @@ export function PendientesPage() {
           No se pudo cargar el tablero. Volvé a intentar en unos minutos.
         </p>
       )}
-      {ordenes.data?.totalElementos === 0 && <p>No hay órdenes de trabajo pendientes.</p>}
-
+      {ordenes.data?.totalElementos === 0 && (
+        <p>
+          {estado
+            ? `No hay órdenes de trabajo en estado «${ETIQUETA_ESTADO_OT[estado]}».`
+            : 'No hay órdenes de trabajo pendientes.'}
+        </p>
+      )}
       {ordenes.data && ordenes.data.totalElementos > 0 && (
         <>
           {esJefatura && (
@@ -227,4 +256,9 @@ function Vencimiento({ orden }: { orden: OrdenPendiente }) {
 /** El criterio de la URL; si falta o no es válido, por vencimiento. */
 function criterioDeUrl(valor: string | null): CriterioOrden {
   return CRITERIOS_ORDEN.find((criterio) => criterio === valor) ?? 'VENCIMIENTO'
+}
+
+/** El estado de la URL; si falta o no es uno del tablero, todos. */
+function estadoDeUrl(valor: string | null): EstadoTablero | null {
+  return ESTADOS_TABLERO.find((opcion) => opcion === valor) ?? null
 }

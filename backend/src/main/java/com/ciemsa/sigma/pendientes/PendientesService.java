@@ -68,12 +68,23 @@ public class PendientesService {
   private final EntityManager entityManager;
   private final Clock clock;
 
-  /** OTs abiertas, paginadas en el orden pedido. El orden de {@code pageable} se ignora. */
-  public Page<OrdenPendiente> ordenes(CriterioOrden criterio, Pageable pageable) {
+  /**
+   * OTs abiertas, paginadas en el orden pedido. Con {@code estado}, solo las de ese estado (por
+   * ejemplo, las pendientes de asignar desde el inicio, #72); si no es un estado abierto, la página
+   * viene vacía. El orden de {@code pageable} se ignora.
+   */
+  public Page<OrdenPendiente> ordenes(CriterioOrden criterio, EstadoOT estado, Pageable pageable) {
+    List<EstadoOT> estados =
+        estado == null
+            ? ESTADOS_PENDIENTES
+            : ESTADOS_PENDIENTES.stream().filter(estado::equals).toList();
+    if (estados.isEmpty()) {
+      return Page.empty(pageable);
+    }
     List<FilaOrdenPendiente> filas =
         entityManager
             .createQuery(CONSULTA_ORDENES + ordenDe(criterio), FilaOrdenPendiente.class)
-            .setParameter("estados", ESTADOS_PENDIENTES)
+            .setParameter("estados", estados)
             .setFirstResult((int) pageable.getOffset())
             .setMaxResults(pageable.getPageSize())
             .getResultList();
@@ -81,7 +92,7 @@ public class PendientesService {
         entityManager
             .createQuery(
                 "select count(o) from OrdenTrabajo o where o.estado in :estados", Long.class)
-            .setParameter("estados", ESTADOS_PENDIENTES)
+            .setParameter("estados", estados)
             .getSingleResult();
     Instant ahora = Instant.now(clock);
     return new PageImpl<>(

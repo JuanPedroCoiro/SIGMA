@@ -1,5 +1,6 @@
 package com.ciemsa.sigma.pendientes;
 
+import com.ciemsa.sigma.ot.domain.EstadoOT;
 import com.ciemsa.sigma.shared.api.PageResponse;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -22,13 +23,15 @@ class PendientesController {
 
   /**
    * OTs Pendiente, Asignada, En proceso y En pausa, paginadas. Por defecto, por vencimiento; {@code
-   * orden=PRIORIDAD} o {@code orden=CREACION} para los órdenes alternativos (RF-17).
+   * orden=PRIORIDAD} o {@code orden=CREACION} para los órdenes alternativos (RF-17). Con {@code
+   * estado}, solo las de ese estado.
    */
   @GetMapping("/ordenes")
   PageResponse<OrdenPendiente> ordenes(
       @RequestParam(defaultValue = "VENCIMIENTO") CriterioOrden orden,
+      @RequestParam(required = false) EstadoOT estado,
       @PageableDefault(size = 20) Pageable pageable) {
-    return PageResponse.de(pendientesService.ordenes(orden, pageable));
+    return PageResponse.de(pendientesService.ordenes(orden, estado, pageable));
   }
 
   /** Incidentes en espera de tercero: van aparte porque no tienen vencimiento. */

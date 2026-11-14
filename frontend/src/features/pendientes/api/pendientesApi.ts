@@ -1,14 +1,15 @@
 import { cliente } from '../../../shared/api/cliente'
 import type { PageResponse, ParametrosPagina } from '../../../shared/api/paginacion'
-import type { CriterioOrden, IncidenteEnEspera, OrdenPendiente } from '../types'
+import type { CriterioOrden, EstadoTablero, IncidenteEnEspera, OrdenPendiente } from '../types'
 
-/** El orden va en `orden`, no en `sort`: los criterios no son columnas. */
+/** El orden va en `orden`, no en `sort`: los criterios no son columnas. Sin estado, todas. */
 export async function listarOrdenesPendientes(
   orden: CriterioOrden,
+  estado: EstadoTablero | null,
   parametros: ParametrosPagina,
 ): Promise<PageResponse<OrdenPendiente>> {
   const res = await cliente.get<PageResponse<OrdenPendiente>>('/pendientes/ordenes', {
-    params: { ...parametros, orden },
+    params: { ...parametros, orden, estado: estado ?? undefined },
   })
   return res.data
 }
