@@ -37,7 +37,7 @@ public class AnulacionOtService {
     Instant ahora = Instant.now(clock);
     ot.anular(motivo, usuarioActual.id(), ahora);
     ordenTrabajoRepository.save(ot);
-    ot.extraerEventos().forEach(eventos::publishEvent);
+    ot.extraerEventos(usuarioActual.id()).forEach(eventos::publishEvent);
     return armadorDetalleOt.armar(ot, ahora);
   }
 }

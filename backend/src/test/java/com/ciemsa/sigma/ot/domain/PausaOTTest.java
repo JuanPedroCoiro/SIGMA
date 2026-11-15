@@ -231,16 +231,16 @@ class PausaOTTest {
   void extraerEventos_pausarYReanudar_cambiosDeEstadoYEventosDePausa() {
     OrdenTrabajo ot = correctiva(LUN_08, 24);
     ReflectionTestUtils.setField(ot, "id", 99L);
-    ot.extraerEventos();
+    ot.extraerEventos(USUARIO);
 
     ot.pausar(MotivoPausa.TERCERO, "UTE", USUARIO, LUN_12);
     ot.reanudar(OTRO_USUARIO, MAR_10);
 
-    assertThat(ot.extraerEventos())
+    assertThat(ot.extraerEventos(USUARIO))
         .containsExactly(
-            new EstadoOrdenCambiado(99L, EstadoOT.PENDIENTE, EstadoOT.EN_PAUSA, LUN_12),
+            new EstadoOrdenCambiado(99L, EstadoOT.PENDIENTE, EstadoOT.EN_PAUSA, USUARIO, LUN_12),
             new OrdenPausada(99L, MotivoPausa.TERCERO, "UTE", USUARIO, LUN_12),
-            new EstadoOrdenCambiado(99L, EstadoOT.EN_PAUSA, EstadoOT.PENDIENTE, MAR_10),
+            new EstadoOrdenCambiado(99L, EstadoOT.EN_PAUSA, EstadoOT.PENDIENTE, USUARIO, MAR_10),
             new OrdenReanudada(
                 99L, MotivoPausa.TERCERO, OTRO_USUARIO, MAR_10, montevideo("2026-11-04T10:00")));
   }
@@ -249,11 +249,11 @@ class PausaOTTest {
   void extraerEventos_pausaRechazada_noAgregaEventos() {
     OrdenTrabajo ot = correctiva(LUN_08, 24);
     ReflectionTestUtils.setField(ot, "id", 99L);
-    ot.extraerEventos();
+    ot.extraerEventos(USUARIO);
 
     assertThatThrownBy(() -> ot.pausar(MotivoPausa.TERCERO, null, USUARIO, LUN_12))
         .isInstanceOf(ReglaNegocioException.class);
-    assertThat(ot.extraerEventos()).isEmpty();
+    assertThat(ot.extraerEventos(USUARIO)).isEmpty();
   }
 
   private static OrdenTrabajo correctiva(Instant inicio, int horasResolucion) {

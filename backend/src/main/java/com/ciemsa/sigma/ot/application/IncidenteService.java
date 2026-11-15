@@ -105,7 +105,7 @@ public class IncidenteService {
             .orElse(null); // 8a: «SLA sin definir»
     OrdenTrabajo ot = incidente.generarOrdenCorrectiva(ahora, regla);
     ordenTrabajoRepository.save(ot);
-    ot.extraerEventos().forEach(eventos::publishEvent);
+    ot.extraerEventos(usuarioActual.id()).forEach(eventos::publishEvent);
     return ot;
   }
 

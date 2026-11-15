@@ -191,12 +191,13 @@ public class OrdenTrabajo extends BaseEntity {
    */
   public void asignar(Long idCuadrilla, LocalDate fechaEjecucion, Instant ahora) {
     Long anterior = this.idCuadrilla;
+    LocalDate fechaAnterior = this.fechaEjecucion;
     boolean sinCambios =
-        Objects.equals(idCuadrilla, anterior)
-            && Objects.equals(fechaEjecucion, this.fechaEjecucion);
+        Objects.equals(idCuadrilla, anterior) && Objects.equals(fechaEjecucion, fechaAnterior);
     estado.asignar(this, idCuadrilla, fechaEjecucion, ahora);
     if (!sinCambios) {
-      pendientes.add(new AsignacionPendiente(anterior, idCuadrilla, fechaEjecucion, ahora));
+      pendientes.add(
+          new AsignacionPendiente(anterior, idCuadrilla, fechaAnterior, fechaEjecucion, ahora));
     }
   }
 
@@ -238,36 +239,47 @@ public class OrdenTrabajo extends BaseEntity {
   /** Si estaba en pausa, la cierra con quien anula. */
   public void anular(String motivo, Long idUsuario, Instant ahora) {
     estado.anular(this, motivo, idUsuario, ahora);
+    pendientes.add(new AnulacionPendiente(motivoAnulacion, idUsuario, ahora));
   }
 
   /**
    * Devuelve los eventos de dominio pendientes ({@link OrdenGenerada}, {@link EstadoOrdenCambiado},
-   * {@link OrdenAsignada}, {@link OrdenPausada}, {@link OrdenReanudada}) en el orden en que
-   * ocurrieron y los descarta. Se llama después de guardar, porque los eventos llevan el id de la
-   * OT.
+   * {@link OrdenAsignada}, {@link OrdenPausada}, {@link OrdenReanudada}, {@link OrdenAnulada}) en
+   * el orden en que ocurrieron y los descarta. Se llama después de guardar, porque los eventos
+   * llevan el id de la OT. {@code idUsuario} es quien hizo la acción: lo pasa el servicio, que
+   * conoce al usuario actual, y queda en los eventos que no lo traen de la operación (para la
+   * bitácora).
    */
-  public List<Object> extraerEventos() {
+  public List<Object> extraerEventos(Long idUsuario) {
     if (id == null) {
       throw new IllegalStateException("La OT debe guardarse antes de extraer sus eventos.");
     }
-    List<Object> eventos = pendientes.stream().map(this::aEvento).toList();
+    List<Object> eventos = pendientes.stream().map(p -> aEvento(p, idUsuario)).toList();
     pendientes.clear();
     return eventos;
   }
 
-  private Object aEvento(Pendiente pendiente) {
+  private Object aEvento(Pendiente pendiente, Long idUsuario) {
     return switch (pendiente) {
       case CambioPendiente c when c.anterior() == null ->
-          new OrdenGenerada(id, incidente == null ? null : incidente.getId(), c.ocurridoEn());
+          new OrdenGenerada(
+              id, incidente == null ? null : incidente.getId(), idUsuario, c.ocurridoEn());
       case CambioPendiente c ->
-          new EstadoOrdenCambiado(id, c.anterior(), c.nuevo(), c.ocurridoEn());
+          new EstadoOrdenCambiado(id, c.anterior(), c.nuevo(), idUsuario, c.ocurridoEn());
       case AsignacionPendiente a ->
           new OrdenAsignada(
-              id, a.cuadrillaAnterior(), a.cuadrillaNueva(), a.fechaEjecucion(), a.ocurridoEn());
+              id,
+              a.cuadrillaAnterior(),
+              a.cuadrillaNueva(),
+              a.fechaEjecucionAnterior(),
+              a.fechaEjecucion(),
+              idUsuario,
+              a.ocurridoEn());
       case PausaPendiente p ->
           new OrdenPausada(id, p.motivo(), p.detalle(), p.idUsuario(), p.ocurridoEn());
       case ReanudacionPendiente r ->
           new OrdenReanudada(id, r.motivo(), r.idUsuario(), r.ocurridoEn(), r.fechaLimite());
+      case AnulacionPendiente a -> new OrdenAnulada(id, a.motivo(), a.idUsuario(), a.ocurridoEn());
     };
   }
 
@@ -333,7 +345,11 @@ public class OrdenTrabajo extends BaseEntity {
 
   /** Evento todavía sin publicar: le falta el id de la OT, que se conoce al guardar. */
   private sealed interface Pendiente
-      permits CambioPendiente, AsignacionPendiente, PausaPendiente, ReanudacionPendiente {}
+      permits CambioPendiente,
+          AsignacionPendiente,
+          PausaPendiente,
+          ReanudacionPendiente,
+          AnulacionPendiente {}
 
   /** Cambio de estado; anterior null = la OT recién generada. */
   private record CambioPendiente(EstadoOT anterior, EstadoOT nuevo, Instant ocurridoEn)
@@ -344,7 +360,14 @@ public class OrdenTrabajo extends BaseEntity {
       implements Pendiente {}
 
   private record AsignacionPendiente(
-      Long cuadrillaAnterior, Long cuadrillaNueva, LocalDate fechaEjecucion, Instant ocurridoEn)
+      Long cuadrillaAnterior,
+      Long cuadrillaNueva,
+      LocalDate fechaEjecucionAnterior,
+      LocalDate fechaEjecucion,
+      Instant ocurridoEn)
+      implements Pendiente {}
+
+  private record AnulacionPendiente(String motivo, Long idUsuario, Instant ocurridoEn)
       implements Pendiente {}
 
   /** {@code fechaLimite} es la vigente después de reanudar. */
