@@ -1,5 +1,7 @@
-import { Controller, useFormContext } from 'react-hook-form'
+import { Controller, useFormContext, useWatch } from 'react-hook-form'
 import { BuscadorInstalacion } from '../../../activos/components/BuscadorInstalacion'
+import { MapaInstalaciones } from '../../../activos/components/MapaInstalaciones'
+import { useInstalacionesMapa } from '../../../activos/hooks/useInstalaciones'
 import type { Instalacion } from '../../../activos/types'
 import type { CamposIncidente } from '../../esquemas'
 import { ETIQUETA_ORIGEN, ORIGENES_INCIDENTE } from '../../types'
@@ -12,13 +14,27 @@ type Props = {
   onInstalacion: (instalacion: Instalacion | null) => void
 }
 
-/** Paso 1: la instalación y el origen del incidente. */
+/** Solo las que se pueden ubicar; las que no tienen coordenadas se eligen con el buscador. */
+function conCoordenadas(instalaciones: Instalacion[]) {
+  return instalaciones.filter((i) => Number.isFinite(i.latitud) && Number.isFinite(i.longitud))
+}
+
+/** Paso 1: la instalación y el origen del incidente, con el mapa al costado (#70). */
 export function PasoDonde({ instalacion, onInstalacion }: Props) {
   const {
     control,
     register,
+    setValue,
     formState: { errors },
   } = useFormContext<CamposIncidente>()
+  const mapa = useInstalacionesMapa()
+  const elegida = useWatch({ control, name: 'idInstalacion' }) === null ? null : instalacion
+
+  /** Lo mismo que elegirla en el buscador. */
+  function elegirEnElMapa(elegidaEnElMapa: Instalacion) {
+    onInstalacion(elegidaEnElMapa)
+    setValue('idInstalacion', elegidaEnElMapa.id, { shouldValidate: true })
+  }
 
   return (
     <div className="registrar-incidente-donde">
@@ -57,11 +73,18 @@ export function PasoDonde({ instalacion, onInstalacion }: Props) {
           <MensajeError campo="origen" />
         </fieldset>
       </div>
-      {/*
-        #70: el mapa va acá, como segunda columna de .registrar-incidente-donde (al costado en
-        escritorio, debajo en el celular). Elegir en el mapa llama a onInstalacion y a setValue
-        ('idInstalacion', id), igual que el buscador.
-      */}
+      <div className="registrar-incidente-mapa">
+        <MapaInstalaciones
+          instalaciones={conCoordenadas(mapa.data ?? [])}
+          elegida={elegida}
+          onElegir={elegirEnElMapa}
+        />
+        {mapa.isError && (
+          <p className="campo-ayuda">
+            No se pudo cargar el mapa. Podés buscar la instalación por código o nombre.
+          </p>
+        )}
+      </div>
     </div>
   )
 }

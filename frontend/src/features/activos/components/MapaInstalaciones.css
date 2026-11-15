@@ -1,0 +1,59 @@
+.mapa-instalaciones {
+  height: 16rem;
+  /* Los panes de Leaflet usan z-index altos: así no tapan la navegación fija. */
+  isolation: isolate;
+  overflow: hidden;
+  border: 1px solid var(--borde);
+  border-radius: 0.375rem;
+}
+
+.mapa-instalaciones-mapa {
+  height: 100%;
+  background: var(--superficie);
+}
+
+/* Los colores van por CSS (Leaflet los pone como atributos, que no aceptan variables). */
+.mapa-instalaciones .mapa-marcador {
+  cursor: pointer;
+  stroke: var(--superficie);
+  stroke-width: 2;
+  fill: var(--texto-suave);
+  fill-opacity: 0.9;
+}
+
+.mapa-instalaciones .mapa-marcador-elegido {
+  stroke-width: 3;
+  fill: var(--acento);
+  fill-opacity: 1;
+}
+
+.mapa-instalaciones .leaflet-control-attribution,
+.mapa-instalaciones .leaflet-bar a {
+  color: var(--texto);
+  background: var(--superficie);
+}
+
+.mapa-instalaciones .leaflet-control-attribution a {
+  color: var(--acento);
+}
+
+@media (min-width: 768px) {
+  /* Al costado del formulario y a la vista mientras se baja. */
+  .mapa-instalaciones {
+    position: sticky;
+    top: 1rem;
+    height: min(30rem, 70vh);
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  /* Las teselas de OSM son claras: se invierten para no dejar un bloque blanco (HU-11 define
+     una capa oscura propia). */
+  .mapa-instalaciones .leaflet-tile-pane {
+    filter: invert(1) hue-rotate(180deg) brightness(0.9) contrast(0.9);
+  }
+
+  .mapa-instalaciones .leaflet-bar a {
+    border-bottom-color: var(--borde);
+  }
+}
