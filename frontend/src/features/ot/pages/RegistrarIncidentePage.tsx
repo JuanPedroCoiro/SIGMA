@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom'
 import { formatearFechaHoraMontevideo } from '../../../shared/lib/fechas'
 import { aplicarErroresDelServidor } from '../../../shared/lib/erroresFormulario'
 import { BuscadorInstalacion } from '../../activos/components/BuscadorInstalacion'
+import type { Instalacion } from '../../activos/types'
 import { crearEsquemaIncidente, type CamposIncidente, type ValoresIncidente } from '../esquemas'
 import { useCategoriasFalla, useRegistrarIncidente } from '../hooks/useIncidentes'
 import {
@@ -111,6 +112,7 @@ function FormularioIncidente({
   const catalogo = useMemo(() => categorias.data ?? [], [categorias.data])
   const esquema = useMemo(() => crearEsquemaIncidente(catalogo), [catalogo])
   const [errorGeneral, setErrorGeneral] = useState<string | null>(null)
+  const [instalacion, setInstalacion] = useState<Instalacion | null>(null)
   const {
     register,
     handleSubmit,
@@ -168,8 +170,11 @@ function FormularioIncidente({
           render={({ field }) => (
             <BuscadorInstalacion
               id="idInstalacion"
-              value={field.value}
-              onChange={field.onChange}
+              value={field.value === null ? null : instalacion}
+              onChange={(elegida) => {
+                setInstalacion(elegida)
+                field.onChange(elegida?.id ?? null)
+              }}
               onBlur={field.onBlur}
               inputRef={field.ref}
               invalido={Boolean(errors.idInstalacion)}
