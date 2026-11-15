@@ -1,10 +1,11 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
-import { http } from 'msw/http'
+import { http, HttpResponse } from 'msw/http'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { base } from '../../mocks/datos'
 import { problema } from '../../mocks/problemas'
 import { servidor } from '../../mocks/servidor'
 import { formatearFechaHoraMontevideo } from '../../shared/lib/fechas'
+import { mapaSimulado } from '../../test/reactLeafletSimulado'
 import { renderizarRuta } from '../../test/renderizarRuta'
 
 // Datos de la API simulada (src/mocks/datos.ts): INST-001..025, la 25 («Cruce Peñarol») sin regla
@@ -20,9 +21,21 @@ const DESCRIPCION = 'El semáforo del cruce está apagado.'
 
 async function elegirInstalacion(texto: string, etiqueta: string) {
   fireEvent.change(await screen.findByLabelText('Instalación'), { target: { value: texto } })
-  // La búsqueda espera a que se deje de escribir (300 ms): con la suite entera tarda más.
-  fireEvent.click(await screen.findByRole('button', { name: etiqueta }, { timeout: 3000 }))
+  // La búsqueda espera a que se deje de escribir (300 ms): con la suite entera tarda más. Se busca
+  // dentro de los resultados porque el mapa tiene un marcador con el mismo nombre (#70).
+  const resultados = await screen.findByRole(
+    'list',
+    { name: 'Instalaciones encontradas' },
+    { timeout: 3000 },
+  )
+  fireEvent.click(await within(resultados).findByRole('button', { name: etiqueta }))
   await screen.findByRole('button', { name: 'Cambiar' })
+}
+
+/** El marcador de una instalación en el mapa (react-leaflet simulado, src/test). */
+async function marcador(etiqueta: string) {
+  const mapa = screen.getByRole('region', { name: 'Mapa de instalaciones' })
+  return within(mapa).findByRole('button', { name: etiqueta })
 }
 
 async function elegirCategoria(id: string) {
@@ -231,7 +244,7 @@ describe('registrar incidente (#40, en pasos #69)', () => {
     pulsar('Anterior')
 
     await enPaso('Dónde')
-    expect(screen.getByText(INST_001)).toBeInTheDocument()
+    expect(screen.getByText(INST_001, { selector: 'span' })).toBeInTheDocument()
     expect(screen.getByLabelText('Detección en el monitoreo')).toBeChecked()
 
     pulsar('Siguiente')
@@ -251,7 +264,7 @@ describe('registrar incidente (#40, en pasos #69)', () => {
 
     await act(() => router.navigate(-1))
     await enPaso('Dónde')
-    expect(screen.getByText(INST_001)).toBeInTheDocument()
+    expect(screen.getByText(INST_001, { selector: 'span' })).toBeInTheDocument()
   })
 
   it('pasoSinCompletarLosAnteriores_vuelveAlPrimero', async () => {
@@ -378,5 +391,85 @@ describe('registrar incidente (#40, en pasos #69)', () => {
     await enPaso('Dónde')
     expect(screen.getByLabelText('Instalación')).toHaveValue('')
     expect(base.incidentes.filter((i) => i.numero === 'INC-0006')).toHaveLength(0)
+  })
+
+  describe('mapa al costado (#70)', () => {
+    const INST_003 = 'INST-003 — Cruce Ficticio 3'
+
+    it('mapa_muestraLasInstalacionesActivasComoMarcadores', async () => {
+      renderizarRuta('/incidentes/nuevo')
+      await enPaso('Dónde')
+
+      expect(await marcador(INST_001)).toHaveClass('mapa-marcador')
+      const mapa = screen.getByRole('region', { name: 'Mapa de instalaciones' })
+      expect(within(mapa).getAllByRole('button')).toHaveLength(base.instalaciones.length)
+      expect(mapaSimulado.invalidateSize).toHaveBeenCalled()
+      await waitFor(() => expect(mapaSimulado.fitBounds).toHaveBeenCalled())
+    })
+
+    it('clicEnMarcador_eligeLaInstalacion', async () => {
+      renderizarRuta('/incidentes/nuevo')
+      await enPaso('Dónde')
+      fireEvent.click(await marcador(INST_003))
+
+      expect(await screen.findByRole('button', { name: 'Cambiar' })).toBeInTheDocument()
+      expect(screen.getByText(INST_003, { selector: 'span' })).toBeInTheDocument()
+      expect(await marcador(INST_003)).toHaveClass('mapa-marcador-elegido')
+      fireEvent.click(screen.getByLabelText('Detección en el monitoreo'))
+      pulsar('Siguiente')
+      await enPaso('Qué pasó')
+      await completarQuePaso()
+      await irAlResumen()
+      expect(filaDelResumen('Instalación')).toHaveTextContent(INST_003)
+    })
+
+    it('clicEnMarcador_despuesDeUnIntento_borraElError', async () => {
+      renderizarRuta('/incidentes/nuevo')
+      await enPaso('Dónde')
+      pulsar('Siguiente')
+      expect(await screen.findByText('Elegí la instalación.')).toBeInTheDocument()
+
+      fireEvent.click(await marcador(INST_003))
+      await waitFor(() =>
+        expect(screen.queryByText('Elegí la instalación.')).not.toBeInTheDocument(),
+      )
+    })
+
+    it('elegirEnElBuscador_centraElMapaYResaltaElMarcador', async () => {
+      renderizarRuta('/incidentes/nuevo')
+      await enPaso('Dónde')
+      await elegirInstalacion('INST-003', INST_003)
+
+      expect(await marcador(INST_003)).toHaveClass('mapa-marcador-elegido')
+      expect(await marcador(INST_001)).not.toHaveClass('mapa-marcador-elegido')
+      const inst003 = base.instalaciones.find((i) => i.codigo === 'INST-003')!
+      await waitFor(() =>
+        expect(mapaSimulado.setView).toHaveBeenCalledWith(
+          [inst003.latitud, inst003.longitud],
+          expect.any(Number),
+        ),
+      )
+
+      // Al cambiarla, ya no queda resaltada.
+      pulsar('Cambiar')
+      await waitFor(async () =>
+        expect(await marcador(INST_003)).not.toHaveClass('mapa-marcador-elegido'),
+      )
+    })
+
+    it('errorAlCargarElMapa_sePuedeBuscarIgual', async () => {
+      servidor.use(
+        http.get('/api/v1/instalaciones/mapa', () => HttpResponse.json(null, { status: 500 })),
+      )
+      renderizarRuta('/incidentes/nuevo')
+      await enPaso('Dónde')
+
+      expect(
+        await screen.findByText(
+          'No se pudo cargar el mapa. Podés buscar la instalación por código o nombre.',
+        ),
+      ).toBeInTheDocument()
+      await elegirInstalacion('INST-001', INST_001)
+    })
   })
 })
