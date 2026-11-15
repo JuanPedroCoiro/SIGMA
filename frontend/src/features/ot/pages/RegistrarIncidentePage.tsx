@@ -1,35 +1,30 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useMemo, useState, type ChangeEvent } from 'react'
-import { Controller, useForm, useWatch } from 'react-hook-form'
-import { Link } from 'react-router-dom'
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { FormProvider, useForm, type FieldErrors } from 'react-hook-form'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { formatearFechaHoraMontevideo } from '../../../shared/lib/fechas'
 import { aplicarErroresDelServidor } from '../../../shared/lib/erroresFormulario'
-import { BuscadorInstalacion } from '../../activos/components/BuscadorInstalacion'
+import type { Instalacion } from '../../activos/types'
+import { IndicadorPasos } from '../components/registro-incidente/IndicadorPasos'
+import { PasoDonde } from '../components/registro-incidente/PasoDonde'
+import { PasoQuePaso } from '../components/registro-incidente/PasoQuePaso'
+import {
+  CAMPOS,
+  CAMPOS_POR_PASO,
+  leerPaso,
+  pasoDeCampo,
+  TITULO_PASO,
+  type Campo,
+  type NumeroPaso,
+  type PasoConCampos,
+} from '../components/registro-incidente/pasos'
+import { ResumenIncidente } from '../components/registro-incidente/ResumenIncidente'
 import { crearEsquemaIncidente, type CamposIncidente, type ValoresIncidente } from '../esquemas'
 import { useCategoriasFalla, useRegistrarIncidente } from '../hooks/useIncidentes'
-import {
-  esCategoriaOtra,
-  ETIQUETA_ORIGEN,
-  ETIQUETA_PRIORIDAD,
-  ORIGENES_INCIDENTE,
-  PRIORIDADES,
-  type IncidenteResponse,
-} from '../types'
+import type { IncidenteResponse } from '../types'
 import './RegistrarIncidentePage.css'
 
-const CAMPOS = [
-  'idInstalacion',
-  'origen',
-  'idCategoriaFalla',
-  'prioridad',
-  'descripcion',
-  'tercero',
-  'causa',
-] as const
-
-type Campo = (typeof CAMPOS)[number]
-
-const MAXIMO_DESCRIPCION = 2000
+const RUTA = '/incidentes/nuevo'
 
 const VALORES_INICIALES: CamposIncidente = {
   idInstalacion: null,
@@ -43,20 +38,35 @@ const VALORES_INICIALES: CamposIncidente = {
   causa: '',
 }
 
+const MENSAJE_CAMPOS_RECHAZADOS = 'Revisá los datos marcados.'
+
+/** El resultado viaja en el estado del historial: Atrás vuelve a un registro nuevo, no a este. */
+type EstadoRegistro = { resultado: IncidenteResponse }
+
 /**
  * Registrar un incidente (CU-1, HU-03): Operador y Jefatura. Genera la OT correctiva con su
- * vencimiento, o deja el incidente en espera si la falla es de un tercero (4b).
+ * vencimiento, o deja el incidente en espera si la falla es de un tercero (4b). Se carga en pasos
+ * (#69): Dónde, Qué pasó y un resumen, donde se confirma.
  */
 export function RegistrarIncidentePage() {
-  const [resultado, setResultado] = useState<IncidenteResponse | null>(null)
+  const navigate = useNavigate()
+  const location = useLocation()
+  const resultado = (location.state as EstadoRegistro | null)?.resultado ?? null
 
   return (
     <section className="registrar-incidente">
       <h1>Registrar incidente</h1>
       {resultado ? (
-        <ResultadoRegistro resultado={resultado} onOtro={() => setResultado(null)} />
+        <ResultadoRegistro resultado={resultado} onOtro={() => navigate(RUTA)} />
       ) : (
-        <FormularioIncidente onRegistrado={setResultado} />
+        <AsistenteIncidente
+          onRegistrado={(registrado) =>
+            navigate(RUTA, {
+              replace: true,
+              state: { resultado: registrado } satisfies EstadoRegistro,
+            })
+          }
+        />
       )}
     </section>
   )
@@ -101,197 +111,199 @@ function ResultadoRegistro({
   )
 }
 
-function FormularioIncidente({
+/**
+ * Un solo formulario para los tres pasos: cada paso valida sus campos antes de avanzar y los
+ * valores quedan aunque el paso se desmonte. El paso va en la URL (`?paso=2`), así Atrás en el
+ * navegador vuelve al paso anterior; no se puede saltar a un paso sin completar los anteriores.
+ */
+function AsistenteIncidente({
   onRegistrado,
 }: {
   onRegistrado: (resultado: IncidenteResponse) => void
 }) {
+  const [parametros, setParametros] = useSearchParams()
   const registrar = useRegistrarIncidente()
   const categorias = useCategoriasFalla()
   const catalogo = useMemo(() => categorias.data ?? [], [categorias.data])
   const esquema = useMemo(() => crearEsquemaIncidente(catalogo), [catalogo])
-  const [errorGeneral, setErrorGeneral] = useState<string | null>(null)
-  const {
-    register,
-    handleSubmit,
-    setError,
-    setValue,
-    control,
-    formState: { errors, isSubmitting },
-  } = useForm<CamposIncidente, unknown, ValoresIncidente>({
+  const formulario = useForm<CamposIncidente, unknown, ValoresIncidente>({
     resolver: zodResolver(esquema),
     defaultValues: VALORES_INICIALES,
   })
-  const idCategoria = useWatch({ control, name: 'idCategoriaFalla' })
-  const esTercero = useWatch({ control, name: 'esTercero' })
-  const descripcion = useWatch({ control, name: 'descripcion' })
-  const categoria = catalogo.find((c) => String(c.id) === idCategoria)
+  const {
+    handleSubmit,
+    trigger,
+    setError,
+    getFieldState,
+    setFocus,
+    subscribe,
+    formState: { isSubmitting },
+  } = formulario
+
+  const [instalacion, setInstalacion] = useState<Instalacion | null>(null)
+  /** El paso más avanzado al que se llegó con los anteriores válidos. */
+  const [pasoMaximo, setPasoMaximo] = useState<NumeroPaso>(1)
+  /** Si se vino desde el resumen con «Editar»: el botón principal vuelve al resumen. */
+  const [editando, setEditando] = useState(false)
+  /** Pasos en los que ya se intentó avanzar: desde ahí, los errores se corrigen al escribir. */
+  const [intentados, setIntentados] = useState<ReadonlySet<PasoConCampos>>(() => new Set())
+  const [alerta, setAlerta] = useState<{ paso: NumeroPaso; mensaje: string } | null>(null)
+
+  const pedido = leerPaso(parametros.get('paso'))
+  const paso: NumeroPaso = pedido > pasoMaximo ? pasoMaximo : pedido
+
+  // Con una recarga o un link a un paso sin completar los anteriores, se vuelve al que falta.
+  useEffect(() => {
+    if (pedido > pasoMaximo) setParametros(parametrosDe(pasoMaximo), { replace: true })
+  }, [pedido, pasoMaximo, setParametros])
+
+  // Después de un intento fallido, cada cambio vuelve a validar el paso.
+  useEffect(() => {
+    if (paso === 3 || !intentados.has(paso)) return
+    const campos: readonly string[] = CAMPOS_POR_PASO[paso]
+    return subscribe({
+      formState: { values: true },
+      callback: ({ name }) => {
+        if (name && campos.includes(name)) void trigger(CAMPOS_POR_PASO[paso])
+      },
+    })
+  }, [paso, intentados, subscribe, trigger])
+
+  // Al cambiar de paso, el foco va al título del paso o al campo que rechazó el backend.
+  const titulo = useRef<HTMLHeadingElement>(null)
+  const campoConFoco = useRef<Campo | null>(null)
+  const pasoMostrado = useRef(paso)
+  useEffect(() => {
+    if (pasoMostrado.current === paso) return
+    pasoMostrado.current = paso
+    if (campoConFoco.current) {
+      setFocus(campoConFoco.current)
+      campoConFoco.current = null
+    } else {
+      titulo.current?.focus()
+    }
+  }, [paso, setFocus])
+
+  function irA(destino: NumeroPaso) {
+    setParametros(parametrosDe(destino))
+  }
+
+  function marcarIntentado(numero: PasoConCampos) {
+    setIntentados((anteriores) => new Set(anteriores).add(numero))
+  }
+
+  async function avanzar(desde: PasoConCampos) {
+    const valido = await trigger(CAMPOS_POR_PASO[desde], { shouldFocus: true })
+    if (!valido) {
+      marcarIntentado(desde)
+      return
+    }
+    setAlerta(null)
+    const destino: NumeroPaso = editando || desde === 2 ? 3 : 2
+    if (destino === 3) setEditando(false)
+    setPasoMaximo((maximo) => (destino > maximo ? destino : maximo))
+    irA(destino)
+  }
+
+  function editar(numero: PasoConCampos) {
+    setAlerta(null)
+    setEditando(true)
+    irA(numero)
+  }
+
+  /** Lleva al paso del primer campo con error (de la validación o del backend). */
+  function volverAlCampo(campo: Campo, mensaje: string) {
+    const destino = pasoDeCampo(campo)
+    marcarIntentado(destino)
+    setEditando(true)
+    setAlerta({ paso: destino, mensaje })
+    campoConFoco.current = campo
+    irA(destino)
+  }
 
   async function enviar(valores: ValoresIncidente) {
-    setErrorGeneral(null)
+    setAlerta(null)
     try {
       onRegistrado(await registrar.mutateAsync(valores))
     } catch (error) {
-      setErrorGeneral(aplicarErroresDelServidor(error, setError, CAMPOS))
+      const general = aplicarErroresDelServidor(error, setError, CAMPOS)
+      const conError = CAMPOS.find((campo) => getFieldState(campo).error)
+      if (conError) {
+        volverAlCampo(conError, general ?? MENSAJE_CAMPOS_RECHAZADOS)
+      } else {
+        setAlerta({ paso: 3, mensaje: general ?? MENSAJE_CAMPOS_RECHAZADOS })
+      }
     }
   }
 
-  function propsError(campo: Campo) {
-    return {
-      'aria-invalid': errors[campo] ? true : undefined,
-      'aria-describedby': errors[campo] ? `${campo}-error` : undefined,
+  // No debería pasar, porque cada paso se validó al avanzar; por las dudas, se lleva al campo.
+  function invalido(errores: FieldErrors<CamposIncidente>) {
+    const conError = CAMPOS.find((campo) => errores[campo])
+    if (conError) volverAlCampo(conError, MENSAJE_CAMPOS_RECHAZADOS)
+  }
+
+  function alEnviar(evento: FormEvent<HTMLFormElement>) {
+    if (paso === 3) {
+      void handleSubmit(enviar, invalido)(evento)
+    } else {
+      evento.preventDefault()
+      void avanzar(paso)
     }
   }
 
-  function mensajeError(campo: Campo) {
-    const mensaje = errors[campo]?.message
-    return mensaje ? (
-      <span id={`${campo}-error`} className="campo-error">
-        {mensaje}
-      </span>
-    ) : null
-  }
+  const etiquetaPrincipal =
+    paso === 3
+      ? isSubmitting
+        ? 'Registrando...'
+        : 'Confirmar'
+      : editando
+        ? 'Volver al resumen'
+        : 'Siguiente'
 
   return (
-    <form className="registrar-incidente-form" noValidate onSubmit={handleSubmit(enviar)}>
-      {errorGeneral && (
-        <p className="alerta alerta-error" role="alert">
-          {errorGeneral}
-        </p>
-      )}
-
-      <div className="campo">
-        <label htmlFor="idInstalacion">Instalación</label>
-        <Controller
-          control={control}
-          name="idInstalacion"
-          render={({ field }) => (
-            <BuscadorInstalacion
-              id="idInstalacion"
-              value={field.value}
-              onChange={field.onChange}
-              onBlur={field.onBlur}
-              inputRef={field.ref}
-              invalido={Boolean(errors.idInstalacion)}
-              idError={errors.idInstalacion ? 'idInstalacion-error' : undefined}
-            />
-          )}
-        />
-        {mensajeError('idInstalacion')}
-      </div>
-
-      <fieldset className="registrar-incidente-opciones" {...propsError('origen')}>
-        <legend>Origen</legend>
-        {ORIGENES_INCIDENTE.map((origen) => (
-          <label key={origen}>
-            <input type="radio" value={origen} {...register('origen')} />
-            {ETIQUETA_ORIGEN[origen]}
-          </label>
-        ))}
-        {mensajeError('origen')}
-      </fieldset>
-
-      <div className="campo">
-        <label htmlFor="idCategoriaFalla">Categoría de la falla</label>
-        <select
-          id="idCategoriaFalla"
-          {...propsError('idCategoriaFalla')}
-          {...register('idCategoriaFalla', {
-            onChange: (e: ChangeEvent<HTMLSelectElement>) => {
-              const elegida = catalogo.find((c) => String(c.id) === e.target.value)
-              // RN-01: la categoría propone la prioridad; el actor la confirma o la cambia.
-              if (elegida) setValue('prioridad', elegida.prioridadSugerida)
-            },
-          })}
-        >
-          <option value="">{categorias.isPending ? 'Cargando...' : 'Elegí la categoría'}</option>
-          {catalogo.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.nombre}
-            </option>
-          ))}
-        </select>
-        {categorias.isError && (
-          <span className="campo-error">
-            No se pudieron cargar las categorías. Recargá la página.
-          </span>
-        )}
-        {mensajeError('idCategoriaFalla')}
-      </div>
-
-      <div className="campo">
-        <label htmlFor="prioridad">Prioridad</label>
-        <select id="prioridad" {...propsError('prioridad')} {...register('prioridad')}>
-          <option value="">Elegí la prioridad</option>
-          {PRIORIDADES.map((p) => (
-            <option key={p} value={p}>
-              {ETIQUETA_PRIORIDAD[p]}
-            </option>
-          ))}
-        </select>
-        {categoria && (
-          <span className="campo-ayuda">
-            Propuesta por la categoría: {ETIQUETA_PRIORIDAD[categoria.prioridadSugerida]}. Podés
-            cambiarla.
-          </span>
-        )}
-        {mensajeError('prioridad')}
-      </div>
-
-      <div className="campo">
-        <label htmlFor="descripcion">Descripción</label>
-        <textarea
-          id="descripcion"
-          rows={4}
-          maxLength={MAXIMO_DESCRIPCION}
-          {...propsError('descripcion')}
-          {...register('descripcion')}
-        />
-        {esCategoriaOtra(categoria) && (
-          <span className="campo-ayuda">
-            Con la categoría «Otra», detallá la falla en la descripción.
-          </span>
-        )}
-        <span className="campo-ayuda">
-          {descripcion.length}/{MAXIMO_DESCRIPCION}
-        </span>
-        {mensajeError('descripcion')}
-      </div>
-
-      <label className="registrar-incidente-casilla">
-        <input type="checkbox" {...register('esTercero')} />
-        La falla es de un tercero
-      </label>
-
-      {esTercero && (
-        <>
-          <p className="campo-ayuda">
-            El incidente queda en espera, sin OT ni SLA, hasta que se resuelva desde Pendientes.
+    <FormProvider {...formulario}>
+      <IndicadorPasos paso={paso} pasoMaximo={pasoMaximo} />
+      <form className="registrar-incidente-form" noValidate onSubmit={alEnviar}>
+        <h2 ref={titulo} tabIndex={-1} className="registrar-incidente-titulo-paso">
+          {TITULO_PASO[paso]}
+        </h2>
+        {alerta?.paso === paso && (
+          <p className="alerta alerta-error" role="alert">
+            {alerta.mensaje}
           </p>
-          <div className="campo">
-            <label htmlFor="tercero">Tercero</label>
-            <input
-              id="tercero"
-              autoComplete="off"
-              placeholder="Por ejemplo, UTE"
-              {...propsError('tercero')}
-              {...register('tercero')}
-            />
-            {mensajeError('tercero')}
-          </div>
-          <div className="campo">
-            <label htmlFor="causa">Causa (opcional)</label>
-            <input id="causa" autoComplete="off" {...propsError('causa')} {...register('causa')} />
-            {mensajeError('causa')}
-          </div>
-        </>
-      )}
+        )}
 
-      <div className="registrar-incidente-acciones">
-        <button type="submit" className="boton boton-primario" disabled={isSubmitting}>
-          {isSubmitting ? 'Registrando...' : 'Registrar incidente'}
-        </button>
-      </div>
-    </form>
+        {paso === 1 && <PasoDonde instalacion={instalacion} onInstalacion={setInstalacion} />}
+        {paso === 2 && (
+          <PasoQuePaso
+            catalogo={catalogo}
+            cargandoCategorias={categorias.isPending}
+            errorCategorias={categorias.isError}
+          />
+        )}
+        {paso === 3 && (
+          <ResumenIncidente instalacion={instalacion} catalogo={catalogo} onEditar={editar} />
+        )}
+
+        <div className="registrar-incidente-navegacion">
+          {paso > 1 && (
+            <button
+              type="button"
+              className="boton boton-secundario"
+              onClick={() => irA((paso - 1) as NumeroPaso)}
+            >
+              Anterior
+            </button>
+          )}
+          <button type="submit" className="boton boton-primario" disabled={isSubmitting}>
+            {etiquetaPrincipal}
+          </button>
+        </div>
+      </form>
+    </FormProvider>
   )
+}
+
+function parametrosDe(paso: NumeroPaso): Record<string, string> {
+  return paso === 1 ? {} : { paso: String(paso) }
 }
