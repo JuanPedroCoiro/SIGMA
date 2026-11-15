@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { http } from 'msw/http'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { base } from '../../mocks/datos'
@@ -15,6 +15,8 @@ const ID_JEFATURA = 1
 const ID_SEMAFORO_APAGADO = '1'
 const ID_LAMPARA_QUEMADA = '2'
 const ID_OTRA = '6'
+const INST_001 = 'INST-001 — Cruce Ficticio 1'
+const DESCRIPCION = 'El semáforo del cruce está apagado.'
 
 async function elegirInstalacion(texto: string, etiqueta: string) {
   fireEvent.change(await screen.findByLabelText('Instalación'), { target: { value: texto } })
@@ -32,19 +34,55 @@ function describir(texto: string) {
   fireEvent.change(screen.getByLabelText('Descripción'), { target: { value: texto } })
 }
 
-function enviar() {
-  fireEvent.click(screen.getByRole('button', { name: 'Registrar incidente' }))
+function pulsar(nombre: string) {
+  fireEvent.click(screen.getByRole('button', { name: nombre }))
 }
 
-/** Instalación, origen, categoría y descripción válidos. */
-async function completar(instalacion = 'INST-001', etiqueta = 'INST-001 — Cruce Ficticio 1') {
+/** Espera a que se muestre el paso, por su título. */
+async function enPaso(titulo: 'Dónde' | 'Qué pasó' | 'Resumen') {
+  return screen.findByRole('heading', { level: 2, name: titulo })
+}
+
+/** Paso 1 completo, y pasa al 2. */
+async function completarDonde(instalacion = 'INST-001', etiqueta = INST_001) {
   await elegirInstalacion(instalacion, etiqueta)
   fireEvent.click(screen.getByLabelText('Detección en el monitoreo'))
-  await elegirCategoria(ID_SEMAFORO_APAGADO)
-  describir('El semáforo del cruce está apagado.')
+  pulsar('Siguiente')
+  await enPaso('Qué pasó')
 }
 
-describe('registrar incidente (#40)', () => {
+/** Paso 2 con categoría y descripción válidas, sin pasar al resumen. */
+async function completarQuePaso() {
+  await elegirCategoria(ID_SEMAFORO_APAGADO)
+  describir(DESCRIPCION)
+}
+
+async function irAlResumen() {
+  pulsar('Siguiente')
+  await enPaso('Resumen')
+}
+
+/** Los dos pasos completos: queda en el resumen, sin confirmar. */
+async function completar(instalacion?: string, etiqueta?: string) {
+  await completarDonde(instalacion, etiqueta)
+  await completarQuePaso()
+  await irAlResumen()
+}
+
+function confirmar() {
+  pulsar('Confirmar')
+}
+
+/** El valor de una fila del resumen (`<dt>` y `<dd>`). */
+function filaDelResumen(etiqueta: string) {
+  return screen.getByText(etiqueta, { selector: 'dt' }).nextElementSibling
+}
+
+function seRegistro() {
+  return base.incidentes.some((i) => i.numero === 'INC-0005')
+}
+
+describe('registrar incidente (#40, en pasos #69)', () => {
   beforeEach(() => {
     base.idSesion = ID_OPERADOR
   })
@@ -52,7 +90,7 @@ describe('registrar incidente (#40)', () => {
   it('conOt_muestraElNumeroElVencimientoYElLinkALaOt', async () => {
     renderizarRuta('/incidentes/nuevo')
     await completar()
-    enviar()
+    confirmar()
 
     const estado = await screen.findByRole('status')
     const orden = base.ordenes.find((o) => o.numero === 'OT-0004')!
@@ -72,7 +110,7 @@ describe('registrar incidente (#40)', () => {
     renderizarRuta('/incidentes/nuevo')
     // La búsqueda no distingue mayúsculas ni tildes.
     await completar('PENAROL', 'INST-025 — Cruce Peñarol (sin regla de SLA)')
-    enviar()
+    confirmar()
 
     const estado = await screen.findByRole('status')
     expect(estado).toHaveTextContent('Se generó la OT-0004 (incidente INC-0005), SLA sin definir.')
@@ -81,10 +119,15 @@ describe('registrar incidente (#40)', () => {
 
   it('falladeTercero_quedaEnEsperaYApareceEnPendientes', async () => {
     renderizarRuta('/incidentes/nuevo')
-    await completar()
+    await completarDonde()
+    await completarQuePaso()
     fireEvent.click(screen.getByLabelText('La falla es de un tercero'))
     fireEvent.change(screen.getByLabelText('Tercero'), { target: { value: 'UTE' } })
-    enviar()
+    await irAlResumen()
+
+    expect(filaDelResumen('Falla de un tercero')).toHaveTextContent('Sí: UTE')
+    expect(screen.getByText(/queda en espera de tercero, sin OT ni SLA/)).toBeInTheDocument()
+    confirmar()
 
     const estado = await screen.findByRole('status')
     expect(estado).toHaveTextContent(
@@ -99,55 +142,163 @@ describe('registrar incidente (#40)', () => {
     expect(await screen.findByText('INC-0005')).toBeInTheDocument()
   })
 
-  it('categoria_proponeLaPrioridadYSePuedeCambiar', async () => {
+  it('categoria_sugiereLaPrioridadYSePuedeCambiar', async () => {
     renderizarRuta('/incidentes/nuevo')
-    await completar()
-    const prioridad = screen.getByLabelText('Prioridad')
+    await completarDonde()
+    expect(screen.getByText('Se sugiere al elegir la categoría.')).toBeInTheDocument()
+
+    await elegirCategoria(ID_SEMAFORO_APAGADO)
+    const prioridad = screen.getByLabelText(/^Prioridad/)
     expect(prioridad).toHaveValue('ALTA')
-    expect(screen.getByText(/Propuesta por la categoría: Alta/)).toBeInTheDocument()
+    expect(screen.getByText('Sugerida').closest('.campo-ayuda')).toHaveTextContent(
+      'Sugerida por la categoría «Semáforo apagado». Podés cambiarla.',
+    )
 
     await elegirCategoria(ID_LAMPARA_QUEMADA)
     expect(prioridad).toHaveValue('MEDIA')
 
     fireEvent.change(prioridad, { target: { value: 'BAJA' } })
-    enviar()
+    expect(screen.getByText('Cambiada').closest('.campo-ayuda')).toHaveTextContent(
+      'La categoría «Lámpara quemada» sugiere Media.',
+    )
+    describir(DESCRIPCION)
+    await irAlResumen()
+    expect(filaDelResumen('Prioridad')).toHaveTextContent(
+      'Baja (cambiada; la categoría sugiere Media)',
+    )
+    confirmar()
 
     await screen.findByRole('status')
     expect(base.incidentes.find((i) => i.numero === 'INC-0005')!.prioridad).toBe('BAJA')
   })
 
-  it('obligatorios_muestranElMensajeEnCadaCampo', async () => {
+  it('pasoDonde_sinCompletar_noAvanzaYMarcaLosCampos', async () => {
     renderizarRuta('/incidentes/nuevo')
-    await screen.findByRole('option', { name: 'Semáforo apagado' })
-    fireEvent.click(screen.getByLabelText('La falla es de un tercero'))
-    enviar()
+    await enPaso('Dónde')
+    expect(screen.getByText('Paso 1 de 3')).toBeInTheDocument()
+    pulsar('Siguiente')
 
     expect(await screen.findByText('Elegí la instalación.')).toBeInTheDocument()
     expect(screen.getByText('Indicá el origen.')).toBeInTheDocument()
-    expect(screen.getByText('Elegí la categoría de la falla.')).toBeInTheDocument()
+    expect(screen.getByText('Paso 1 de 3')).toBeInTheDocument()
+    expect(screen.getByLabelText('Instalación')).toHaveAttribute('aria-invalid', 'true')
+    expect(screen.getByLabelText('Instalación')).toHaveFocus()
+
+    // Después del intento, el error se va al corregir el campo.
+    fireEvent.click(screen.getByLabelText('Reclamo de un organismo'))
+    await waitFor(() => expect(screen.queryByText('Indicá el origen.')).not.toBeInTheDocument())
+    expect(screen.getByText('Elegí la instalación.')).toBeInTheDocument()
+  })
+
+  it('pasoQuePaso_sinCompletar_noAvanzaYMarcaLosCampos', async () => {
+    renderizarRuta('/incidentes/nuevo')
+    await completarDonde()
+    expect(screen.getByText('Paso 2 de 3')).toBeInTheDocument()
+    await screen.findByRole('option', { name: 'Semáforo apagado' })
+    fireEvent.click(screen.getByLabelText('La falla es de un tercero'))
+    pulsar('Siguiente')
+
+    expect(await screen.findByText('Elegí la categoría de la falla.')).toBeInTheDocument()
+    expect(screen.getByText('Elegí la prioridad.')).toBeInTheDocument()
     expect(screen.getByText('Describí la falla.')).toBeInTheDocument()
     expect(screen.getByText('Indicá el tercero responsable de la falla.')).toBeInTheDocument()
     // La causa es opcional.
     expect(screen.getByLabelText('Causa (opcional)')).not.toHaveAttribute('aria-invalid')
-    expect(base.incidentes.some((i) => i.numero === 'INC-0005')).toBe(false)
+    expect(screen.getByText('Paso 2 de 3')).toBeInTheDocument()
+    expect(seRegistro()).toBe(false)
   })
 
   it('categoriaOtra_pideDetalleEnLaDescripcion', async () => {
     renderizarRuta('/incidentes/nuevo')
-    await completar()
+    await completarDonde()
     await elegirCategoria(ID_OTRA)
     expect(
       screen.getByText('Con la categoría «Otra», detallá la falla en la descripción.'),
     ).toBeInTheDocument()
     describir('Raro')
-    enviar()
+    pulsar('Siguiente')
 
     expect(
       await screen.findByText(/al menos 10 caracteres/, { selector: '.campo-error' }),
     ).toBeInTheDocument()
+    expect(screen.getByText('Paso 2 de 3')).toBeInTheDocument()
   })
 
-  it('errorDelServidor_seMuestraEnElCampoOEnLaAlertaGeneral', async () => {
+  it('anterior_noPierdeLoCargado', async () => {
+    renderizarRuta('/incidentes/nuevo')
+    await completarDonde()
+    await completarQuePaso()
+    pulsar('Anterior')
+
+    await enPaso('Dónde')
+    expect(screen.getByText(INST_001)).toBeInTheDocument()
+    expect(screen.getByLabelText('Detección en el monitoreo')).toBeChecked()
+
+    pulsar('Siguiente')
+    await enPaso('Qué pasó')
+    expect(screen.getByLabelText('Categoría de la falla')).toHaveValue(ID_SEMAFORO_APAGADO)
+    expect(screen.getByLabelText('Descripción')).toHaveValue(DESCRIPCION)
+  })
+
+  it('atrasDelNavegador_vuelveAlPasoAnteriorConLosDatos', async () => {
+    const { router } = renderizarRuta('/incidentes/nuevo')
+    await completar()
+    expect(router.state.location.search).toBe('?paso=3')
+
+    await act(() => router.navigate(-1))
+    await enPaso('Qué pasó')
+    expect(screen.getByLabelText('Descripción')).toHaveValue(DESCRIPCION)
+
+    await act(() => router.navigate(-1))
+    await enPaso('Dónde')
+    expect(screen.getByText(INST_001)).toBeInTheDocument()
+  })
+
+  it('pasoSinCompletarLosAnteriores_vuelveAlPrimero', async () => {
+    const { router } = renderizarRuta('/incidentes/nuevo?paso=3')
+
+    await enPaso('Dónde')
+    expect(screen.getByText('Paso 1 de 3')).toBeInTheDocument()
+    await waitFor(() => expect(router.state.location.search).toBe(''))
+  })
+
+  it('resumen_muestraLosDatosYSeEditaPorSeccion', async () => {
+    renderizarRuta('/incidentes/nuevo')
+    await completar()
+    expect(screen.getByText('Paso 3 de 3')).toBeInTheDocument()
+    expect(filaDelResumen('Instalación')).toHaveTextContent(INST_001)
+    expect(filaDelResumen('Origen')).toHaveTextContent('Detección en el monitoreo')
+    expect(filaDelResumen('Categoría')).toHaveTextContent('Semáforo apagado')
+    expect(filaDelResumen('Prioridad')).toHaveTextContent('Alta (sugerida por la categoría)')
+    expect(filaDelResumen('Descripción')).toHaveTextContent(DESCRIPCION)
+    expect(filaDelResumen('Falla de un tercero')).toHaveTextContent('No')
+    expect(screen.getByText(/se genera la OT correctiva/)).toBeInTheDocument()
+
+    pulsar('Editar Qué pasó')
+    await enPaso('Qué pasó')
+    describir('El semáforo quedó en amarillo intermitente.')
+    pulsar('Volver al resumen')
+    await enPaso('Resumen')
+    expect(filaDelResumen('Descripción')).toHaveTextContent(
+      'El semáforo quedó en amarillo intermitente.',
+    )
+
+    // Desde el paso 1 también se vuelve directo al resumen, sin pasar por el 2.
+    pulsar('Editar Dónde')
+    await enPaso('Dónde')
+    fireEvent.click(screen.getByLabelText('Reclamo de un organismo'))
+    pulsar('Volver al resumen')
+    await enPaso('Resumen')
+    expect(filaDelResumen('Origen')).toHaveTextContent('Reclamo de un organismo')
+    expect(seRegistro()).toBe(false)
+
+    confirmar()
+    await screen.findByRole('status')
+    const incidente = base.incidentes.find((i) => i.numero === 'INC-0005')!
+    expect(incidente.descripcion).toBe('El semáforo quedó en amarillo intermitente.')
+  })
+
+  it('errorDelServidorEnUnCampo_llevaAlPasoDelCampo', async () => {
     servidor.use(
       http.post('/api/v1/incidentes', () =>
         problema(400, 'validacion', 'Datos inválidos', 'Revisá los campos.', {
@@ -157,9 +308,29 @@ describe('registrar incidente (#40)', () => {
     )
     renderizarRuta('/incidentes/nuevo')
     await completar()
-    enviar()
-    expect(await screen.findByText('La descripción no es válida.')).toBeInTheDocument()
+    confirmar()
 
+    await enPaso('Qué pasó')
+    expect(screen.getByRole('alert')).toHaveTextContent('Revisá los datos marcados.')
+    expect(screen.getByText('La descripción no es válida.')).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByLabelText('Descripción')).toHaveFocus())
+
+    servidor.use(
+      http.post('/api/v1/incidentes', () =>
+        problema(400, 'validacion', 'Datos inválidos', 'Revisá los campos.', {
+          errores: [{ campo: 'idInstalacion', mensaje: 'La instalación no es válida.' }],
+        }),
+      ),
+    )
+    pulsar('Volver al resumen')
+    await enPaso('Resumen')
+    confirmar()
+
+    await enPaso('Dónde')
+    expect(screen.getByText('La instalación no es válida.')).toBeInTheDocument()
+  })
+
+  it('errorGeneralDelServidor_seMuestraEnElResumen', async () => {
     servidor.use(
       http.post('/api/v1/incidentes', () =>
         problema(
@@ -170,23 +341,42 @@ describe('registrar incidente (#40)', () => {
         ),
       ),
     )
-    enviar()
+    renderizarRuta('/incidentes/nuevo')
+    await completar()
+    confirmar()
+
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'La instalación 1 no existe o está inactiva.',
     )
+    expect(screen.getByText('Paso 3 de 3')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Confirmar' })).toBeEnabled()
   })
 
-  it('registrarOtro_vuelveAlFormularioVacio', async () => {
+  it('registrarOtro_vuelveAlPrimerPasoVacio', async () => {
     renderizarRuta('/incidentes/nuevo')
     await completar()
-    enviar()
+    confirmar()
     await screen.findByRole('status')
 
-    fireEvent.click(screen.getByRole('button', { name: 'Registrar otro incidente' }))
+    pulsar('Registrar otro incidente')
 
-    expect(await screen.findByLabelText('Instalación')).toHaveValue('')
-    expect(screen.getByLabelText('Descripción')).toHaveValue('')
-    expect(screen.getByLabelText('Categoría de la falla')).toHaveValue('')
-    await waitFor(() => expect(screen.queryByRole('status')).not.toBeInTheDocument())
+    await enPaso('Dónde')
+    expect(screen.getByText('Paso 1 de 3')).toBeInTheDocument()
+    expect(screen.getByLabelText('Instalación')).toHaveValue('')
+    expect(screen.getByLabelText('Detección en el monitoreo')).not.toBeChecked()
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  })
+
+  it('atrasDespuesDeConfirmar_noVuelveAlResumenEnviado', async () => {
+    const { router } = renderizarRuta('/incidentes/nuevo')
+    await completar()
+    confirmar()
+    await screen.findByRole('status')
+
+    await act(() => router.navigate(-1))
+
+    await enPaso('Dónde')
+    expect(screen.getByLabelText('Instalación')).toHaveValue('')
+    expect(base.incidentes.filter((i) => i.numero === 'INC-0006')).toHaveLength(0)
   })
 })
