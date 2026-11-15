@@ -13,6 +13,8 @@ import com.ciemsa.sigma.shared.domain.ConflictoException;
 import com.ciemsa.sigma.shared.domain.NoEncontradoException;
 import com.ciemsa.sigma.shared.domain.ReglaNegocioException;
 import com.ciemsa.sigma.shared.seguridad.Rol;
+import com.ciemsa.sigma.shared.seguridad.UsuarioActual;
+import java.time.Clock;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -20,6 +22,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 
 @ExtendWith(MockitoExtension.class)
@@ -27,6 +30,9 @@ class CuadrillaServiceTest {
 
   @Mock private CuadrillaRepository cuadrillaRepository;
   @Mock private UsuarioRepository usuarioRepository;
+  @Mock private UsuarioActual usuarioActual;
+  @Mock private Clock clock;
+  @Mock private ApplicationEventPublisher eventos;
   @InjectMocks private CuadrillaService cuadrillaService;
 
   // --- Alta ---

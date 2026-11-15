@@ -5,14 +5,23 @@ import com.ciemsa.sigma.administracion.dto.DesactivacionResponse;
 import com.ciemsa.sigma.administracion.dto.ModificarUsuarioRequest;
 import com.ciemsa.sigma.administracion.dto.RestablecerContrasenaRequest;
 import com.ciemsa.sigma.administracion.dto.UsuarioResponse;
+import com.ciemsa.sigma.administracion.eventos.DatosUsuario;
+import com.ciemsa.sigma.administracion.eventos.EventosUsuario.ContrasenaRestablecida;
+import com.ciemsa.sigma.administracion.eventos.EventosUsuario.UsuarioActivado;
+import com.ciemsa.sigma.administracion.eventos.EventosUsuario.UsuarioCreado;
+import com.ciemsa.sigma.administracion.eventos.EventosUsuario.UsuarioDesactivado;
+import com.ciemsa.sigma.administracion.eventos.EventosUsuario.UsuarioModificado;
 import com.ciemsa.sigma.ot.application.OrdenTrabajoConsultaService;
 import com.ciemsa.sigma.shared.domain.ConflictoException;
 import com.ciemsa.sigma.shared.domain.NoEncontradoException;
 import com.ciemsa.sigma.shared.domain.ReglaNegocioException;
 import com.ciemsa.sigma.shared.seguridad.Rol;
 import com.ciemsa.sigma.shared.seguridad.UsuarioActual;
+import java.time.Clock;
+import java.time.Instant;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -32,6 +41,8 @@ public class UsuarioService {
   private final PasswordEncoder passwordEncoder;
   private final UsuarioActual usuarioActual;
   private final OrdenTrabajoConsultaService ordenTrabajoConsultaService;
+  private final Clock clock;
+  private final ApplicationEventPublisher eventos;
 
   /** CU-13a: alta con contraseña inicial. */
   public UsuarioResponse crear(CrearUsuarioRequest req) {
@@ -47,6 +58,8 @@ public class UsuarioService {
             req.rol(),
             buscarCuadrilla(req.rol(), req.idCuadrilla())); // 4b lo valida la entidad
     guardar(usuario);
+    eventos.publishEvent(
+        new UsuarioCreado(usuario.getId(), DatosUsuario.de(usuario), usuarioActual.id(), ahora()));
     return UsuarioResponse.de(usuario);
   }
 
@@ -60,15 +73,25 @@ public class UsuarioService {
     if (req.rol() != Rol.JEFATURA) {
       verificarQueQuedeOtraJefatura(usuario);
     }
+    DatosUsuario anterior = DatosUsuario.de(usuario);
     usuario.modificar(
         req.nombre(), correo, req.rol(), buscarCuadrilla(req.rol(), req.idCuadrilla()));
     guardar(usuario);
+    eventos.publishEvent(
+        new UsuarioModificado(id, anterior, DatosUsuario.de(usuario), usuarioActual.id(), ahora()));
     return UsuarioResponse.de(usuario);
   }
 
   /** CU-13b: la Jefatura asigna una contraseña nueva; también levanta un bloqueo vigente. */
   public void restablecerContrasena(Long id, RestablecerContrasenaRequest req) {
     buscar(id).restablecerContrasena(passwordEncoder.encode(req.password()));
+    eventos.publishEvent(new ContrasenaRestablecida(id, usuarioActual.id(), ahora()));
+  }
+
+  /** Nombre del usuario, para dejarlo como foto en la bitácora. */
+  @Transactional(readOnly = true)
+  public Optional<String> nombreDe(Long idUsuario) {
+    return usuarioRepository.findById(idUsuario).map(Usuario::getNombre);
   }
 
   /** CU-13c: listado paginado, con filtros opcionales por rol y por estado. */
@@ -109,13 +132,26 @@ public class UsuarioService {
     }
     Usuario usuario = buscar(id);
     verificarQueQuedeOtraJefatura(usuario);
+    boolean estabaActivo = usuario.isActivo();
     usuario.darDeBaja();
+    if (estabaActivo) { // si ya estaba inactiva no cambió nada: no va a la bitácora
+      eventos.publishEvent(new UsuarioDesactivado(id, usuarioActual.id(), ahora()));
+    }
     return avisoDesactivacion(usuario);
   }
 
   /** Vuelve a habilitar una cuenta desactivada. */
   public void activar(Long id) {
-    buscar(id).reactivar();
+    Usuario usuario = buscar(id);
+    boolean estabaActivo = usuario.isActivo();
+    usuario.reactivar();
+    if (!estabaActivo) { // si ya estaba activa no cambió nada: no va a la bitácora
+      eventos.publishEvent(new UsuarioActivado(id, usuarioActual.id(), ahora()));
+    }
+  }
+
+  private Instant ahora() {
+    return Instant.now(clock);
   }
 
   private Usuario buscar(Long id) {
