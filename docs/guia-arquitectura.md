@@ -394,18 +394,20 @@ CREATE INDEX ix_orden_trabajo_estado_fecha_limite ON orden_trabajo (estado, fech
 **5. Efecto secundario por evento (otro módulo)**
 
 ```java
-// auditoria/application/BitacoraListener.java
+// auditoria/BitacoraListener.java
 @Component
 @RequiredArgsConstructor
 class BitacoraListener {
-    private final BitacoraService bitacora;
+    private final AuditoriaService auditoria;
 
-    @TransactionalEventListener(phase = TransactionPhase.BEFORE_COMMIT)   // misma transacción
-    void on(IncidenteRegistrado e) {
-        bitacora.registrar("INCIDENTE", e.idIncidente(), "REGISTRADO", null, e.resumen(), e.idUsuario(), e.ocurridoEn());
+    @EventListener   // sincrónico: corre dentro de la transacción de la acción
+    public void on(IncidenteRegistrado e) {
+        auditoria.registrar(INCIDENTE, e.idIncidente(), REGISTRO, e.idUsuario(), e.ocurridoEn(), null, null);
     }
 }
 ```
+
+La bitácora (`registro_auditoria`, HU-12) se graba en la misma transacción que la acción: `AuditoriaService.registrar` es `Propagation.MANDATORY`, así que un evento publicado sin transacción falla en lugar de perderse (con `@TransactionalEventListener(BEFORE_COMMIT)`, Spring lo descartaría sin avisar). Si la acción vuelve atrás, el registro también; si el registro falla, falla la acción. **Para auditar una acción nueva:** publicar su evento con quién (`idUsuario`) y cuándo (`ocurridoEn`, del `Clock`) y mapearlo en `BitacoraListener`; si la acción es nueva, sumarla a `AccionAuditada` y al CHECK de la tabla con una migración. Nunca poner contraseñas ni hashes en los valores. La tabla no lleva `BaseEntity` (solo se inserta) y un trigger rechaza UPDATE, DELETE y TRUNCATE.
 
 **6. Tests mínimos de la funcionalidad**
 
