@@ -98,7 +98,8 @@
   display: none;
 }
 
-/* Paso 1: el mapa (#70) va en una segunda columna, al costado en escritorio. */
+/* Paso 1: el mapa (#70) va en una segunda columna, al costado en escritorio y debajo en el
+   celular. Su alto está en MapaInstalaciones.css. */
 .registrar-incidente-donde {
   display: grid;
   gap: 1rem;

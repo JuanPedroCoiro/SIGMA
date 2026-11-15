@@ -1,9 +1,13 @@
 import '@testing-library/jest-dom/vitest'
 import { cleanup, screen } from '@testing-library/react'
-import { afterAll, afterEach, beforeAll } from 'vitest'
+import { afterAll, afterEach, beforeAll, vi } from 'vitest'
 import { base, reiniciarBaseSimulada } from '../mocks/datos'
 import { servidor } from '../mocks/servidor'
+import { mapaSimulado } from './reactLeafletSimulado'
 import { descartarQueryClients, renderizarRuta } from './renderizarRuta'
+
+// Leaflet no funciona en jsdom (sin tamaños ni teselas): el mapa usa react-leaflet simulado (#70).
+vi.mock('react-leaflet', () => import('./reactLeafletSimulado'))
 
 const ID_JEFATURA = 1
 
@@ -13,6 +17,7 @@ async function limpiar() {
   await descartarQueryClients()
   servidor.resetHandlers()
   reiniciarBaseSimulada()
+  Object.values(mapaSimulado).forEach((funcion) => funcion.mockClear())
 }
 
 /**

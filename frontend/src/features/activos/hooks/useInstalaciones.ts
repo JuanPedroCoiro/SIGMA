@@ -3,6 +3,7 @@ import {
   buscarInstalaciones,
   importarInstalaciones,
   listarInstalaciones,
+  listarInstalacionesMapa,
 } from '../api/instalacionesApi'
 
 const CLAVE = 'instalaciones'
@@ -31,7 +32,16 @@ export function useBuscarInstalaciones(texto: string) {
   })
 }
 
-/** Al importar se recarga el listado. */
+/** Las activas para el mapa (#70). Cambian poco: se reusan 5 minutos sin volver a pedirlas. */
+export function useInstalacionesMapa() {
+  return useQuery({
+    queryKey: [CLAVE, 'mapa'],
+    queryFn: listarInstalacionesMapa,
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
+/** Al importar se recarga el listado (y el mapa). */
 export function useImportarInstalaciones() {
   const queryClient = useQueryClient()
   return useMutation({

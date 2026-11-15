@@ -99,6 +99,17 @@ async function textoDelArchivo(request: Request) {
 }
 
 export const handlersInstalaciones = [
+  // Antes del listado: las activas con coordenadas, sin paginar, para el mapa (#70). Las
+  // simuladas están todas activas y tienen coordenadas ficticias alrededor de Montevideo.
+  http.get('/api/v1/instalaciones/mapa', () => {
+    const usuario = usuarioEnSesion()
+    if (!usuario) return sinSesion()
+    if (usuario.rol !== 'JEFATURA' && usuario.rol !== 'OPERADOR') return sinPermiso()
+    return HttpResponse.json(
+      [...base.instalaciones].sort((a, b) => a.codigo.localeCompare(b.codigo)),
+    )
+  }),
+
   http.get('/api/v1/instalaciones', ({ request }) => {
     const usuario = usuarioEnSesion()
     if (!usuario) return sinSesion()

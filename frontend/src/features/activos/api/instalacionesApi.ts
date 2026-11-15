@@ -24,3 +24,9 @@ export async function buscarInstalaciones(texto: string): Promise<PageResponse<I
   })
   return res.data
 }
+
+/** Instalaciones activas con sus coordenadas, sin paginar, para el mapa (HU-11, #70). */
+export async function listarInstalacionesMapa(): Promise<Instalacion[]> {
+  const res = await cliente.get<Instalacion[]>('/instalaciones/mapa')
+  return res.data
+}
