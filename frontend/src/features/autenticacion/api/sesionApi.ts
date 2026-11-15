@@ -4,6 +4,9 @@ import type { Credenciales, UsuarioSesion } from '../types'
 
 export const CLAVE_SESION = ['sesion'] as const
 
+/** Clave de la mutación del logout: mientras está en curso, un 401 no es una sesión vencida. */
+export const CLAVE_CERRAR_SESION = ['sesion', 'cerrar'] as const
+
 /** Usuario en sesión, o null si no hay sesión (el backend responde 401). */
 export async function obtenerSesion(): Promise<UsuarioSesion | null> {
   try {

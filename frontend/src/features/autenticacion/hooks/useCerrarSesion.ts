@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { CLAVE_SESION, cerrarSesion } from '../api/sesionApi'
+import { CLAVE_CERRAR_SESION, CLAVE_SESION, cerrarSesion } from '../api/sesionApi'
 
 /**
  * Cierra la sesión y descarta los datos en caché del usuario, aunque el pedido falle. Después vuelve
@@ -11,6 +11,7 @@ export function useCerrarSesion() {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   return useMutation({
+    mutationKey: CLAVE_CERRAR_SESION,
     mutationFn: cerrarSesion,
     onSettled: () => {
       navigate('/iniciar-sesion', { replace: true })
