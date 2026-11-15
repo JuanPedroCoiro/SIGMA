@@ -184,6 +184,48 @@ class InstalacionControllerTest {
   }
 
   @Test
+  void mapa_conOperador_devuelveSoloLasActivasOrdenadasConCoordenadas() throws Exception {
+    guardar("INST-003", "Cruce Ficticio 3");
+    guardar("INST-001", "Cruce Ficticio 1");
+    guardar("INST-002", "Cruce Ficticio 2");
+    jdbc.update("update instalacion set activa = false where codigo = 'INST-002'");
+
+    mvc.perform(get(INSTALACIONES + "/mapa").with(user("ana@ciemsa.com").roles("OPERADOR")))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.length()").value(2))
+        .andExpect(jsonPath("$[0].id").isNumber())
+        .andExpect(jsonPath("$[0].codigo").value("INST-001"))
+        .andExpect(jsonPath("$[0].nombre").value("Cruce Ficticio 1"))
+        .andExpect(jsonPath("$[0].latitud").value(-34.712345))
+        .andExpect(jsonPath("$[0].longitud").value(-56.301234))
+        .andExpect(jsonPath("$[1].codigo").value("INST-003"));
+  }
+
+  @Test
+  void mapa_conJefatura_devuelveLaLista() throws Exception {
+    guardar("INST-001", "Cruce Ficticio 1");
+
+    mvc.perform(get(INSTALACIONES + "/mapa").with(user("jefa@ciemsa.com").roles("JEFATURA")))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.length()").value(1))
+        .andExpect(jsonPath("$[0].codigo").value("INST-001"));
+  }
+
+  @Test
+  void mapa_conTecnico_devuelve403() throws Exception {
+    mvc.perform(get(INSTALACIONES + "/mapa").with(user("tecnico@ciemsa.com").roles("TECNICO")))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.type").value("/errores/sin-permiso"));
+  }
+
+  @Test
+  void mapa_sinSesion_devuelve401() throws Exception {
+    mvc.perform(get(INSTALACIONES + "/mapa"))
+        .andExpect(status().isUnauthorized())
+        .andExpect(jsonPath("$.type").value("/errores/sin-sesion"));
+  }
+
+  @Test
   void listar_sinInstalaciones_devuelvePaginaVacia() throws Exception {
     mvc.perform(get(INSTALACIONES).with(user("jefa@ciemsa.com").roles("JEFATURA")))
         .andExpect(status().isOk())

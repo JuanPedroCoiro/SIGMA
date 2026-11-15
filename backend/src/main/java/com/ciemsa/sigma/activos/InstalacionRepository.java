@@ -1,6 +1,7 @@
 package com.ciemsa.sigma.activos;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Set;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -8,6 +9,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
 public interface InstalacionRepository extends JpaRepository<Instalacion, Long> {
+
+  /** Las activas, para el mapa (HU-11). */
+  List<Instalacion> findByActivaTrueOrderByCodigoAsc();
 
   @Query("select i.codigo from Instalacion i where i.codigo in :codigos")
   Set<String> findCodigosExistentes(Collection<String> codigos);

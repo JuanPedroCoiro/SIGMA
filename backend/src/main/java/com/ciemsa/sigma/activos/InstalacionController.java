@@ -2,6 +2,7 @@ package com.ciemsa.sigma.activos;
 
 import com.ciemsa.sigma.activos.dto.InstalacionResponse;
 import com.ciemsa.sigma.shared.api.PageResponse;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
@@ -32,5 +33,12 @@ class InstalacionController {
       return PageResponse.de(instalacionService.listar(pageable));
     }
     return PageResponse.de(instalacionService.buscarActivas(buscar, pageable));
+  }
+
+  /** Las activas con sus coordenadas, sin paginar, para el mapa (HU-11, #70). */
+  @GetMapping("/mapa")
+  @PreAuthorize("hasAnyRole('JEFATURA', 'OPERADOR')")
+  public List<InstalacionResponse> mapa() {
+    return instalacionService.listarActivasParaMapa();
   }
 }

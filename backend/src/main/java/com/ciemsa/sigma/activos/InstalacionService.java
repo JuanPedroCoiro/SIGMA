@@ -29,6 +29,18 @@ public class InstalacionService {
   }
 
   /**
+   * Las activas con sus coordenadas, para el mapa del registro de incidentes (HU-11, #70). Sin
+   * paginar: la red tiene a lo sumo unos cientos de cruces. Si crece, la respuesta es agrupar los
+   * marcadores en el mapa, no paginar.
+   */
+  @Transactional(readOnly = true)
+  public List<InstalacionResponse> listarActivasParaMapa() {
+    return instalacionRepository.findByActivaTrueOrderByCodigoAsc().stream()
+        .map(InstalacionResponse::de)
+        .toList();
+  }
+
+  /**
    * Búsqueda por código o nombre para elegir la instalación de un incidente (HU-03): solo las
    * activas, sin distinguir mayúsculas ni tildes.
    */
