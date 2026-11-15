@@ -97,7 +97,7 @@ class IncidenteServiceTest {
     assertThat(publicados)
         .containsExactly(
             new IncidenteRegistrado(incidente.getId(), ID_USUARIO, AHORA),
-            new OrdenGenerada(ot.getId(), incidente.getId(), AHORA));
+            new OrdenGenerada(ot.getId(), incidente.getId(), ID_USUARIO, AHORA));
   }
 
   @Test
@@ -203,7 +203,8 @@ class IncidenteServiceTest {
         .isEqualTo(Instant.parse("2026-11-05T13:00:00Z"));
     assertThat(publicados)
         .containsExactly(
-            new OrdenGenerada(resultado.ordenTrabajo().getId(), incidente.getId(), despues));
+            new OrdenGenerada(
+                resultado.ordenTrabajo().getId(), incidente.getId(), ID_USUARIO, despues));
   }
 
   @Test

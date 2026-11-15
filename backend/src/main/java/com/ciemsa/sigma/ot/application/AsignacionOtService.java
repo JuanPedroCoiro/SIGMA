@@ -8,6 +8,7 @@ import com.ciemsa.sigma.ot.domain.TransicionInvalidaException;
 import com.ciemsa.sigma.ot.infrastructure.OrdenTrabajoRepository;
 import com.ciemsa.sigma.shared.domain.NoEncontradoException;
 import com.ciemsa.sigma.shared.domain.ReglaNegocioException;
+import com.ciemsa.sigma.shared.seguridad.UsuarioActual;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -37,6 +38,7 @@ public class AsignacionOtService {
 
   private final OrdenTrabajoRepository ordenTrabajoRepository;
   private final CuadrillaService cuadrillaService;
+  private final UsuarioActual usuarioActual;
   private final Clock clock;
   private final ZoneId zonaHoraria;
   private final ApplicationEventPublisher eventos;
@@ -58,7 +60,8 @@ public class AsignacionOtService {
     }
 
     ordenTrabajoRepository.saveAll(ordenes);
-    ordenes.forEach(ot -> ot.extraerEventos().forEach(eventos::publishEvent));
+    Long idUsuario = usuarioActual.id();
+    ordenes.forEach(ot -> ot.extraerEventos(idUsuario).forEach(eventos::publishEvent));
     return armadorDetalleOt.armar(ordenes, ahora);
   }
 

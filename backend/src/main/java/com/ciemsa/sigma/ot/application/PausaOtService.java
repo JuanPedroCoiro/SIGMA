@@ -52,7 +52,7 @@ public class PausaOtService {
 
   private DetalleOt guardarYPublicar(OrdenTrabajo ot, Instant ahora) {
     ordenTrabajoRepository.save(ot);
-    ot.extraerEventos().forEach(eventos::publishEvent);
+    ot.extraerEventos(usuarioActual.id()).forEach(eventos::publishEvent);
     return armadorDetalleOt.armar(ot, ahora);
   }
 

@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -17,6 +18,7 @@ import com.ciemsa.sigma.ot.domain.OrdenTrabajo;
 import com.ciemsa.sigma.ot.infrastructure.OrdenTrabajoRepository;
 import com.ciemsa.sigma.shared.domain.NoEncontradoException;
 import com.ciemsa.sigma.shared.domain.ReglaNegocioException;
+import com.ciemsa.sigma.shared.seguridad.UsuarioActual;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -40,20 +42,24 @@ class AsignacionOtServiceTest {
   private static final Instant AHORA = Instant.parse("2026-11-10T02:30:00Z");
 
   private static final LocalDate HOY_MONTEVIDEO = LocalDate.parse("2026-11-09");
+  private static final Long ID_OPERADOR = 3L;
   private static final CuadrillaResumen NORTE = new CuadrillaResumen(7L, "Cuadrilla Norte");
 
   @Mock private OrdenTrabajoRepository ordenTrabajoRepository;
   @Mock private CuadrillaService cuadrillaService;
+  @Mock private UsuarioActual usuarioActual;
   @Mock private ApplicationEventPublisher eventos;
   @Mock private ArmadorDetalleOt armadorDetalleOt;
   private AsignacionOtService servicio;
 
   @BeforeEach
   void setUp() {
+    lenient().when(usuarioActual.id()).thenReturn(ID_OPERADOR);
     servicio =
         new AsignacionOtService(
             ordenTrabajoRepository,
             cuadrillaService,
+            usuarioActual,
             Clock.fixed(AHORA, ZoneOffset.UTC),
             ZoneId.of("America/Montevideo"),
             eventos,
@@ -78,8 +84,10 @@ class AsignacionOtServiceTest {
               assertThat(ot.getEstado()).isEqualTo(EstadoOT.ASIGNADA);
               assertThat(ot.getIdCuadrilla()).isEqualTo(7L);
             });
-    verify(eventos).publishEvent(new OrdenAsignada(1L, null, 7L, HOY_MONTEVIDEO, AHORA));
-    verify(eventos).publishEvent(new OrdenAsignada(2L, null, 7L, HOY_MONTEVIDEO, AHORA));
+    verify(eventos)
+        .publishEvent(new OrdenAsignada(1L, null, 7L, null, HOY_MONTEVIDEO, ID_OPERADOR, AHORA));
+    verify(eventos)
+        .publishEvent(new OrdenAsignada(2L, null, 7L, null, HOY_MONTEVIDEO, ID_OPERADOR, AHORA));
   }
 
   @Test
@@ -130,7 +138,7 @@ class AsignacionOtServiceTest {
     OrdenTrabajo enProceso = ot(2L, "OT-0002");
     enProceso.asignar(8L, HOY_MONTEVIDEO, AHORA);
     enProceso.iniciar(AHORA);
-    enProceso.extraerEventos();
+    enProceso.extraerEventos(ID_OPERADOR);
     when(cuadrillaService.buscarActiva(7L)).thenReturn(Optional.of(NORTE));
     when(ordenTrabajoRepository.findAllById(any())).thenReturn(List.of(pendiente, enProceso));
 
@@ -154,7 +162,8 @@ class AsignacionOtServiceTest {
     List<DetalleOt> resultado = servicio.asignar(List.of(1L, 1L), 7L, HOY_MONTEVIDEO);
 
     assertThat(resultado).hasSize(1);
-    verify(eventos).publishEvent(new OrdenAsignada(1L, null, 7L, HOY_MONTEVIDEO, AHORA));
+    verify(eventos)
+        .publishEvent(new OrdenAsignada(1L, null, 7L, null, HOY_MONTEVIDEO, ID_OPERADOR, AHORA));
   }
 
   /** OT preventiva pendiente, como si ya estuviera guardada (con id, número y fecha de alta). */
@@ -163,7 +172,7 @@ class AsignacionOtServiceTest {
     ReflectionTestUtils.setField(ot, "id", id);
     ReflectionTestUtils.setField(ot, "numero", numero);
     ReflectionTestUtils.setField(ot, "creadoEn", AHORA.minusSeconds(3600));
-    ot.extraerEventos();
+    ot.extraerEventos(ID_OPERADOR);
     return ot;
   }
 

@@ -14,6 +14,7 @@ class OrdenTrabajoTest {
   private static final Instant INICIO = Instant.parse("2026-11-02T13:00:00Z");
   private static final Instant LIMITE = Instant.parse("2026-11-02T21:00:00Z");
   private static final LocalDate FECHA = LocalDate.parse("2026-11-03");
+  private static final Long USUARIO = 3L;
 
   // --- Vencimiento (condición derivada) ---
 
@@ -86,13 +87,14 @@ class OrdenTrabajoTest {
     ot.iniciar(iniciada);
     ReflectionTestUtils.setField(ot, "id", 99L);
 
-    assertThat(ot.extraerEventos())
+    assertThat(ot.extraerEventos(USUARIO))
         .containsExactly(
-            new OrdenGenerada(99L, null, INICIO),
-            new EstadoOrdenCambiado(99L, EstadoOT.PENDIENTE, EstadoOT.ASIGNADA, asignada),
-            new OrdenAsignada(99L, null, 7L, FECHA, asignada),
-            new EstadoOrdenCambiado(99L, EstadoOT.ASIGNADA, EstadoOT.EN_PROCESO, iniciada));
-    assertThat(ot.extraerEventos()).isEmpty();
+            new OrdenGenerada(99L, null, USUARIO, INICIO),
+            new EstadoOrdenCambiado(99L, EstadoOT.PENDIENTE, EstadoOT.ASIGNADA, USUARIO, asignada),
+            new OrdenAsignada(99L, null, 7L, null, FECHA, USUARIO, asignada),
+            new EstadoOrdenCambiado(
+                99L, EstadoOT.ASIGNADA, EstadoOT.EN_PROCESO, USUARIO, iniciada));
+    assertThat(ot.extraerEventos(USUARIO)).isEmpty();
   }
 
   @Test
@@ -100,13 +102,14 @@ class OrdenTrabajoTest {
     OrdenTrabajo ot = correctiva(null);
     ot.asignar(7L, FECHA, INICIO);
     ReflectionTestUtils.setField(ot, "id", 99L);
-    ot.extraerEventos();
+    ot.extraerEventos(USUARIO);
     Instant reasignada = INICIO.plusSeconds(3600);
 
     ot.asignar(8L, FECHA.plusDays(1), reasignada);
 
-    assertThat(ot.extraerEventos())
-        .containsExactly(new OrdenAsignada(99L, 7L, 8L, FECHA.plusDays(1), reasignada));
+    assertThat(ot.extraerEventos(USUARIO))
+        .containsExactly(
+            new OrdenAsignada(99L, 7L, 8L, FECHA, FECHA.plusDays(1), USUARIO, reasignada));
   }
 
   @Test
@@ -114,12 +117,14 @@ class OrdenTrabajoTest {
     OrdenTrabajo ot = correctiva(null);
     ot.asignar(7L, FECHA, INICIO);
     ReflectionTestUtils.setField(ot, "id", 99L);
-    ot.extraerEventos();
+    ot.extraerEventos(USUARIO);
 
     ot.asignar(7L, FECHA.plusDays(2), INICIO.plusSeconds(60));
 
-    assertThat(ot.extraerEventos())
-        .containsExactly(new OrdenAsignada(99L, 7L, 7L, FECHA.plusDays(2), INICIO.plusSeconds(60)));
+    assertThat(ot.extraerEventos(USUARIO))
+        .containsExactly(
+            new OrdenAsignada(
+                99L, 7L, 7L, FECHA, FECHA.plusDays(2), USUARIO, INICIO.plusSeconds(60)));
   }
 
   @Test
@@ -127,11 +132,11 @@ class OrdenTrabajoTest {
     OrdenTrabajo ot = correctiva(null);
     ot.asignar(7L, FECHA, INICIO);
     ReflectionTestUtils.setField(ot, "id", 99L);
-    ot.extraerEventos();
+    ot.extraerEventos(USUARIO);
 
     ot.asignar(7L, FECHA, INICIO.plusSeconds(60));
 
-    assertThat(ot.extraerEventos()).isEmpty();
+    assertThat(ot.extraerEventos(USUARIO)).isEmpty();
     assertThat(ot.getTramos()).hasSize(1);
   }
 
@@ -141,28 +146,53 @@ class OrdenTrabajoTest {
     ot.asignar(7L, FECHA, INICIO);
     ot.iniciar(INICIO);
     ReflectionTestUtils.setField(ot, "id", 99L);
-    ot.extraerEventos();
+    ot.extraerEventos(USUARIO);
 
     assertThatThrownBy(() -> ot.asignar(8L, FECHA, INICIO))
         .isInstanceOf(TransicionInvalidaException.class);
-    assertThat(ot.extraerEventos()).isEmpty();
+    assertThat(ot.extraerEventos(USUARIO)).isEmpty();
   }
 
   @Test
   void extraerEventos_transicionInvalida_noAgregaEvento() {
     OrdenTrabajo ot = OrdenTrabajo.preventiva(10L, FECHA, INICIO);
     ReflectionTestUtils.setField(ot, "id", 5L);
-    ot.extraerEventos();
+    ot.extraerEventos(USUARIO);
 
     assertThatThrownBy(() -> ot.validar(INICIO)).isInstanceOf(TransicionInvalidaException.class);
-    assertThat(ot.extraerEventos()).isEmpty();
+    assertThat(ot.extraerEventos(USUARIO)).isEmpty();
   }
 
   @Test
   void extraerEventos_otSinGuardar_lanzaIllegalState() {
     OrdenTrabajo ot = OrdenTrabajo.preventiva(10L, FECHA, INICIO);
 
-    assertThatThrownBy(ot::extraerEventos).isInstanceOf(IllegalStateException.class);
+    assertThatThrownBy(() -> ot.extraerEventos(USUARIO)).isInstanceOf(IllegalStateException.class);
+  }
+
+  @Test
+  void extraerEventos_anular_cambioDeEstadoYOrdenAnuladaConMotivoYUsuario() {
+    OrdenTrabajo ot = correctiva(null);
+    ReflectionTestUtils.setField(ot, "id", 99L);
+    ot.extraerEventos(USUARIO);
+    Instant anulada = INICIO.plusSeconds(60);
+
+    ot.anular("  Duplicada  ", 4L, anulada);
+
+    assertThat(ot.extraerEventos(4L))
+        .containsExactly(
+            new EstadoOrdenCambiado(99L, EstadoOT.PENDIENTE, EstadoOT.ANULADA, 4L, anulada),
+            new OrdenAnulada(99L, "Duplicada", 4L, anulada));
+  }
+
+  @Test
+  void extraerEventos_anulacionRechazada_noAgregaEventos() {
+    OrdenTrabajo ot = correctiva(null);
+    ReflectionTestUtils.setField(ot, "id", 99L);
+    ot.extraerEventos(USUARIO);
+
+    assertThatThrownBy(() -> ot.anular(" ", 4L, INICIO)).isInstanceOf(ReglaNegocioException.class);
+    assertThat(ot.extraerEventos(4L)).isEmpty();
   }
 
   private static OrdenTrabajo correctiva(ReglaSLA regla) {
