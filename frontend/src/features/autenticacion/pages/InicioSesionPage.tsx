@@ -1,8 +1,10 @@
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { Navigate, useLocation, type Location } from 'react-router-dom'
 import { z } from 'zod'
 import { useSesion } from '../../../app/sesion/useSesion'
+import { CLAVE_SESION } from '../api/sesionApi'
 import { useIniciarSesion } from '../hooks/useIniciarSesion'
 import { mensajeErrorInicioSesion } from '../mensajesError'
 import './InicioSesionPage.css'
@@ -22,13 +24,20 @@ export function InicioSesionPage() {
   const location = useLocation()
   const estado = location.state as EstadoRedireccion
   const iniciarSesion = useIniciarSesion()
+  const queryClient = useQueryClient()
   const {
     register,
     handleSubmit,
     formState: { errors },
   } = useForm<Campos>({ resolver: zodResolver(esquema) })
 
-  if (sesion.estado === 'autenticado') {
+  // Al cerrar sesión, la navegación hasta acá puede renderizarse antes de que React Query avise
+  // que la sesión pasó a null, y `sesion` todavía dice «autenticado». Redirigir en ese momento
+  // manda al inicio y RutaProtegida vuelve a traer acá (#66). La caché ya tiene el null:
+  // useCerrarSesion lo guarda en el mismo paso en que navega.
+  const sigueAutenticado = queryClient.getQueryData(CLAVE_SESION) != null
+
+  if (sesion.estado === 'autenticado' && sigueAutenticado) {
     const destino = estado?.desde ? estado.desde.pathname + estado.desde.search : '/'
     return <Navigate to={destino} replace />
   }
