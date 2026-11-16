@@ -7,6 +7,7 @@ import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.Optional;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.auditing.DateTimeProvider;
 import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
@@ -21,7 +22,22 @@ public class TiempoConfig {
    * se devuelve, sin truncar a mano en cada servicio.
    */
   @Bean
+  @Conditional(DatosDemoDeshabilitado.class)
   Clock clock() {
+    return relojDelSistema();
+  }
+
+  /**
+   * Con los datos de la demo activos (#81), el mismo reloj pero desplazable en el hilo que los
+   * genera. En cualquier otro caso no existe y se usa el de arriba, sin envoltorio.
+   */
+  @Bean
+  @Conditional(DatosDemoHabilitado.class)
+  RelojDesplazable relojDesplazable() {
+    return new RelojDesplazable(relojDelSistema());
+  }
+
+  private static Clock relojDelSistema() {
     return Clock.tick(Clock.systemUTC(), Duration.of(1, ChronoUnit.MICROS));
   }
 
