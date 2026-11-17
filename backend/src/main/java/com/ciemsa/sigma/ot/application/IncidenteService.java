@@ -63,7 +63,7 @@ public class IncidenteService {
       incidente.ponerEnEsperaDeTercero(cmd.tercero(), cmd.causa());
     }
     incidenteRepository.save(incidente);
-    eventos.publishEvent(new IncidenteRegistrado(incidente.getId(), usuarioActual.id(), ahora));
+    eventos.publishEvent(IncidenteRegistrado.de(incidente, usuarioActual.id(), ahora));
 
     if (incidente.estaEnEsperaDeTercero()) {
       return new IncidenteConOt(incidente, null);

@@ -151,15 +151,23 @@ class BitacoraTest {
   // --- Incidentes ---
 
   @Test
-  void registrarIncidente_dejaElRegistroYLaGeneracionDeLaOtConElOperador() throws Exception {
+  void registrarIncidente_dejaElRegistroConSusDatosYLaGeneracionDeLaOt() throws Exception {
     JsonNode respuesta = registrarIncidente(operador, null);
     long idIncidente = respuesta.get("id").asLong();
     long idOt = respuesta.get("ordenTrabajo").get("id").asLong();
 
-    assertThat(registros(EntidadAuditada.INCIDENTE, idIncidente))
-        .singleElement()
-        .satisfies(r -> esDe(r, AccionAuditada.REGISTRO, operador))
-        .satisfies(r -> sinValores(r));
+    Registro registro =
+        unico(registros(EntidadAuditada.INCIDENTE, idIncidente), AccionAuditada.REGISTRO);
+    esDe(registro, AccionAuditada.REGISTRO, operador);
+    assertThat(registro.anterior()).isNull();
+    // #80: instalación, categoría, origen y prioridad (la sugerida por «Lámpara quemada»).
+    JsonNode nuevo = registro.nuevo();
+    assertThat(nuevo.get("idInstalacion").asLong()).isEqualTo(idInstalacion);
+    assertThat(nuevo.get("idCategoriaFalla").asLong()).isEqualTo(idCategoria);
+    assertThat(nuevo.get("origen").asString()).isEqualTo("MONITOREO");
+    assertThat(nuevo.get("prioridad").asString()).isEqualTo("MEDIA");
+    assertThat(nuevo.get("tercero").isNull()).isTrue();
+    assertThat(nuevo.has("descripcion")).isFalse();
     assertThat(registros(EntidadAuditada.ORDEN_TRABAJO, idOt))
         .singleElement()
         .satisfies(r -> esDe(r, AccionAuditada.GENERACION, operador))
@@ -180,6 +188,8 @@ class BitacoraTest {
     assertThat(registros(EntidadAuditada.INCIDENTE, idIncidente))
         .extracting(Registro::accion)
         .containsExactly(AccionAuditada.REGISTRO, AccionAuditada.CIERRE_SIN_OT);
+    Registro registro = registros(EntidadAuditada.INCIDENTE, idIncidente).get(0);
+    assertThat(registro.nuevo().get("tercero").asString()).isEqualTo("UTE");
     Registro cierre = registros(EntidadAuditada.INCIDENTE, idIncidente).get(1);
     esDe(cierre, AccionAuditada.CIERRE_SIN_OT, jefatura);
     assertThat(cierre.nuevo().get("estado").asString()).isEqualTo("CERRADO_SIN_OT");
