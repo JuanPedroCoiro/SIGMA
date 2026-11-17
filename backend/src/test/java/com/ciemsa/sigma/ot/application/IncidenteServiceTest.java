@@ -96,7 +96,16 @@ class IncidenteServiceTest {
     assertThat(ot.getFechaLimite()).isEqualTo(Instant.parse("2026-11-04T13:00:00Z"));
     assertThat(publicados)
         .containsExactly(
-            new IncidenteRegistrado(incidente.getId(), ID_USUARIO, AHORA),
+            new IncidenteRegistrado(
+                incidente.getId(),
+                ID_INSTALACION,
+                ID_CATEGORIA,
+                OrigenIncidente.RECLAMO_ORGANISMO,
+                Prioridad.MEDIA,
+                null,
+                null,
+                ID_USUARIO,
+                AHORA),
             new OrdenGenerada(ot.getId(), incidente.getId(), ID_USUARIO, AHORA));
   }
 
@@ -140,7 +149,15 @@ class IncidenteServiceTest {
     assertThat(resultado.ordenTrabajo()).isNull();
     verify(ordenTrabajoRepository, never()).save(any());
     verifyNoInteractions(reglaSlaRepository);
-    assertThat(publicados).hasSize(1).first().isInstanceOf(IncidenteRegistrado.class);
+    assertThat(publicados)
+        .singleElement()
+        .isInstanceOfSatisfying(
+            IncidenteRegistrado.class,
+            e -> {
+              assertThat(e.prioridad()).isEqualTo(Prioridad.ALTA);
+              assertThat(e.tercero()).isEqualTo("UTE");
+              assertThat(e.causa()).isEqualTo("Corte de energía");
+            });
   }
 
   @Test

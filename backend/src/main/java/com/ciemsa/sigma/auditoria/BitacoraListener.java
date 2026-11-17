@@ -56,10 +56,29 @@ class BitacoraListener {
 
   // --- Incidentes ---
 
+  /** Con los datos que lo clasifican (#80); la descripción no, porque es texto libre y largo. */
   @EventListener
   public void on(IncidenteRegistrado e) {
     auditoria.registrar(
-        INCIDENTE, e.idIncidente(), REGISTRO, e.idUsuario(), e.ocurridoEn(), null, null);
+        INCIDENTE,
+        e.idIncidente(),
+        REGISTRO,
+        e.idUsuario(),
+        e.ocurridoEn(),
+        null,
+        valores(
+            "idInstalacion",
+            e.idInstalacion(),
+            "idCategoriaFalla",
+            e.idCategoriaFalla(),
+            "origen",
+            e.origen(),
+            "prioridad",
+            e.prioridad(),
+            "tercero",
+            e.tercero(),
+            "causa",
+            e.causa()));
   }
 
   @EventListener
