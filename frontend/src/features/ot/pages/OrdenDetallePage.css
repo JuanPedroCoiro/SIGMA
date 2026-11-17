@@ -74,3 +74,27 @@
     overflow-x: auto;
   }
 }
+
+/* Fotos del incidente (#71) */
+.orden-fotos-titulo {
+  margin: 1rem 0 0.5rem;
+  font-size: 1rem;
+}
+
+.orden-fotos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.orden-fotos img {
+  display: block;
+  width: 8rem;
+  height: 8rem;
+  object-fit: cover;
+  border: 1px solid var(--borde);
+  border-radius: 0.375rem;
+}

@@ -3,11 +3,33 @@ import {
   cerrarIncidenteSinOt,
   generarOtDeIncidente,
   listarCategoriasFalla,
+  listarFotosIncidente,
   registrarIncidente,
+  subirFotosIncidente,
 } from '../api/incidentesApi'
 import { CLAVE_ORDENES } from './useOrden'
 
 export const CLAVE_INCIDENTES = 'incidentes'
+const CLAVE_FOTOS = 'fotos-incidente'
+
+/** Las fotos de un incidente (#71). Solo Operador y Jefatura pueden verlas: si no, no se piden. */
+export function useFotosIncidente(idIncidente: number, habilitado: boolean) {
+  return useQuery({
+    queryKey: [CLAVE_FOTOS, idIncidente],
+    queryFn: () => listarFotosIncidente(idIncidente),
+    enabled: habilitado,
+  })
+}
+
+export function useSubirFotosIncidente() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ idIncidente, archivos }: { idIncidente: number; archivos: readonly File[] }) =>
+      subirFotosIncidente(idIncidente, archivos),
+    onSuccess: (_, { idIncidente }) =>
+      queryClient.invalidateQueries({ queryKey: [CLAVE_FOTOS, idIncidente] }),
+  })
+}
 
 /** Al registrar o resolver una espera cambian los incidentes y, si se generó una OT, las órdenes. */
 function useCambioDeIncidente<T, R>(accion: (datos: T) => Promise<R>) {

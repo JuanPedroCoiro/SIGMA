@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { useFormContext, useWatch } from 'react-hook-form'
 import { etiquetaInstalacion } from '../../../activos/etiquetas'
 import type { Instalacion } from '../../../activos/types'
@@ -8,11 +9,14 @@ import {
   type CategoriaFalla,
   type Prioridad,
 } from '../../types'
+import type { FotoElegida } from '../../fotos'
+import { MiniaturasFotos } from './MiniaturasFotos'
 import type { PasoConCampos } from './pasos'
 
 type Props = {
   instalacion: Instalacion | null
   catalogo: readonly CategoriaFalla[]
+  fotos: readonly FotoElegida[]
   onEditar: (paso: PasoConCampos) => void
 }
 
@@ -20,6 +24,7 @@ type Seccion = {
   paso: PasoConCampos
   titulo: string
   filas: { etiqueta: string; valor: string }[]
+  contenido?: ReactNode
 }
 
 const SIN_DATO = '—'
@@ -34,7 +39,7 @@ function textoPrioridad(prioridad: Prioridad | '' | undefined, categoria?: Categ
 }
 
 /** Paso 3: todo lo cargado, con «Editar» por sección. Se confirma desde acá. */
-export function ResumenIncidente({ instalacion, catalogo, onEditar }: Props) {
+export function ResumenIncidente({ instalacion, catalogo, fotos, onEditar }: Props) {
   const { control } = useFormContext<CamposIncidente>()
   const valores = useWatch({ control })
   const categoria = catalogo.find((c) => String(c.id) === valores.idCategoriaFalla)
@@ -64,7 +69,12 @@ export function ResumenIncidente({ instalacion, catalogo, onEditar }: Props) {
         ...(tercero && causa ? [{ etiqueta: 'Causa', valor: causa }] : []),
       ],
     },
-    // #71: las fotos se agregan como una sección más (paso 2), con sus miniaturas.
+    {
+      paso: 2,
+      titulo: 'Fotos',
+      filas: fotos.length === 0 ? [{ etiqueta: 'Fotos', valor: 'Sin fotos' }] : [],
+      contenido: <MiniaturasFotos fotos={fotos} />,
+    },
   ]
 
   return (
@@ -82,14 +92,17 @@ export function ResumenIncidente({ instalacion, catalogo, onEditar }: Props) {
               Editar
             </button>
           </div>
-          <dl>
-            {seccion.filas.map((fila) => (
-              <div key={fila.etiqueta}>
-                <dt>{fila.etiqueta}</dt>
-                <dd>{fila.valor}</dd>
-              </div>
-            ))}
-          </dl>
+          {seccion.filas.length > 0 && (
+            <dl>
+              {seccion.filas.map((fila) => (
+                <div key={fila.etiqueta}>
+                  <dt>{fila.etiqueta}</dt>
+                  <dd>{fila.valor}</dd>
+                </div>
+              ))}
+            </dl>
+          )}
+          {seccion.contenido}
         </section>
       ))}
       <p className="alerta alerta-aviso">
