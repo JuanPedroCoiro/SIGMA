@@ -79,6 +79,16 @@ export type IncidenteSimulado = {
   creadoEn: string
 }
 
+/** Los datos de una foto del incidente (#71). El contenido queda en memoria (handlers/fotos.ts). */
+export type FotoSimulada = {
+  id: number
+  idIncidente: number
+  nombreOriginal: string
+  tipo: string
+  tamanioBytes: number
+  subidaEn: string
+}
+
 type Base = {
   usuarios: UsuarioSimulado[]
   cuadrillas: CuadrillaSimulada[]
@@ -86,6 +96,7 @@ type Base = {
   ordenes: OrdenSimulada[]
   incidentes: IncidenteSimulado[]
   categorias: CategoriaSimulada[]
+  fotos: FotoSimulada[]
   /** Usuario con la sesión abierta, o null. */
   idSesion: number | null
 }
@@ -93,8 +104,8 @@ type Base = {
 // Con versión: cuando cambia la forma de los datos se sube, y la base vieja guardada en la
 // pestaña se descarta en lugar de mezclarse con la nueva (#61). v3: fechaEjecucion (#41). v4:
 // categorías de falla e instalación sin regla de SLA (#40). v5: detalle de OT con instalación,
-// cuadrilla e incidente (#57).
-const CLAVE_ALMACEN = 'sigma.apiSimulada.v5'
+// cuadrilla e incidente (#57). v6: fotos del incidente (#71).
+const CLAVE_ALMACEN = 'sigma.apiSimulada.v6'
 
 const NOMBRES = ['Ana', 'Bruno', 'Carla', 'Diego', 'Elena', 'Fabián', 'Gabriela', 'Hernán']
 const APELLIDOS = ['Acosta', 'Benítez', 'Cabrera', 'Duarte']
@@ -339,6 +350,7 @@ function crearBaseInicial(): Base {
     ordenes: crearOrdenes(),
     incidentes: crearIncidentes(),
     categorias: crearCategorias(),
+    fotos: [],
     idSesion: null,
   }
 }

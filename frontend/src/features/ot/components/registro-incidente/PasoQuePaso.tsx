@@ -1,9 +1,11 @@
 import type { ChangeEvent } from 'react'
 import { useFormContext, useWatch } from 'react-hook-form'
 import type { CamposIncidente } from '../../esquemas'
+import type { FotoElegida } from '../../fotos'
 import { esCategoriaOtra, ETIQUETA_PRIORIDAD, PRIORIDADES, type CategoriaFalla } from '../../types'
 import { MensajeError } from './MensajeError'
 import { propsError } from './pasos'
+import { SelectorFotos } from './SelectorFotos'
 
 const MAXIMO_DESCRIPCION = 2000
 
@@ -11,10 +13,18 @@ type Props = {
   catalogo: readonly CategoriaFalla[]
   cargandoCategorias: boolean
   errorCategorias: boolean
+  fotos: readonly FotoElegida[]
+  onFotos: (fotos: FotoElegida[]) => void
 }
 
-/** Paso 2: categoría, prioridad (sugerida por la categoría), descripción y tercero. */
-export function PasoQuePaso({ catalogo, cargandoCategorias, errorCategorias }: Props) {
+/** Paso 2: categoría, prioridad (sugerida por la categoría), descripción, fotos y tercero. */
+export function PasoQuePaso({
+  catalogo,
+  cargandoCategorias,
+  errorCategorias,
+  fotos,
+  onFotos,
+}: Props) {
   const {
     control,
     register,
@@ -107,11 +117,8 @@ export function PasoQuePaso({ catalogo, cargandoCategorias, errorCategorias }: P
         <MensajeError campo="descripcion" />
       </div>
 
-      {/*
-        #71: las fotos van acá. Se eligen en este paso, se muestran en el resumen y se suben con
-        POST /api/v1/incidentes/{id}/fotos después de crear el incidente (en enviar, en
-        RegistrarIncidentePage).
-      */}
+      {/* No son campos del formulario: se suben después de crear el incidente (#71). */}
+      <SelectorFotos fotos={fotos} onCambio={onFotos} />
 
       <label className="registrar-incidente-casilla">
         <input type="checkbox" {...register('esTercero')} />

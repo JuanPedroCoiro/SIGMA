@@ -9,6 +9,11 @@ import { descartarQueryClients, renderizarRuta } from './renderizarRuta'
 // Leaflet no funciona en jsdom (sin tamaños ni teselas): el mapa usa react-leaflet simulado (#70).
 vi.mock('react-leaflet', () => import('./reactLeafletSimulado'))
 
+// jsdom no implementa las URLs de objetos, que dan la vista previa de las fotos (#71).
+let urlsCreadas = 0
+URL.createObjectURL = vi.fn(() => `blob:vista-previa-${++urlsCreadas}`)
+URL.revokeObjectURL = vi.fn()
+
 const ID_JEFATURA = 1
 
 /** Desmonta, espera los pedidos que quedaron en curso y recién entonces reinicia la base. */

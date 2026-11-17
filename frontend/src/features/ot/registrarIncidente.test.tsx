@@ -472,4 +472,170 @@ describe('registrar incidente (#40, en pasos #69)', () => {
       await elegirInstalacion('INST-001', INST_001)
     })
   })
+
+  describe('fotos del incidente (#71)', () => {
+    const PNG = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]
+    const JPG = [0xff, 0xd8, 0xff, 0xe0, 0, 0, 0, 0]
+
+    function foto(nombre: string, tipo = 'image/png', bytes = PNG) {
+      return new File([new Uint8Array(bytes)], nombre, { type: tipo })
+    }
+
+    function elegirFotos(...archivos: File[]) {
+      fireEvent.change(screen.getByLabelText('Fotos (opcional)'), {
+        target: { files: archivos },
+      })
+    }
+
+    function miniaturas() {
+      const lista = screen.queryByRole('list', { name: 'Fotos elegidas' })
+      return lista
+        ? within(lista)
+            .getAllByRole('img')
+            .map((img) => img.getAttribute('alt'))
+        : []
+    }
+
+    it('fotos_seVenEnElResumenYSeSubenAlConfirmar', async () => {
+      renderizarRuta('/incidentes/nuevo')
+      await completarDonde()
+      await completarQuePaso()
+      elegirFotos(foto('reclamo.png'), foto('cruce.jpg', 'image/jpeg', JPG))
+      expect(miniaturas()).toEqual(['reclamo.png', 'cruce.jpg'])
+
+      await irAlResumen()
+      expect(miniaturas()).toEqual(['reclamo.png', 'cruce.jpg'])
+      confirmar()
+
+      expect(await screen.findByRole('status')).toHaveTextContent(
+        'Se generó la OT-0004 (incidente INC-0005)',
+      )
+      expect(screen.getByRole('status')).toHaveTextContent('Se adjuntaron 2 fotos.')
+      const incidente = base.incidentes.find((i) => i.numero === 'INC-0005')!
+      expect(base.fotos.filter((f) => f.idIncidente === incidente.id)).toMatchObject([
+        { nombreOriginal: 'reclamo.png', tipo: 'image/png' },
+        { nombreOriginal: 'cruce.jpg', tipo: 'image/jpeg' },
+      ])
+    })
+
+    it('sinFotos_elResumenLoDiceYNoSeSubeNada', async () => {
+      renderizarRuta('/incidentes/nuevo')
+      await completar()
+      expect(filaDelResumen('Fotos')).toHaveTextContent('Sin fotos')
+      confirmar()
+
+      expect(await screen.findByRole('status')).not.toHaveTextContent('Se adjuntaron')
+      expect(base.fotos).toHaveLength(0)
+    })
+
+    it('quitar_sacaLaFotoYLiberaLaVistaPrevia', async () => {
+      renderizarRuta('/incidentes/nuevo')
+      await completarDonde()
+      elegirFotos(foto('una.png'), foto('otra.png'))
+
+      pulsar('Quitar una.png')
+
+      expect(miniaturas()).toEqual(['otra.png'])
+      expect(URL.revokeObjectURL).toHaveBeenCalledTimes(1)
+    })
+
+    it('tipoTamanioYMaximo_seRechazanAlElegir', async () => {
+      renderizarRuta('/incidentes/nuevo')
+      await completarDonde()
+      const grande = foto('grande.png')
+      Object.defineProperty(grande, 'size', { value: 10 * 1024 * 1024 + 1 })
+
+      elegirFotos(
+        foto('informe.pdf', 'application/pdf'),
+        grande,
+        foto('1.png'),
+        foto('2.png'),
+        foto('3.png'),
+        foto('4.png'),
+      )
+
+      const errores = screen.getByRole('alert')
+      expect(errores).toHaveTextContent('«informe.pdf» no es una imagen JPG, PNG ni WEBP.')
+      expect(errores).toHaveTextContent('«grande.png» supera los 10 MB.')
+      expect(errores).toHaveTextContent('Se pueden adjuntar hasta 3 fotos: quedó afuera 1.')
+      expect(miniaturas()).toEqual(['1.png', '2.png', '3.png'])
+      expect(screen.getByLabelText('Fotos (opcional)')).toBeDisabled()
+    })
+
+    it('volverAlPaso_conservaLasFotos', async () => {
+      renderizarRuta('/incidentes/nuevo')
+      await completarDonde()
+      await completarQuePaso()
+      elegirFotos(foto('reclamo.png'))
+      await irAlResumen()
+
+      pulsar('Editar Fotos')
+      await enPaso('Qué pasó')
+
+      expect(miniaturas()).toEqual(['reclamo.png'])
+    })
+
+    it('rechazoDelServidor_elIncidenteQuedaYSeAvisa', async () => {
+      renderizarRuta('/incidentes/nuevo')
+      await completarDonde()
+      await completarQuePaso()
+      // Dice ser PNG, pero el contenido no es una imagen: lo detecta el servidor por el contenido.
+      elegirFotos(foto('falsa.png', 'image/png', [0x68, 0x6f, 0x6c, 0x61]))
+      await irAlResumen()
+      confirmar()
+
+      expect(await screen.findByRole('status')).toHaveTextContent('Se generó la OT-0004')
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        'El incidente quedó registrado, pero no se pudieron subir las fotos. «falsa.png» no es una imagen JPG, PNG ni WEBP.',
+      )
+      expect(seRegistro()).toBe(true)
+      expect(base.fotos).toHaveLength(0)
+    })
+
+    it('falloAlSubir_sePuedeReintentar', async () => {
+      servidor.use(
+        http.post(
+          '/api/v1/incidentes/:id/fotos',
+          () => problema(503, 'no-encontrado', 'No disponible', 'El almacenamiento no responde.'),
+          { once: true },
+        ),
+      )
+      renderizarRuta('/incidentes/nuevo')
+      await completarDonde()
+      await completarQuePaso()
+      elegirFotos(foto('reclamo.png'))
+      await irAlResumen()
+      confirmar()
+
+      expect(await screen.findByRole('alert')).toHaveTextContent('El almacenamiento no responde.')
+      expect(seRegistro()).toBe(true)
+
+      pulsar('Reintentar subir las fotos')
+
+      await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument())
+      expect(screen.getByRole('status')).toHaveTextContent('Se adjuntaron 1 foto.')
+      expect(base.fotos).toHaveLength(1)
+    })
+
+    it('detalleDeLaOt_muestraLasFotosDelIncidente', async () => {
+      base.idSesion = ID_JEFATURA
+      const orden = base.ordenes.find((o) => o.numero === 'OT-0001')!
+      base.fotos.push({
+        id: 1,
+        idIncidente: orden.idIncidente!,
+        nombreOriginal: 'reclamo.jpg',
+        tipo: 'image/jpeg',
+        tamanioBytes: 1234,
+        subidaEn: new Date().toISOString(),
+      })
+
+      renderizarRuta(`/ordenes/${orden.id}`)
+
+      const lista = await screen.findByRole('list', { name: 'Fotos del incidente' })
+      expect(within(lista).getByRole('img', { name: 'reclamo.jpg' })).toHaveAttribute(
+        'src',
+        `/api/v1/incidentes/${orden.idIncidente}/fotos/1`,
+      )
+    })
+  })
 })

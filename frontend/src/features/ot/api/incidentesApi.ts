@@ -1,5 +1,21 @@
 import { cliente } from '../../../shared/api/cliente'
-import type { CategoriaFalla, DatosIncidente, IncidenteResponse } from '../types'
+import type { CategoriaFalla, DatosIncidente, FotoIncidente, IncidenteResponse } from '../types'
+
+/** Sube fotos al incidente (#71), en el campo «fotos»: se suben todas o ninguna. */
+export async function subirFotosIncidente(
+  idIncidente: number,
+  archivos: readonly File[],
+): Promise<FotoIncidente[]> {
+  const formulario = new FormData()
+  archivos.forEach((archivo) => formulario.append('fotos', archivo))
+  const res = await cliente.post<FotoIncidente[]>(`/incidentes/${idIncidente}/fotos`, formulario)
+  return res.data
+}
+
+export async function listarFotosIncidente(idIncidente: number): Promise<FotoIncidente[]> {
+  const res = await cliente.get<FotoIncidente[]>(`/incidentes/${idIncidente}/fotos`)
+  return res.data
+}
 
 /** Registra un incidente (CU-1): con OT, o en espera de un tercero (4b). */
 export async function registrarIncidente(datos: DatosIncidente): Promise<IncidenteResponse> {

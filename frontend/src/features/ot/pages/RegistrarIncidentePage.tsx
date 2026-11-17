@@ -20,7 +20,12 @@ import {
 } from '../components/registro-incidente/pasos'
 import { ResumenIncidente } from '../components/registro-incidente/ResumenIncidente'
 import { crearEsquemaIncidente, type CamposIncidente, type ValoresIncidente } from '../esquemas'
-import { useCategoriasFalla, useRegistrarIncidente } from '../hooks/useIncidentes'
+import { mensajeErrorFotos, textoCantidadFotos, type FotoElegida } from '../fotos'
+import {
+  useCategoriasFalla,
+  useRegistrarIncidente,
+  useSubirFotosIncidente,
+} from '../hooks/useIncidentes'
 import type { IncidenteResponse } from '../types'
 import './RegistrarIncidentePage.css'
 
@@ -41,31 +46,53 @@ const VALORES_INICIALES: CamposIncidente = {
 const MENSAJE_CAMPOS_RECHAZADOS = 'Revisá los datos marcados.'
 
 /** El resultado viaja en el estado del historial: Atrás vuelve a un registro nuevo, no a este. */
-type EstadoRegistro = { resultado: IncidenteResponse }
+type EstadoRegistro = {
+  resultado: IncidenteResponse
+  fotosSubidas: number
+  /** Por qué no se subieron las fotos (#71); el incidente igual quedó registrado. */
+  errorFotos: string | null
+}
 
 /**
  * Registrar un incidente (CU-1, HU-03): Operador y Jefatura. Genera la OT correctiva con su
  * vencimiento, o deja el incidente en espera si la falla es de un tercero (4b). Se carga en pasos
- * (#69): Dónde, Qué pasó y un resumen, donde se confirma.
+ * (#69): Dónde, Qué pasó y un resumen, donde se confirma. Las fotos se suben después de crear el
+ * incidente (#71).
  */
 export function RegistrarIncidentePage() {
   const navigate = useNavigate()
   const location = useLocation()
-  const resultado = (location.state as EstadoRegistro | null)?.resultado ?? null
+  const estado = location.state as EstadoRegistro | null
+  // Los archivos no viajan en el historial: si falló la subida, quedan acá para reintentarla.
+  const [fotosSinSubir, setFotosSinSubir] = useState<File[]>([])
+
+  function mostrar(nuevo: EstadoRegistro) {
+    navigate(RUTA, { replace: true, state: nuevo })
+  }
 
   return (
     <section className="registrar-incidente">
       <h1>Registrar incidente</h1>
-      {resultado ? (
-        <ResultadoRegistro resultado={resultado} onOtro={() => navigate(RUTA)} />
+      {estado?.resultado ? (
+        <ResultadoRegistro
+          estado={estado}
+          fotosSinSubir={fotosSinSubir}
+          onFotosSubidas={(cantidad) => {
+            setFotosSinSubir([])
+            mostrar({ ...estado, fotosSubidas: cantidad, errorFotos: null })
+          }}
+          onErrorFotos={(mensaje) => mostrar({ ...estado, errorFotos: mensaje })}
+          onOtro={() => {
+            setFotosSinSubir([])
+            navigate(RUTA)
+          }}
+        />
       ) : (
         <AsistenteIncidente
-          onRegistrado={(registrado) =>
-            navigate(RUTA, {
-              replace: true,
-              state: { resultado: registrado } satisfies EstadoRegistro,
-            })
-          }
+          onRegistrado={(registrado, sinSubir) => {
+            setFotosSinSubir(sinSubir)
+            mostrar(registrado)
+          }}
         />
       )}
     </section>
@@ -73,13 +100,33 @@ export function RegistrarIncidentePage() {
 }
 
 function ResultadoRegistro({
-  resultado,
+  estado: { resultado, fotosSubidas, errorFotos },
+  fotosSinSubir,
+  onFotosSubidas,
+  onErrorFotos,
   onOtro,
 }: {
-  resultado: IncidenteResponse
+  estado: EstadoRegistro
+  fotosSinSubir: readonly File[]
+  onFotosSubidas: (cantidad: number) => void
+  onErrorFotos: (mensaje: string) => void
   onOtro: () => void
 }) {
+  const subirFotos = useSubirFotosIncidente()
   const ot = resultado.ordenTrabajo
+
+  async function reintentar() {
+    try {
+      const subidas = await subirFotos.mutateAsync({
+        idIncidente: resultado.id,
+        archivos: fotosSinSubir,
+      })
+      onFotosSubidas(subidas.length)
+    } catch (error) {
+      onErrorFotos(mensajeErrorFotos(error))
+    }
+  }
+
   return (
     <div className="registrar-incidente-resultado">
       <p className="alerta alerta-exito" role="status">
@@ -96,7 +143,23 @@ function ResultadoRegistro({
             <Link to="/pendientes">Pendientes</Link>.
           </>
         )}
+        {fotosSubidas > 0 && ` Se adjuntaron ${textoCantidadFotos(fotosSubidas)}.`}
       </p>
+      {errorFotos && (
+        <div className="alerta alerta-error registrar-incidente-error-fotos" role="alert">
+          <p>El incidente quedó registrado, pero no se pudieron subir las fotos. {errorFotos}</p>
+          {fotosSinSubir.length > 0 && (
+            <button
+              type="button"
+              className="boton boton-secundario"
+              disabled={subirFotos.isPending}
+              onClick={() => void reintentar()}
+            >
+              {subirFotos.isPending ? 'Subiendo...' : 'Reintentar subir las fotos'}
+            </button>
+          )}
+        </div>
+      )}
       <div className="registrar-incidente-acciones">
         {ot && (
           <Link to={`/ordenes/${ot.id}`} className="boton boton-secundario">
@@ -119,10 +182,24 @@ function ResultadoRegistro({
 function AsistenteIncidente({
   onRegistrado,
 }: {
-  onRegistrado: (resultado: IncidenteResponse) => void
+  /** `sinSubir`: las fotos que no se pudieron subir, para reintentar. */
+  onRegistrado: (estado: EstadoRegistro, sinSubir: File[]) => void
 }) {
   const [parametros, setParametros] = useSearchParams()
   const registrar = useRegistrarIncidente()
+  const subirFotos = useSubirFotosIncidente()
+  const [fotos, setFotos] = useState<FotoElegida[]>([])
+
+  // Al salir del registro se liberan las vistas previas. Se lee la lista en una ref para no
+  // liberarlas cada vez que cambia: las que se quitan se liberan al quitarlas.
+  const fotosActuales = useRef<FotoElegida[]>([])
+  useEffect(() => {
+    fotosActuales.current = fotos
+  }, [fotos])
+  useEffect(() => {
+    const actuales = fotosActuales
+    return () => actuales.current.forEach((foto) => URL.revokeObjectURL(foto.vistaPrevia))
+  }, [])
   const categorias = useCategoriasFalla()
   const catalogo = useMemo(() => categorias.data ?? [], [categorias.data])
   const esquema = useMemo(() => crearEsquemaIncidente(catalogo), [catalogo])
@@ -223,8 +300,9 @@ function AsistenteIncidente({
 
   async function enviar(valores: ValoresIncidente) {
     setAlerta(null)
+    let resultado: IncidenteResponse
     try {
-      onRegistrado(await registrar.mutateAsync(valores))
+      resultado = await registrar.mutateAsync(valores)
     } catch (error) {
       const general = aplicarErroresDelServidor(error, setError, CAMPOS)
       const conError = CAMPOS.find((campo) => getFieldState(campo).error)
@@ -233,6 +311,20 @@ function AsistenteIncidente({
       } else {
         setAlerta({ paso: 3, mensaje: general ?? MENSAJE_CAMPOS_RECHAZADOS })
       }
+      return
+    }
+
+    // #71: si la subida falla, el incidente ya quedó creado; se avisa y se puede reintentar.
+    const archivos = fotos.map((foto) => foto.archivo)
+    if (archivos.length === 0) {
+      onRegistrado({ resultado, fotosSubidas: 0, errorFotos: null }, [])
+      return
+    }
+    try {
+      const subidas = await subirFotos.mutateAsync({ idIncidente: resultado.id, archivos })
+      onRegistrado({ resultado, fotosSubidas: subidas.length, errorFotos: null }, [])
+    } catch (error) {
+      onRegistrado({ resultado, fotosSubidas: 0, errorFotos: mensajeErrorFotos(error) }, archivos)
     }
   }
 
@@ -254,7 +346,9 @@ function AsistenteIncidente({
   const etiquetaPrincipal =
     paso === 3
       ? isSubmitting
-        ? 'Registrando...'
+        ? subirFotos.isPending
+          ? 'Subiendo fotos...'
+          : 'Registrando...'
         : 'Confirmar'
       : editando
         ? 'Volver al resumen'
@@ -279,10 +373,17 @@ function AsistenteIncidente({
             catalogo={catalogo}
             cargandoCategorias={categorias.isPending}
             errorCategorias={categorias.isError}
+            fotos={fotos}
+            onFotos={setFotos}
           />
         )}
         {paso === 3 && (
-          <ResumenIncidente instalacion={instalacion} catalogo={catalogo} onEditar={editar} />
+          <ResumenIncidente
+            instalacion={instalacion}
+            catalogo={catalogo}
+            fotos={fotos}
+            onEditar={editar}
+          />
         )}
 
         <div className="registrar-incidente-navegacion">
