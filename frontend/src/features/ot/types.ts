@@ -126,6 +126,16 @@ export type IncidenteResponse = {
   } | null
 }
 
+/** Un elemento de GET /api/v1/incidentes/{id}/fotos (#71). `url` devuelve la imagen. */
+export type FotoIncidente = {
+  id: number
+  nombreOriginal: string
+  tipo: string
+  tamanioBytes: number
+  subidaEn: string
+  url: string
+}
+
 export const MOTIVOS_ANULACION = ['DUPLICADA', 'IMPROCEDENTE', 'OTRO'] as const
 
 export type MotivoAnulacion = (typeof MOTIVOS_ANULACION)[number]

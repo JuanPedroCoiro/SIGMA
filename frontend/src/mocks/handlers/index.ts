@@ -7,6 +7,7 @@ import { handlersOrdenes } from './ordenes'
 import { handlersSesion } from './sesion'
 import { handlersUsuarios } from './usuarios'
 import { handlersIncidentes } from './incidentes'
+import { handlersFotos } from './fotos'
 import { handlersPendientes } from './pendientes'
 import { handlersInicio } from './inicio'
 
@@ -30,6 +31,7 @@ export const handlers = [
   ...handlersPendientes,
   ...handlersInicio,
   ...handlersIncidentes,
+  ...handlersFotos,
   ...handlersCategorias,
   handlerPing,
 ]

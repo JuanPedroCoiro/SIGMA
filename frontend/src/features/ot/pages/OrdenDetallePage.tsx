@@ -1,4 +1,5 @@
 import { Link, useParams } from 'react-router-dom'
+import { useSesion } from '../../../app/sesion/useSesion'
 import { obtenerProblemDetail } from '../../../shared/api/problemDetail'
 import {
   formatearFechaHoraMontevideo,
@@ -7,6 +8,7 @@ import {
 } from '../../../shared/lib/fechas'
 import { AccionesPausa } from '../components/AccionesPausa'
 import { formatearDuracion } from '../duracion'
+import { useFotosIncidente } from '../hooks/useIncidentes'
 import { useOrden } from '../hooks/useOrden'
 import {
   ETIQUETA_ESTADO_OT,
@@ -156,7 +158,40 @@ function Incidente({ incidente }: { incidente: IncidenteDeOT }) {
         {incidente.tercero && <Fila termino="Tercero" valor={incidente.tercero} />}
         {incidente.causa && <Fila termino="Causa" valor={incidente.causa} />}
       </dl>
+      <FotosDelIncidente idIncidente={incidente.id} />
     </section>
+  )
+}
+
+/**
+ * Las fotos del incidente (#71). El backend solo se las muestra a Operador y Jefatura, como el
+ * registro; al Técnico no se le piden. Sin fotos, no se muestra nada.
+ */
+function FotosDelIncidente({ idIncidente }: { idIncidente: number }) {
+  const sesion = useSesion()
+  const puedeVer =
+    sesion.estado === 'autenticado' &&
+    (sesion.usuario.rol === 'OPERADOR' || sesion.usuario.rol === 'JEFATURA')
+  const fotos = useFotosIncidente(idIncidente, puedeVer)
+
+  if (!puedeVer || fotos.isPending) return null
+  if (fotos.isError) {
+    return <p className="campo-ayuda">No se pudieron cargar las fotos del incidente.</p>
+  }
+  if (fotos.data.length === 0) return null
+  return (
+    <>
+      <h3 className="orden-fotos-titulo">Fotos</h3>
+      <ul className="orden-fotos" aria-label="Fotos del incidente">
+        {fotos.data.map((foto) => (
+          <li key={foto.id}>
+            <a href={foto.url} target="_blank" rel="noreferrer">
+              <img src={foto.url} alt={foto.nombreOriginal} loading="lazy" />
+            </a>
+          </li>
+        ))}
+      </ul>
+    </>
   )
 }
 
