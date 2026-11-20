@@ -502,6 +502,32 @@ Reglas para lo que venga:
 - El frontend llama siempre con el `cliente` compartido (envía la cookie y el token). Después del login **y del logout** vuelve a pedir `GET /api/v1/sesion`: así carga el estado real y recibe el token CSRF nuevo, que Spring renueva en los dos casos.
 - Pendiente: `server.servlet.session.cookie.secure=true` en el perfil del servidor (deploy) y cortar la sesión de un usuario en el momento en que se lo desactiva (fuera del sprint 1).
 
+## Logs técnicos (#95)
+
+Pedido del Taller de Deploy (27/10): en un contenedor no hay dónde entrar a mirar, así que la aplicación deja logs para diagnosticar los problemas en el servidor.
+
+**Los logs técnicos no son la bitácora.** La bitácora (HU-12, `registro_auditoria`) es un registro de negocio: está en la base, solo admite inserciones, se graba en la misma transacción que la acción y la consulta la Jefatura. Los logs técnicos salen por la consola, la plataforma los guarda un tiempo, solo los leen los desarrolladores y no tienen valor de auditoría. Si una acción tiene que quedar registrada para el negocio, va a la bitácora; un log no la reemplaza.
+
+| Tema | Cómo quedó | Dónde |
+| --- | --- | --- |
+| Salida | Consola (stdout), nunca archivos. En el perfil `prod`, JSON (ECS) para que la plataforma lo indexe; en desarrollo, texto | `application.properties`, `application-prod.properties` |
+| Id de correlación | Cada pedido recibe un id (`idCorrelacion`) que va en todas sus líneas, en la cabecera `X-Request-Id` y en las respuestas 500. Si llega uno válido del proxy, se reutiliza; uno con caracteres raros se descarta para que no se pueda inyectar texto en los logs | `IdCorrelacionFilter` |
+| Usuario | El id del usuario en sesión (`idUsuario`) va en todas las líneas del pedido. En el pedido de login todavía no hay sesión: el id va en el mensaje | `UsuarioEnLogFilter` (en la cadena de Spring Security) |
+| Entidad | El id de la OT, del incidente o de la instalación va en el mensaje (`OT 12 generada para el incidente 14`) | Cada log |
+| ERROR | Fallas. Toda excepción no controlada se loguea con su stack trace y responde un 500 genérico con el `idCorrelacion`, para buscar el log cuando alguien reporta el error | `GlobalExceptionHandler.inesperado` |
+| WARN | Lo raro pero manejado: bloqueo por intentos fallidos (una vez, al bloquearse), ingreso con un correo no registrado, importación rechazada y edición concurrente | `IntentosIngresoListener`, `ImportacionInstalacionesController`, `GlobalExceptionHandler` |
+| INFO | Eventos de negocio: incidente registrado o cerrado sin OT, OT generada, asignada, anulada o que cambió de estado, ingreso de un usuario e importación. Escuchan los mismos eventos que la bitácora, después del commit: solo se loguea lo que quedó guardado | `LogEventosOt`, `IntentosIngresoListener` |
+| DEBUG | Solo en el perfil `dev` (`logging.level.com.ciemsa.sigma=DEBUG`) | `application-dev.properties` |
+| Salud | `GET /actuator/health`, sin sesión y sin detalles. Actuator expone solo `health` | `application.properties`, `SecurityConfig` |
+
+Reglas para lo que venga:
+
+- **Nunca en un log:** contraseñas ni hashes, cookies de sesión, tokens CSRF, correos, nombres, teléfonos ni textos libres (descripción del incidente, motivos, observaciones), que pueden traer datos personales (Ley 18.331). Solo ids, estados y cantidades.
+- Para loguear un evento de negocio nuevo, agregar un método en `LogEventosOt` (o en un listener igual en su módulo) con `@TransactionalEventListener(fallbackExecution = true)`. No loguear dentro de la entidad ni del controller.
+- Una excepción que ya maneja `GlobalExceptionHandler` no se loguea de nuevo donde se lanza: el manejador decide el nivel.
+- Usar `@Slf4j` de Lombok y los parámetros de SLF4J (`log.info("OT {} asignada", id)`), nunca la concatenación de strings.
+- El servidor arranca con `SPRING_PROFILES_ACTIVE=prod` (#96).
+
 
 ## Frontend React
 
@@ -637,8 +663,8 @@ Los módulos no se crean vacíos de entrada: cada paquete aparece cuando una his
 | Fotos detrás de `AlmacenArchivos` | Anteproyecto Fig. 5 y Fig. 19 |
 | Java 25 | Anteproyecto V16 (Tabla 16) |
 | Listados paginados | Esta guía, API REST (17/10) |
-
 | Sesión de servidor con cookie HttpOnly + CSRF (`formLogin`, `csrf.spa()`), sin JWT | Anteproyecto 1.11.4 y Fig. 19; esta guía, «Seguridad (HU-01)», verificado en #18 |
 | Lombok en el backend (`@Getter`, `@RequiredArgsConstructor`; sin `@Data` ni `@Setter` en entidades) | Esta guía (#19) |
+| Logs técnicos a stdout, en JSON (ECS) en el servidor, con id de correlación y de usuario; separados de la bitácora | Taller de Deploy (27/10); esta guía, «Logs técnicos (#95)» |
 
 Si aparece una decisión nueva que no esté en el anteproyecto, se agrega una fila y, si cambia algo de lo entregado, una fila en la tabla de cambios del capítulo 2.
