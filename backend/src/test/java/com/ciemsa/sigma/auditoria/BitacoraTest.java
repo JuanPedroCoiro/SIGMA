@@ -166,6 +166,8 @@ class BitacoraTest {
     assertThat(nuevo.get("idCategoriaFalla").asLong()).isEqualTo(idCategoria);
     assertThat(nuevo.get("origen").asString()).isEqualTo("MONITOREO");
     assertThat(nuevo.get("prioridad").asString()).isEqualTo("MEDIA");
+    // #86: el estado con el que se registró, no CON_OT (la OT se genera después).
+    assertThat(nuevo.get("estado").asString()).isEqualTo("ABIERTO");
     assertThat(nuevo.get("tercero").isNull()).isTrue();
     assertThat(nuevo.has("descripcion")).isFalse();
     assertThat(registros(EntidadAuditada.ORDEN_TRABAJO, idOt))
@@ -190,6 +192,8 @@ class BitacoraTest {
         .containsExactly(AccionAuditada.REGISTRO, AccionAuditada.CIERRE_SIN_OT);
     Registro registro = registros(EntidadAuditada.INCIDENTE, idIncidente).get(0);
     assertThat(registro.nuevo().get("tercero").asString()).isEqualTo("UTE");
+    // #86: el REGISTRO guarda EN_ESPERA_TERCERO y el cierre, CERRADO_SIN_OT.
+    assertThat(registro.nuevo().get("estado").asString()).isEqualTo("EN_ESPERA_TERCERO");
     Registro cierre = registros(EntidadAuditada.INCIDENTE, idIncidente).get(1);
     esDe(cierre, AccionAuditada.CIERRE_SIN_OT, jefatura);
     assertThat(cierre.nuevo().get("estado").asString()).isEqualTo("CERRADO_SIN_OT");
