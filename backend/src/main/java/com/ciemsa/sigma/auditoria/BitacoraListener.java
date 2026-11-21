@@ -56,7 +56,10 @@ class BitacoraListener {
 
   // --- Incidentes ---
 
-  /** Con los datos que lo clasifican (#80); la descripción no, porque es texto libre y largo. */
+  /**
+   * Con los datos que lo clasifican (#80) y el estado inicial (#86), como CIERRE_SIN_OT guarda el
+   * suyo; la descripción no, porque es texto libre y largo.
+   */
   @EventListener
   public void on(IncidenteRegistrado e) {
     auditoria.registrar(
@@ -75,6 +78,8 @@ class BitacoraListener {
             e.origen(),
             "prioridad",
             e.prioridad(),
+            "estado",
+            e.estado(),
             "tercero",
             e.tercero(),
             "causa",
