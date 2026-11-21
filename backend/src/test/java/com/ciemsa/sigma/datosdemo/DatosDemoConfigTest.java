@@ -6,6 +6,7 @@ import static org.mockito.Mockito.mock;
 import com.ciemsa.sigma.administracion.UsuarioDetailsService;
 import com.ciemsa.sigma.ot.application.AnulacionOtService;
 import com.ciemsa.sigma.ot.application.AsignacionOtService;
+import com.ciemsa.sigma.ot.application.EjecucionOtService;
 import com.ciemsa.sigma.ot.application.IncidenteService;
 import com.ciemsa.sigma.ot.application.PausaOtService;
 import com.ciemsa.sigma.ot.infrastructure.IncidenteRepository;
@@ -36,6 +37,7 @@ class DatosDemoConfigTest {
           .withBean(IncidenteService.class, () -> mock(IncidenteService.class))
           .withBean(AsignacionOtService.class, () -> mock(AsignacionOtService.class))
           .withBean(PausaOtService.class, () -> mock(PausaOtService.class))
+          .withBean(EjecucionOtService.class, () -> mock(EjecucionOtService.class))
           .withBean(AnulacionOtService.class, () -> mock(AnulacionOtService.class))
           .withBean(UsuarioDetailsService.class, () -> mock(UsuarioDetailsService.class))
           .withBean(EntityManager.class, () -> mock(EntityManager.class))

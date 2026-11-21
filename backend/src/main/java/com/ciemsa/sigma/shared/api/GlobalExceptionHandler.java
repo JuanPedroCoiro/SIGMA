@@ -1,6 +1,7 @@
 package com.ciemsa.sigma.shared.api;
 
 import com.ciemsa.sigma.shared.domain.ConflictoException;
+import com.ciemsa.sigma.shared.domain.DomainException;
 import com.ciemsa.sigma.shared.domain.NoEncontradoException;
 import com.ciemsa.sigma.shared.domain.ReglaNegocioException;
 import com.ciemsa.sigma.shared.logs.IdCorrelacionFilter;
@@ -44,19 +45,18 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
   @ExceptionHandler(NoEncontradoException.class)
   ProblemDetail noEncontrado(NoEncontradoException ex) {
-    return problema(HttpStatus.NOT_FOUND, ex.getTipo(), "Recurso no encontrado", ex.getMessage());
+    return negocio(HttpStatus.NOT_FOUND, "Recurso no encontrado", ex);
   }
 
   @ExceptionHandler(ConflictoException.class)
   ProblemDetail conflicto(ConflictoException ex) {
-    return problema(
-        HttpStatus.CONFLICT, ex.getTipo(), "Conflicto con el estado actual", ex.getMessage());
+    return negocio(HttpStatus.CONFLICT, "Conflicto con el estado actual", ex);
   }
 
+  /** Una transición inválida suma {@code estadoActual} (CU-3 8b). */
   @ExceptionHandler(ReglaNegocioException.class)
   ProblemDetail reglaNegocio(ReglaNegocioException ex) {
-    return problema(
-        HttpStatus.BAD_REQUEST, ex.getTipo(), "Regla de negocio no cumplida", ex.getMessage());
+    return negocio(HttpStatus.BAD_REQUEST, "Regla de negocio no cumplida", ex);
   }
 
   /**
@@ -208,6 +208,13 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             "Error interno",
             "Ocurrió un error inesperado.");
     problema.setProperty("idCorrelacion", MDC.get(IdCorrelacionFilter.MDC_ID_CORRELACION));
+    return problema;
+  }
+
+  /** Con el type de la excepción y sus propiedades extra. */
+  private static ProblemDetail negocio(HttpStatus status, String titulo, DomainException ex) {
+    ProblemDetail problema = problema(status, ex.getTipo(), titulo, ex.getMessage());
+    ex.getPropiedades().forEach(problema::setProperty);
     return problema;
   }
 
