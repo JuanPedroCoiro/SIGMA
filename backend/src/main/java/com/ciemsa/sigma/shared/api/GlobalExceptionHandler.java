@@ -3,11 +3,13 @@ package com.ciemsa.sigma.shared.api;
 import com.ciemsa.sigma.shared.domain.ConflictoException;
 import com.ciemsa.sigma.shared.domain.NoEncontradoException;
 import com.ciemsa.sigma.shared.domain.ReglaNegocioException;
+import com.ciemsa.sigma.shared.logs.IdCorrelacionFilter;
 import com.ciemsa.sigma.shared.seguridad.CuentaBloqueadaException;
 import java.net.URI;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.MDC;
 import org.springframework.data.core.PropertyReferenceException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -57,9 +59,14 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         HttpStatus.BAD_REQUEST, ex.getTipo(), "Regla de negocio no cumplida", ex.getMessage());
   }
 
-  /** Dos usuarios editaron el mismo registro: el segundo no pisa los cambios del primero. */
+  /**
+   * Dos usuarios editaron el mismo registro: el segundo no pisa los cambios del primero. Queda como
+   * WARN en el log técnico (#95): es raro, pero está manejado.
+   */
   @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
   ProblemDetail edicionConcurrente(ObjectOptimisticLockingFailureException ex) {
+    log.warn(
+        "Edición concurrente rechazada: {} {}", ex.getPersistentClassName(), ex.getIdentifier());
     return problema(
         HttpStatus.CONFLICT,
         "edicion-concurrente",
@@ -187,15 +194,21 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
   // --- Último recurso ---
 
-  /** 500 sin exponer detalles internos; el detalle queda en el log. */
+  /**
+   * 500 sin exponer detalles internos; el detalle queda en el log como ERROR. La respuesta lleva el
+   * id de correlación para buscar ese log cuando el usuario reporta el error (#95).
+   */
   @ExceptionHandler(Exception.class)
   ProblemDetail inesperado(Exception ex) {
     log.error("Error no controlado", ex);
-    return problema(
-        HttpStatus.INTERNAL_SERVER_ERROR,
-        "interno",
-        "Error interno",
-        "Ocurrió un error inesperado.");
+    ProblemDetail problema =
+        problema(
+            HttpStatus.INTERNAL_SERVER_ERROR,
+            "interno",
+            "Error interno",
+            "Ocurrió un error inesperado.");
+    problema.setProperty("idCorrelacion", MDC.get(IdCorrelacionFilter.MDC_ID_CORRELACION));
+    return problema;
   }
 
   private static ProblemDetail problema(

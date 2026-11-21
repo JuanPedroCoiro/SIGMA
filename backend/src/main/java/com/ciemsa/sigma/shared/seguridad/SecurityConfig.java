@@ -15,6 +15,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.logout.HttpStatusReturningLogoutSuccessHandler;
+import org.springframework.security.web.context.SecurityContextHolderFilter;
 import org.springframework.security.web.csrf.CsrfFilter;
 import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
 
@@ -60,6 +61,8 @@ public class SecurityConfig {
                     .deleteCookies("JSESSIONID"))
         .csrf(csrf -> csrf.spa())
         .addFilterAfter(new CsrfCookieFilter(), CsrfFilter.class)
+        .addFilterAfter(new CsrfCookieFilter(), CsrfFilter.class)
+        .addFilterAfter(new UsuarioEnLogFilter(), SecurityContextHolderFilter.class)
         .requestCache(RequestCacheConfigurer::disable)
         .exceptionHandling(
             ex ->

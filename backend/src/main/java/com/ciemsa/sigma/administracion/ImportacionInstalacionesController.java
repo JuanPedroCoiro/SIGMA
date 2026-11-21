@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.util.List;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -21,6 +22,7 @@ import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.MultipartFile;
 
 /** Importación de instalaciones desde una planilla CSV (HU-02, RF-29). */
+@Slf4j
 @RestController
 @RequestMapping("/api/v1/instalaciones")
 class ImportacionInstalacionesController {
@@ -52,8 +54,13 @@ class ImportacionInstalacionesController {
       resultado = importacionService.importar(contenido);
     }
     if (!resultado.tieneErrores()) {
+      log.info("Importación de instalaciones: {} importadas", resultado.importadas());
       return ResponseEntity.ok(resultado);
     }
+    // Solo la cantidad: el detalle de cada fila puede traer datos de las instalaciones.
+    log.warn(
+        "Importación de instalaciones rechazada: {} errores en la planilla",
+        resultado.errores().size());
     ProblemDetail problema =
         ProblemDetail.forStatusAndDetail(
             HttpStatus.UNPROCESSABLE_CONTENT,
@@ -72,6 +79,7 @@ class ImportacionInstalacionesController {
    */
   @ExceptionHandler(PlanillaInvalidaException.class)
   ProblemDetail planillaInvalida(PlanillaInvalidaException ex) {
+    log.warn("Importación de instalaciones rechazada: {}", ex.getMessage());
     ProblemDetail problema =
         ProblemDetail.forStatusAndDetail(HttpStatus.UNPROCESSABLE_CONTENT, ex.getMessage());
     problema.setType(URI.create("/errores/" + ex.getTipo()));
