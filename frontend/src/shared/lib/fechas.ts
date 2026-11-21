@@ -27,7 +27,36 @@ const formatoFechaCompleta = new Intl.DateTimeFormat('es-UY', {
  */
 export function formatearHoraMontevideo(instante: string | Date, ahora: Date = new Date()) {
   const fecha = new Date(instante)
-  const hora = formatoHora.format(fecha)
-  if (formatoFechaCompleta.format(fecha) === formatoFechaCompleta.format(ahora)) return hora
-  return `${hora} del ${formatoDia.format(fecha)}`
+  if (formatoFechaCompleta.format(fecha) === formatoFechaCompleta.format(ahora)) {
+    return formatoHora.format(fecha)
+  }
+  return formatearFechaHoraMontevideo(fecha)
+}
+
+/** Hora y fecha en Montevideo, siempre con la fecha («15:30 del 28/10»), aunque sea hoy. */
+export function formatearFechaHoraMontevideo(instante: string | Date) {
+  const fecha = new Date(instante)
+  return `${formatoHora.format(fecha)} del ${formatoDia.format(fecha)}`
+}
+
+/**
+ * Fecha sin hora («2026-11-12» → «12/11/2026»), como la fecha de ejecución de una OT. Ya es una
+ * fecha de Montevideo: se arma desde el texto, porque `new Date` la tomaría como medianoche UTC y
+ * en Montevideo la mostraría un día antes.
+ */
+export function formatearFechaMontevideo(fecha: string) {
+  const [anio, mes, dia] = fecha.split('-')
+  return `${dia}/${mes}/${anio}`
+}
+
+const formatoIso = new Intl.DateTimeFormat('en-CA', {
+  timeZone: ZONA,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+})
+
+/** Hoy en Montevideo como «2026-11-10», el formato de los <input type="date"> y del backend. */
+export function hoyEnMontevideo(ahora: Date = new Date()) {
+  return formatoIso.format(ahora)
 }

@@ -8,7 +8,7 @@ import {
 
 const MENSAJE_GENERICO = 'No se pudieron guardar los cambios. Volvé a intentar en unos minutos.'
 
-/** Conflictos (409) que corresponden a un campo del formulario, con su mensaje por defecto. */
+/** Errores con type propio que corresponden a un campo del formulario, con su mensaje por defecto. */
 const CONFLICTOS_DE_CAMPO: Record<string, { campo: string; mensaje: string }> = {
   [TIPOS_PROBLEMA.correoDuplicado]: {
     campo: 'correo',
@@ -17,6 +17,10 @@ const CONFLICTOS_DE_CAMPO: Record<string, { campo: string; mensaje: string }> = 
   [TIPOS_PROBLEMA.cuadrillaDuplicada]: {
     campo: 'nombre',
     mensaje: 'Ya existe una cuadrilla con ese nombre.',
+  },
+  [TIPOS_PROBLEMA.fechaAnterior]: {
+    campo: 'fechaEjecucion',
+    mensaje: 'La fecha no puede ser anterior a hoy.',
   },
 }
 

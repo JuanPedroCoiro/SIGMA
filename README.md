@@ -56,19 +56,42 @@ cd backend
 
 Al arrancar, Flyway aplica las migraciones de `src/main/resources/db/migration`. Con el perfil `dev` suma además los datos ficticios de `db/datos-prueba` (catálogos) y `db/datos-dev` (usuarios, cuadrillas e instalaciones). En PowerShell, las comillas alrededor de `-Dspring-boot.run.profiles=dev` son necesarias. El backend queda en `http://localhost:8080`.
 
-#### Usuarios de prueba (perfil `dev`)
+#### Datos de desarrollo (perfil `dev`)
 
-Todos los datos son ficticios y solo se cargan en el entorno local. La contraseña de todos es `SigmaDev2026`.
+Todos los datos son ficticios y solo se cargan en el entorno local, nunca en el servidor ni en los tests. La contraseña de todos los usuarios es `SigmaDev2026`.
 
-| Correo                    | Rol             | Cuadrilla           |
-| ------------------------- | --------------- | ------------------- |
-| `jefatura.dev@sigma.test` | Jefatura        | —                   |
-| `operador.dev@sigma.test` | Operador        | —                   |
-| `stock.dev@sigma.test`    | Encargado stock | —                   |
-| `tecnico1.dev@sigma.test` | Técnico         | Cuadrilla Dev Norte |
-| `tecnico2.dev@sigma.test` | Técnico         | Cuadrilla Dev Sur   |
+| Correo                     | Rol             | Cuadrilla           |
+| -------------------------- | --------------- | ------------------- |
+| `jefatura.dev@sigma.test`  | Jefatura        | —                   |
+| `operador.dev@sigma.test`  | Operador        | —                   |
+| `operador2.dev@sigma.test` | Operador        | —                   |
+| `stock.dev@sigma.test`     | Encargado stock | —                   |
+| `tecnico1.dev@sigma.test`  | Técnico         | Cuadrilla Dev Norte |
+| `tecnico2.dev@sigma.test`  | Técnico         | Cuadrilla Dev Sur   |
+| `tecnico3.dev@sigma.test`  | Técnico         | Cuadrilla Dev Este  |
+| `tecnico4.dev@sigma.test`  | Técnico         | Cuadrilla Dev Este  |
+| `tecnico5.dev@sigma.test`  | Técnico         | Cuadrilla Dev Oeste |
+| `tecnico6.dev@sigma.test`  | Técnico         | Cuadrilla Dev Oeste |
 
-También se cargan las instalaciones `DEV-001` a `DEV-006`, del organismo MTOP. Si ya existe un usuario, una cuadrilla o una instalación con el mismo correo, nombre o código, se deja como está.
+Instalaciones `DEV-001` a `DEV-027`, repartidas por las rutas 1, 5, 8 y 9 y la Interbalnearia. Casos especiales para las pruebas: `DEV-006` está inactiva y `DEV-007` es del «Organismo Dev sin SLA», sin reglas de SLA. Los datos de catálogo están en `db/datos-dev/R__datos_desarrollo.sql`. Si ya existe un usuario, una cuadrilla o una instalación con el mismo correo, nombre o código, se deja como está.
+
+**Escenario de la demo.** Al arrancar, si la base no tiene incidentes, el backend genera 28 incidentes con sus OTs, todos con fechas relativas a ese arranque:
+
+- OTs vencidas (una ya asignada), por vencer, pendientes en plazo y asignadas a las cuatro cuadrillas para hoy y mañana (una reasignada).
+- Una OT con «SLA sin definir», dos en pausa (por UTE y por materiales), una reanudada tras un tercero y dos anuladas.
+- Tres incidentes en espera de un tercero (UTE, Antel y Tigo), uno cerrado sin OT y uno cuya OT se generó al resolverse la espera.
+
+Las acciones pasan por los servicios con el usuario que corresponde (operadores, Jefatura y técnicos), así la bitácora muestra quién hizo qué. Las instalaciones `DEV-001` a `DEV-006` quedan sin incidentes, para las pruebas funcionales. Lo genera `datosdemo/GeneradorDatosDemo`.
+
+- **Desactivarlo:** `sigma.datos-demo.habilitado=false` en `application-dev.properties`. Fuera del perfil `dev` nunca se activa.
+- **Regenerarlo** (por ejemplo, porque con los días las OTs por vencer quedaron vencidas): borrar la base y volver a arrancar.
+
+  ```powershell
+  docker compose -f docker/docker-compose.yml down -v
+  docker compose -f docker/docker-compose.yml up -d
+  cd backend
+  .\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=dev"
+  ```
 
 ### 5. Frontend (en otra terminal)
 

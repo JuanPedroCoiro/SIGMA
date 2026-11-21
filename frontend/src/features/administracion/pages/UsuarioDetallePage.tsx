@@ -7,7 +7,14 @@ import { ETIQUETA_ROL } from '../../../shared/lib/roles'
 import { EstadoUsuario } from '../components/EstadoUsuario'
 import { RestablecerPasswordDialogo } from '../components/RestablecerPasswordDialogo'
 import { useCuadrillas } from '../hooks/useCuadrillas'
-import { useCambiarEstadoUsuario, useRestablecerPassword, useUsuario } from '../hooks/useUsuarios'
+import { Modal } from '../../../shared/components/Modal'
+import {
+  useActivarUsuario,
+  useDesactivarUsuario,
+  useRestablecerPassword,
+  useUsuario,
+} from '../hooks/useUsuarios'
+import type { DesactivacionResponse } from '../types'
 import './UsuarioDetallePage.css'
 
 type Dialogo = 'desactivar' | 'restablecer' | null
@@ -20,7 +27,10 @@ export function UsuarioDetallePage() {
   const usuario = useUsuario(id)
   const cuadrillas = useCuadrillas()
   const restablecer = useRestablecerPassword(id)
-  const cambiarEstado = useCambiarEstadoUsuario(id)
+  const desactivar = useDesactivarUsuario(id)
+  const activar = useActivarUsuario(id)
+  // Si la cuadrilla del técnico tiene OTs, se avisa después de desactivarlo (CU-13d 3a).
+  const [aviso, setAviso] = useState<DesactivacionResponse | null>(null)
   const [dialogo, setDialogo] = useState<Dialogo>(null)
   const [mensaje, setMensaje] = useState<string | null>(
     (location.state as { mensaje?: string } | null)?.mensaje ?? null,
@@ -111,10 +121,8 @@ export function UsuarioDetallePage() {
           <button
             type="button"
             className="boton boton-primario"
-            disabled={cambiarEstado.isPending}
-            onClick={() =>
-              ejecutar(() => cambiarEstado.mutateAsync('activar'), 'Usuario activado.')
-            }
+            disabled={activar.isPending}
+            onClick={() => ejecutar(() => activar.mutateAsync(), 'Usuario activado.')}
           >
             Activar
           </button>
@@ -125,10 +133,13 @@ export function UsuarioDetallePage() {
         <DialogoConfirmacion
           titulo="Desactivar usuario"
           textoConfirmar="Desactivar"
-          procesando={cambiarEstado.isPending}
+          procesando={desactivar.isPending}
           onCancelar={() => setDialogo(null)}
           onConfirmar={() =>
-            ejecutar(() => cambiarEstado.mutateAsync('desactivar'), 'Usuario desactivado.')
+            ejecutar(async () => {
+              const respuesta = await desactivar.mutateAsync()
+              if (respuesta.otsAbiertas > 0) setAviso(respuesta)
+            }, 'Usuario desactivado.')
           }
         >
           <p>
@@ -136,6 +147,23 @@ export function UsuarioDetallePage() {
             de nuevo. Su historial se conserva.
           </p>
         </DialogoConfirmacion>
+      )}
+
+      {aviso && (
+        <Modal titulo="Usuario desactivado" onCerrar={() => setAviso(null)}>
+          <p className="alerta alerta-aviso">
+            {aviso.cuadrilla} tiene {aviso.otsAbiertas}{' '}
+            {aviso.otsAbiertas === 1
+              ? 'OT asignada, en proceso o en pausa'
+              : 'OTs asignadas, en proceso o en pausa'}
+            . Revisá si hace falta reasignarlas a otra cuadrilla.
+          </p>
+          <div className="modal-acciones">
+            <button type="button" className="boton boton-primario" onClick={() => setAviso(null)}>
+              Entendido
+            </button>
+          </div>
+        </Modal>
       )}
 
       {dialogo === 'restablecer' && (

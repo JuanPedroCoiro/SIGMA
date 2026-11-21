@@ -151,6 +151,17 @@ class ImportacionInstalacionesTest {
     assertThat(instalacionRepository.count()).isZero();
   }
 
+  @Test
+  void importar_planillaDeMasDe2Mb_devuelve413YNoImporta() throws Exception {
+    // Las fotos subieron el límite global de Spring (#71): la planilla sigue con el suyo.
+    MockMultipartFile grande =
+        new MockMultipartFile("archivo", "grande.csv", "text/csv", new byte[2 * 1024 * 1024 + 1]);
+
+    importarComoJefatura(grande).andExpect(status().isContentTooLarge());
+
+    assertThat(instalacionRepository.count()).isZero();
+  }
+
   private ResultActions importarComoJefatura(MockMultipartFile archivo) throws Exception {
     return mvc.perform(
         multipart(IMPORTAR)

@@ -1,6 +1,10 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { CLAVE_SESION, obtenerSesion } from '../../features/autenticacion/api/sesionApi'
+import {
+  CLAVE_CERRAR_SESION,
+  CLAVE_SESION,
+  obtenerSesion,
+} from '../../features/autenticacion/api/sesionApi'
 import { registrarManejadorSesionExpirada } from '../../shared/api/cliente'
 import { SesionContext, type Sesion } from './sesion'
 
@@ -18,6 +22,10 @@ export function SesionProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     registrarManejadorSesionExpirada(() => {
+      // Solo vence una sesión abierta. Un pedido que salió antes del logout y responde 401
+      // durante o después del logout no es un vencimiento (#66).
+      const cerrandoSesion = queryClient.isMutating({ mutationKey: CLAVE_CERRAR_SESION }) > 0
+      if (cerrandoSesion || !queryClient.getQueryData(CLAVE_SESION)) return
       setExpirada(true)
       queryClient.removeQueries({ predicate: (q) => q.queryKey[0] !== CLAVE_SESION[0] })
       queryClient.setQueryData(CLAVE_SESION, null)

@@ -1,15 +1,27 @@
 package com.ciemsa.sigma.administracion;
 
 import com.ciemsa.sigma.administracion.dto.CrearUsuarioRequest;
+import com.ciemsa.sigma.administracion.dto.DesactivacionResponse;
 import com.ciemsa.sigma.administracion.dto.ModificarUsuarioRequest;
 import com.ciemsa.sigma.administracion.dto.RestablecerContrasenaRequest;
 import com.ciemsa.sigma.administracion.dto.UsuarioResponse;
+import com.ciemsa.sigma.administracion.eventos.DatosUsuario;
+import com.ciemsa.sigma.administracion.eventos.EventosUsuario.ContrasenaRestablecida;
+import com.ciemsa.sigma.administracion.eventos.EventosUsuario.UsuarioActivado;
+import com.ciemsa.sigma.administracion.eventos.EventosUsuario.UsuarioCreado;
+import com.ciemsa.sigma.administracion.eventos.EventosUsuario.UsuarioDesactivado;
+import com.ciemsa.sigma.administracion.eventos.EventosUsuario.UsuarioModificado;
+import com.ciemsa.sigma.ot.application.OrdenTrabajoConsultaService;
 import com.ciemsa.sigma.shared.domain.ConflictoException;
 import com.ciemsa.sigma.shared.domain.NoEncontradoException;
 import com.ciemsa.sigma.shared.domain.ReglaNegocioException;
 import com.ciemsa.sigma.shared.seguridad.Rol;
 import com.ciemsa.sigma.shared.seguridad.UsuarioActual;
+import java.time.Clock;
+import java.time.Instant;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -28,6 +40,9 @@ public class UsuarioService {
   private final CuadrillaRepository cuadrillaRepository;
   private final PasswordEncoder passwordEncoder;
   private final UsuarioActual usuarioActual;
+  private final OrdenTrabajoConsultaService ordenTrabajoConsultaService;
+  private final Clock clock;
+  private final ApplicationEventPublisher eventos;
 
   /** CU-13a: alta con contraseña inicial. */
   public UsuarioResponse crear(CrearUsuarioRequest req) {
@@ -43,6 +58,8 @@ public class UsuarioService {
             req.rol(),
             buscarCuadrilla(req.rol(), req.idCuadrilla())); // 4b lo valida la entidad
     guardar(usuario);
+    eventos.publishEvent(
+        new UsuarioCreado(usuario.getId(), DatosUsuario.de(usuario), usuarioActual.id(), ahora()));
     return UsuarioResponse.de(usuario);
   }
 
@@ -56,15 +73,25 @@ public class UsuarioService {
     if (req.rol() != Rol.JEFATURA) {
       verificarQueQuedeOtraJefatura(usuario);
     }
+    DatosUsuario anterior = DatosUsuario.de(usuario);
     usuario.modificar(
         req.nombre(), correo, req.rol(), buscarCuadrilla(req.rol(), req.idCuadrilla()));
     guardar(usuario);
+    eventos.publishEvent(
+        new UsuarioModificado(id, anterior, DatosUsuario.de(usuario), usuarioActual.id(), ahora()));
     return UsuarioResponse.de(usuario);
   }
 
   /** CU-13b: la Jefatura asigna una contraseña nueva; también levanta un bloqueo vigente. */
   public void restablecerContrasena(Long id, RestablecerContrasenaRequest req) {
     buscar(id).restablecerContrasena(passwordEncoder.encode(req.password()));
+    eventos.publishEvent(new ContrasenaRestablecida(id, usuarioActual.id(), ahora()));
+  }
+
+  /** Nombre del usuario, para dejarlo como foto en la bitácora. */
+  @Transactional(readOnly = true)
+  public Optional<String> nombreDe(Long idUsuario) {
+    return usuarioRepository.findById(idUsuario).map(Usuario::getNombre);
   }
 
   /** CU-13c: listado paginado, con filtros opcionales por rol y por estado. */
@@ -86,20 +113,45 @@ public class UsuarioService {
     return UsuarioResponse.de(buscar(id));
   }
 
-  /** CU-13d: baja lógica; la cuenta no puede ingresar pero conserva su historial. */
-  public void desactivar(Long id) {
+  /**
+   * La cuadrilla actual del usuario, leída de la base y no de la sesión (el técnico puede cambiar
+   * de cuadrilla con la sesión abierta). Vacío si no existe o no tiene cuadrilla.
+   */
+  @Transactional(readOnly = true)
+  public Optional<Long> idCuadrillaDe(Long idUsuario) {
+    return usuarioRepository.findById(idUsuario).map(Usuario::getCuadrilla).map(Cuadrilla::getId);
+  }
+
+  /**
+   * CU-13d: baja lógica; la cuenta no puede ingresar pero conserva su historial. Si es un técnico,
+   * la respuesta avisa cuántas OTs tiene su cuadrilla entre manos (3a): la baja no se impide.
+   */
+  public DesactivacionResponse desactivar(Long id) {
     if (id.equals(usuarioActual.id())) {
       throw new ReglaNegocioException("No podés desactivar tu propia cuenta.");
     }
     Usuario usuario = buscar(id);
     verificarQueQuedeOtraJefatura(usuario);
-    // TODO sprint 2 (3a): advertir si integra una cuadrilla con OTs asignadas o en proceso.
+    boolean estabaActivo = usuario.isActivo();
     usuario.darDeBaja();
+    if (estabaActivo) { // si ya estaba inactiva no cambió nada: no va a la bitácora
+      eventos.publishEvent(new UsuarioDesactivado(id, usuarioActual.id(), ahora()));
+    }
+    return avisoDesactivacion(usuario);
   }
 
   /** Vuelve a habilitar una cuenta desactivada. */
   public void activar(Long id) {
-    buscar(id).reactivar();
+    Usuario usuario = buscar(id);
+    boolean estabaActivo = usuario.isActivo();
+    usuario.reactivar();
+    if (!estabaActivo) { // si ya estaba activa no cambió nada: no va a la bitácora
+      eventos.publishEvent(new UsuarioActivado(id, usuarioActual.id(), ahora()));
+    }
+  }
+
+  private Instant ahora() {
+    return Instant.now(clock);
   }
 
   private Usuario buscar(Long id) {
@@ -125,6 +177,16 @@ public class UsuarioService {
         && usuarioRepository.countByRolAndActivoTrue(Rol.JEFATURA) <= 1) {
       throw new ReglaNegocioException("Tiene que quedar al menos una Jefatura activa.");
     }
+  }
+
+  private DesactivacionResponse avisoDesactivacion(Usuario usuario) {
+    Cuadrilla cuadrilla = usuario.getCuadrilla();
+    if (usuario.getRol() != Rol.TECNICO || cuadrilla == null) {
+      return DesactivacionResponse.sinAviso();
+    }
+    return new DesactivacionResponse(
+        cuadrilla.getNombre(),
+        ordenTrabajoConsultaService.contarAbiertasDeCuadrilla(cuadrilla.getId()));
   }
 
   /**

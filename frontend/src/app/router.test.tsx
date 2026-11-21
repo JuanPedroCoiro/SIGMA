@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react'
+import { cleanup, screen, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { renderizarRuta } from '../test/renderizarRuta'
 import type { Sesion } from './sesion/sesion'
@@ -52,6 +52,28 @@ describe('router', () => {
     expect(screen.getByRole('link', { name: 'Instalaciones' })).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Usuarios' })).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Cuadrillas' })).not.toBeInTheDocument()
+  })
+
+  it('menu_registrarIncidente_loVenOperadorYJefaturaPeroNoElTecnico', () => {
+    // Solo en el menú: el inicio también tiene el botón «Registrar incidente» (#72).
+    const menu = () => within(screen.getByRole('navigation', { name: 'Menú principal' }))
+
+    renderizarRuta('/', sesionDe('OPERADOR'))
+    expect(menu().getByRole('link', { name: 'Registrar incidente' })).toBeInTheDocument()
+    cleanup()
+
+    renderizarRuta('/', sesionDe('JEFATURA'))
+    expect(menu().getByRole('link', { name: 'Registrar incidente' })).toBeInTheDocument()
+    cleanup()
+
+    renderizarRuta('/', sesionDe('TECNICO'))
+    expect(menu().queryByRole('link', { name: 'Registrar incidente' })).not.toBeInTheDocument()
+  })
+
+  it('rutaDeRegistrarIncidente_tecnico_loRedirigeAlInicio', () => {
+    const { router } = renderizarRuta('/incidentes/nuevo', sesionDe('TECNICO'))
+
+    expect(router.state.location.pathname).toBe('/')
   })
 
   it('rutaDeCuadrillas_operador_loRedirigeAlInicio', () => {

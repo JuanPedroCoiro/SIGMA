@@ -1,8 +1,16 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { importarInstalaciones, listarInstalaciones } from '../api/instalacionesApi'
+import {
+  buscarInstalaciones,
+  importarInstalaciones,
+  listarInstalaciones,
+  listarInstalacionesMapa,
+} from '../api/instalacionesApi'
 
 const CLAVE = 'instalaciones'
 const ORDEN = 'codigo,asc'
+
+/** Mínimo de caracteres para buscar: con menos, coincidirían casi todas. */
+export const MINIMO_BUSQUEDA = 2
 
 /** Listado paginado (HU-02). Mantiene la página anterior a la vista mientras carga la nueva. */
 export function useInstalaciones(pagina: number) {
@@ -13,7 +21,27 @@ export function useInstalaciones(pagina: number) {
   })
 }
 
-/** Al importar se recarga el listado. */
+/** Búsqueda por código o nombre (HU-03); no pide nada hasta tener MINIMO_BUSQUEDA caracteres. */
+export function useBuscarInstalaciones(texto: string) {
+  const buscar = texto.trim()
+  return useQuery({
+    queryKey: [CLAVE, 'busqueda', buscar],
+    queryFn: () => buscarInstalaciones(buscar),
+    enabled: buscar.length >= MINIMO_BUSQUEDA,
+    placeholderData: keepPreviousData,
+  })
+}
+
+/** Las activas para el mapa (#70). Cambian poco: se reusan 5 minutos sin volver a pedirlas. */
+export function useInstalacionesMapa() {
+  return useQuery({
+    queryKey: [CLAVE, 'mapa'],
+    queryFn: listarInstalacionesMapa,
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
+/** Al importar se recarga el listado (y el mapa). */
 export function useImportarInstalaciones() {
   const queryClient = useQueryClient()
   return useMutation({

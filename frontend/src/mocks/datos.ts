@@ -1,3 +1,12 @@
+import type {
+  EstadoIncidente,
+  EstadoOT,
+  MotivoPausa,
+  OrigenIncidente,
+  PausaOT,
+  Prioridad,
+} from '../features/ot/types'
+import { hoyEnMontevideo } from '../shared/lib/fechas'
 import type { Rol } from '../shared/lib/roles'
 
 // Datos FICTICIOS de la API simulada (solo `npm run dev:simulado` y los tests).
@@ -31,17 +40,72 @@ export type InstalacionSimulada = {
   rutaZona: string
   latitud: number
   longitud: number
+  /** La instalación es de un organismo sin reglas de SLA: su OT queda «SLA sin definir» (8a). */
+  sinReglaSla?: boolean
+}
+
+/** Se guardan solo los ids: los nombres se buscan al responder, como hace el backend. */
+export type PausaSimulada = Omit<PausaOT, 'nombreUsuarioPausa' | 'nombreUsuarioReanudacion'>
+
+export type OrdenSimulada = {
+  id: number
+  numero: string
+  estado: EstadoOT
+  idCuadrilla: number | null
+  /** «2026-11-12»; null si no está asignada (#41). */
+  fechaEjecucion: string | null
+  inicioSla: string | null
+  fechaLimite: string | null
+  creadaEn: string
+  estadoAnteriorPausa: EstadoOT | null
+  pausas: PausaSimulada[]
+  prioridad: Prioridad | null
+  idInstalacion: number
+  /** El incidente que la originó; null si es preventiva. */
+  idIncidente: number | null
+}
+
+export type IncidenteSimulado = {
+  id: number
+  numero: string
+  estado: EstadoIncidente
+  origen: OrigenIncidente
+  idCategoriaFalla: number
+  prioridad: Prioridad
+  idInstalacion: number
+  descripcion: string
+  tercero: string | null
+  causa: string | null
+  creadoEn: string
+}
+
+/** Los datos de una foto del incidente (#71). El contenido queda en memoria (handlers/fotos.ts). */
+export type FotoSimulada = {
+  id: number
+  idIncidente: number
+  nombreOriginal: string
+  tipo: string
+  tamanioBytes: number
+  subidaEn: string
 }
 
 type Base = {
   usuarios: UsuarioSimulado[]
   cuadrillas: CuadrillaSimulada[]
   instalaciones: InstalacionSimulada[]
+  ordenes: OrdenSimulada[]
+  incidentes: IncidenteSimulado[]
+  categorias: CategoriaSimulada[]
+  fotos: FotoSimulada[]
   /** Usuario con la sesión abierta, o null. */
   idSesion: number | null
 }
 
-const CLAVE_ALMACEN = 'sigma.apiSimulada'
+// Con versión: cuando cambia la forma de los datos se sube, y la base vieja guardada en la
+// pestaña se descarta en lugar de mezclarse con la nueva (#61). v3: fechaEjecucion (#41). v4:
+// categorías de falla e instalación sin regla de SLA (#40). v5: detalle de OT con instalación,
+// cuadrilla e incidente (#57). v6: fotos del incidente (#71).
+const CLAVE_ALMACEN = 'sigma.apiSimulada.v6'
 
 const NOMBRES = ['Ana', 'Bruno', 'Carla', 'Diego', 'Elena', 'Fabián', 'Gabriela', 'Hernán']
 const APELLIDOS = ['Acosta', 'Benítez', 'Cabrera', 'Duarte']
@@ -69,19 +133,179 @@ function usuario(
 
 const RUTAS = ['Ruta 1', 'Ruta 5', 'Ruta 8', 'Zona Este', 'Zona Oeste']
 
+/** Sin regla de SLA para su organismo: para probar «SLA sin definir» (CU-1 8a). */
+export const ID_INSTALACION_SIN_SLA = 25
+
 /** 25 cruces ficticios alrededor de Montevideo, para probar la paginación del listado. */
 function crearInstalaciones(): InstalacionSimulada[] {
   return Array.from({ length: 25 }, (_, i) => {
     const numero = i + 1
+    const sinReglaSla = numero === ID_INSTALACION_SIN_SLA
     return {
       id: numero,
       codigo: `INST-${String(numero).padStart(3, '0')}`,
-      nombre: `Cruce Ficticio ${numero}`,
+      nombre: sinReglaSla ? 'Cruce Peñarol (sin regla de SLA)' : `Cruce Ficticio ${numero}`,
       rutaZona: RUTAS[i % RUTAS.length],
       latitud: Number((-34.9 + i * 0.012345).toFixed(6)),
       longitud: Number((-56.2 + i * 0.023456).toFixed(6)),
+      ...(sinReglaSla && { sinReglaSla }),
     }
   })
+}
+
+export type CategoriaSimulada = {
+  id: number
+  nombre: string
+  prioridadSugerida: Prioridad
+  activa: boolean
+}
+
+/** Las mismas de db/datos-prueba del backend, más una inactiva que no se ofrece. */
+function crearCategorias(): CategoriaSimulada[] {
+  const categoria = (id: number, nombre: string, prioridadSugerida: Prioridad, activa = true) => ({
+    id,
+    nombre,
+    prioridadSugerida,
+    activa,
+  })
+  return [
+    categoria(1, 'Semáforo apagado', 'ALTA'),
+    categoria(2, 'Lámpara quemada', 'MEDIA'),
+    categoria(3, 'Falla de sincronización', 'MEDIA'),
+    categoria(4, 'Pulsador peatonal roto', 'BAJA'),
+    categoria(5, 'Daño en estructura', 'BAJA'),
+    categoria(6, 'Otra', 'MEDIA'),
+    categoria(7, 'Categoría dada de baja', 'BAJA', false),
+  ]
+}
+
+const HORA = 3_600_000
+
+function haceHoras(horas: number) {
+  return new Date(Date.now() - horas * HORA).toISOString()
+}
+
+function pausaAbierta(motivo: MotivoPausa, detalle: string | null, horas: number): PausaSimulada {
+  return {
+    motivo,
+    detalle,
+    inicio: haceHoras(horas),
+    fin: null,
+    idUsuarioPausa: 3,
+    idUsuarioReanudacion: null,
+  }
+}
+
+/**
+ * OTs correctivas ficticias (#39): una asignada a Norte para hoy, una en pausa por un tercero
+ * (también de Norte, para hoy) y una pendiente sin SLA.
+ */
+function crearOrdenes(): OrdenSimulada[] {
+  return [
+    {
+      id: 1,
+      numero: 'OT-0001',
+      estado: 'ASIGNADA',
+      idCuadrilla: 1,
+      fechaEjecucion: hoyEnMontevideo(),
+      inicioSla: haceHoras(2),
+      fechaLimite: new Date(Date.now() + 46 * HORA).toISOString(),
+      creadaEn: haceHoras(2),
+      estadoAnteriorPausa: null,
+      pausas: [],
+      prioridad: 'MEDIA',
+      idInstalacion: 1,
+      idIncidente: 1,
+    },
+    {
+      id: 2,
+      numero: 'OT-0002',
+      estado: 'EN_PAUSA',
+      idCuadrilla: 1,
+      fechaEjecucion: hoyEnMontevideo(),
+      inicioSla: haceHoras(30),
+      fechaLimite: haceHoras(6),
+      creadaEn: haceHoras(30),
+      estadoAnteriorPausa: 'ASIGNADA',
+      pausas: [pausaAbierta('TERCERO', 'UTE', 10)],
+      prioridad: 'ALTA',
+      idInstalacion: 2,
+      idIncidente: 2,
+    },
+    {
+      id: 3,
+      numero: 'OT-0003',
+      estado: 'PENDIENTE',
+      idCuadrilla: null,
+      fechaEjecucion: null,
+      inicioSla: haceHoras(1),
+      fechaLimite: null,
+      creadaEn: haceHoras(1),
+      estadoAnteriorPausa: null,
+      pausas: [],
+      prioridad: 'MEDIA',
+      idInstalacion: 3,
+      idIncidente: 3,
+    },
+  ]
+}
+
+/** Los incidentes de OT-0001 a OT-0003 (con OT) y uno en espera de un tercero (#38). */
+function crearIncidentes(): IncidenteSimulado[] {
+  return [
+    {
+      id: 1,
+      numero: 'INC-0001',
+      estado: 'CON_OT',
+      origen: 'RECLAMO_ORGANISMO',
+      idCategoriaFalla: 2,
+      prioridad: 'MEDIA',
+      idInstalacion: 1,
+      descripcion: 'Lámpara roja quemada en el semáforo vehicular norte',
+      tercero: null,
+      causa: null,
+      creadoEn: haceHoras(2),
+    },
+    {
+      id: 2,
+      numero: 'INC-0002',
+      estado: 'CON_OT',
+      origen: 'MONITOREO',
+      idCategoriaFalla: 1,
+      prioridad: 'ALTA',
+      idInstalacion: 2,
+      descripcion: 'El cruce dejó de reportar en el monitoreo',
+      tercero: null,
+      causa: null,
+      creadoEn: haceHoras(30),
+    },
+    {
+      id: 3,
+      numero: 'INC-0003',
+      estado: 'CON_OT',
+      origen: 'RECLAMO_ORGANISMO',
+      idCategoriaFalla: 3,
+      prioridad: 'MEDIA',
+      idInstalacion: 3,
+      descripcion: 'Los semáforos del cruce no están sincronizados',
+      tercero: null,
+      causa: null,
+      creadoEn: haceHoras(1),
+    },
+    {
+      id: 4,
+      numero: 'INC-0004',
+      estado: 'EN_ESPERA_TERCERO',
+      origen: 'MONITOREO',
+      idCategoriaFalla: 1,
+      prioridad: 'MEDIA',
+      idInstalacion: 4,
+      descripcion: 'Semáforo apagado',
+      tercero: 'UTE',
+      causa: 'Corte de energía en la zona',
+      creadoEn: haceHoras(3),
+    },
+  ]
 }
 
 function crearBaseInicial(): Base {
@@ -119,7 +343,16 @@ function crearBaseInicial(): Base {
       ),
     )
   }
-  return { usuarios, cuadrillas, instalaciones: crearInstalaciones(), idSesion: null }
+  return {
+    usuarios,
+    cuadrillas,
+    instalaciones: crearInstalaciones(),
+    ordenes: crearOrdenes(),
+    incidentes: crearIncidentes(),
+    categorias: crearCategorias(),
+    fotos: [],
+    idSesion: null,
+  }
 }
 
 function cargar(): Base {

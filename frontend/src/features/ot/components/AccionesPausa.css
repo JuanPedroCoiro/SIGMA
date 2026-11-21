@@ -1,0 +1,24 @@
+.acciones-pausa {
+  display: grid;
+  gap: 0.5rem;
+  justify-items: start;
+}
+
+.formulario-pausa {
+  display: grid;
+  gap: 1rem;
+}
+
+.formulario-pausa textarea {
+  font: inherit;
+  padding: 0.5rem 0.75rem;
+  color: var(--texto-fuerte);
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: 0.375rem;
+  resize: vertical;
+}
+
+.formulario-pausa textarea[aria-invalid='true'] {
+  border-color: var(--error);
+}

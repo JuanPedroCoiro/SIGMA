@@ -1,6 +1,6 @@
 import { cliente } from '../../../shared/api/cliente'
 import type { PageResponse, ParametrosPagina } from '../../../shared/api/paginacion'
-import type { DatosUsuario, NuevoUsuario, Usuario } from '../types'
+import type { DatosUsuario, DesactivacionResponse, NuevoUsuario, Usuario } from '../types'
 
 export async function listarUsuarios(parametros: ParametrosPagina): Promise<PageResponse<Usuario>> {
   const res = await cliente.get<PageResponse<Usuario>>('/usuarios', { params: parametros })
@@ -26,9 +26,12 @@ export async function restablecerPassword(id: number, password: string): Promise
   await cliente.post(`/usuarios/${id}/restablecer-password`, { password })
 }
 
-export async function cambiarEstadoUsuario(
-  id: number,
-  accion: 'activar' | 'desactivar',
-): Promise<void> {
-  await cliente.post(`/usuarios/${id}/${accion}`)
+/** CU-13d. Si es un técnico, la respuesta avisa cuántas OTs tiene su cuadrilla (3a). */
+export async function desactivarUsuario(id: number): Promise<DesactivacionResponse> {
+  const res = await cliente.post<DesactivacionResponse>(`/usuarios/${id}/desactivar`)
+  return res.data
+}
+
+export async function activarUsuario(id: number): Promise<void> {
+  await cliente.post(`/usuarios/${id}/activar`)
 }

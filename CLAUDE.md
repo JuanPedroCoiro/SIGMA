@@ -56,6 +56,7 @@ Reglas del núcleo:
 - El vencimiento se calcula con `ReglaSLA.calcularVencimiento`: las reglas son datos. No hardcodear organismos (por ejemplo, MTOP).
 - Inyectar `Clock` en lugar de llamar a `LocalDateTime.now()`. Usar las interfaces `UsuarioActual`, `AlmacenArchivos` y `LectorPlanilla`.
 - El cierre de una OT es idempotente.
+- Bitácora (HU-12, `auditoria`): cada acción crítica publica un evento con `idUsuario` y `ocurridoEn`, y `BitacoraListener` lo mapea a un `RegistroAuditoria` en la misma transacción. Para auditar una acción nueva: publicar su evento y mapearlo en el listener. Nunca contraseñas ni hashes en los valores.
 - La lógica de negocio va en servicios y entidades, nunca en los controllers.
 
 ## Frontend
@@ -75,7 +76,7 @@ Reglas del núcleo:
 - Una migración que ya está en `develop` no se edita: se agrega una nueva.
 - Datos ficticios (catálogos de prueba) en `db/datos-prueba/R__*.sql`: migraciones repetibles e idempotentes que solo se aplican con el perfil `dev` y en los tests. En `db/migration` van solo datos reales (por ejemplo, el organismo MTOP).
 - Tablas en snake_case, singular y en español (`orden_trabajo`). PK `id_<entidad>`. FK con el nombre de la entidad referenciada (`id_instalacion`).
-- Todas las tablas llevan `creado_en`, `modificado_en` y `version` (BaseEntity). `version` es INTEGER en la base e `Integer` en Java, y se usa para el bloqueo optimista.
+- Todas las tablas llevan `creado_en`, `modificado_en` y `version` (BaseEntity). `version` es INTEGER en la base e `Integer` en Java, y se usa para el bloqueo optimista. Única excepción: `registro_auditoria` (bitácora), que solo admite inserciones (un trigger rechaza UPDATE y DELETE).
 - Los maestros no se borran: se desactivan con un booleano `activo` o `activa`, concordando con el nombre de la tabla como en el MER (`usuario.activo`, `instalacion.activa`, `categoria_falla.activa`).
 - Fechas: `TIMESTAMPTZ` en la base e `Instant` en Java. Nunca `TIMESTAMP` ni `LocalDateTime`: el servidor corre en UTC y las fechas (y los vencimientos de SLA) quedarían corridas 3 horas. La hora de Montevideo se aplica solo al mostrar.
 - Correo: columna `correo` (es el usuario de acceso, CU-13a), siempre en minúsculas (lo exige un CHECK). Normalizar con `toLowerCase(Locale.ROOT)` antes de guardar y en el login.

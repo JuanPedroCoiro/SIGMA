@@ -187,11 +187,12 @@ class UsuarioControllerTest {
   }
 
   @Test
-  void desactivar_operador_devuelve204YYaNoPuedeIngresar() throws Exception {
+  void desactivar_operador_devuelve200SinAvisoYYaNoPuedeIngresar() throws Exception {
     Usuario ana = guardar("Ana", "ana@ciemsa.com", Rol.OPERADOR);
 
     mvc.perform(post(USUARIOS + "/" + ana.getId() + "/desactivar").with(user(jefa)).with(csrf()))
-        .andExpect(status().isNoContent());
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.otsAbiertas").value(0));
 
     ingresar("ana@ciemsa.com", CONTRASENA)
         .andExpect(status().isUnauthorized())

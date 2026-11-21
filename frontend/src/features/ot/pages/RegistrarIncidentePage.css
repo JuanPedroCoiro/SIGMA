@@ -1,0 +1,299 @@
+.registrar-incidente-form,
+.registrar-incidente-resultado,
+.indicador-pasos {
+  max-width: 36rem;
+}
+
+.registrar-incidente-form,
+.registrar-incidente-resultado,
+.registrar-incidente-campos,
+.resumen-incidente {
+  display: grid;
+  gap: 1rem;
+}
+
+.registrar-incidente-form textarea {
+  font: inherit;
+  padding: 0.5rem 0.75rem;
+  color: var(--texto-fuerte);
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: 0.375rem;
+  resize: vertical;
+}
+
+.registrar-incidente-form textarea[aria-invalid='true'] {
+  border-color: var(--error);
+}
+
+.registrar-incidente-titulo-paso {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.registrar-incidente-titulo-paso:focus {
+  outline: none;
+}
+
+/* Indicador de pasos */
+.indicador-pasos {
+  margin-bottom: 1.25rem;
+}
+
+.indicador-pasos-actual {
+  margin: 0 0 0.5rem;
+  color: var(--texto-suave);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.indicador-pasos-lista {
+  display: flex;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.indicador-pasos-lista li {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding-top: 0.5rem;
+  color: var(--texto-suave);
+  border-top: 3px solid var(--borde);
+}
+
+.indicador-paso-numero {
+  display: inline-grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+}
+
+.indicador-pasos-lista .indicador-paso-actual {
+  color: var(--acento);
+  font-weight: 600;
+  border-top-color: var(--acento);
+}
+
+.indicador-paso-actual .indicador-paso-numero {
+  color: var(--superficie);
+  background: var(--acento);
+  border-color: var(--acento);
+}
+
+.indicador-pasos-lista .indicador-paso-completo {
+  color: var(--texto-fuerte);
+  border-top-color: var(--acento);
+}
+
+/* En la fila de pasos ya se ve el nombre del paso actual. */
+.indicador-pasos-titulo {
+  display: none;
+}
+
+/* Paso 1: el mapa (#70) va en una segunda columna, al costado en escritorio y debajo en el
+   celular. Su alto está en MapaInstalaciones.css. */
+.registrar-incidente-donde {
+  display: grid;
+  gap: 1rem;
+}
+
+/* Paso 2: la prioridad sugerida */
+.campo label .campo-nota {
+  font-weight: normal;
+  color: var(--texto-suave);
+}
+
+.etiqueta-sugerida {
+  display: inline-block;
+  margin-right: 0.25rem;
+  padding: 0 0.5rem;
+  font-weight: 600;
+  color: var(--acento);
+  background: var(--acento-fondo);
+  border-radius: 999px;
+}
+
+.registrar-incidente-opciones {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.registrar-incidente-opciones legend {
+  padding: 0;
+  font-weight: 600;
+  color: var(--texto-fuerte);
+}
+
+.registrar-incidente-opciones label,
+.registrar-incidente-casilla {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: normal;
+}
+
+/* Paso 3: resumen */
+.resumen-incidente-seccion {
+  padding: 1rem;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: 0.375rem;
+}
+
+.resumen-incidente-encabezado {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.resumen-incidente-encabezado h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.resumen-incidente-encabezado .boton {
+  padding: 0.25rem 0.75rem;
+}
+
+.resumen-incidente dl {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+}
+
+.resumen-incidente dl > div {
+  display: grid;
+  grid-template-columns: 10rem minmax(0, 1fr);
+  gap: 0.5rem;
+}
+
+.resumen-incidente dt {
+  color: var(--texto-suave);
+}
+
+.resumen-incidente dd {
+  margin: 0;
+  color: var(--texto-fuerte);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Botones */
+.registrar-incidente-acciones,
+.registrar-incidente-navegacion {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.registrar-incidente-acciones .boton {
+  text-decoration: none;
+  text-align: center;
+}
+
+/* Anterior a la izquierda, Siguiente o Confirmar a la derecha. */
+.registrar-incidente-navegacion .boton-primario {
+  margin-left: auto;
+}
+
+@media (min-width: 768px) {
+  /* Con el mapa, el paso 1 ocupa dos columnas: el formulario y el mapa al costado. */
+  .registrar-incidente-form:has(.registrar-incidente-donde > :nth-child(2)) {
+    max-width: none;
+  }
+
+  .registrar-incidente-donde:has(> :nth-child(2)) {
+    grid-template-columns: minmax(0, 36rem) minmax(0, 1fr);
+    align-items: start;
+  }
+}
+
+@media (max-width: 767px) {
+  /* Un paso por pantalla: el indicador se reduce a «Paso 2 de 3 · Qué pasó». */
+  .indicador-pasos-lista {
+    display: none;
+  }
+
+  .indicador-pasos-titulo {
+    display: inline;
+  }
+
+  .resumen-incidente dl > div {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+
+  /* Los botones quedan fijos abajo, sin tener que bajar hasta el final del paso. */
+  .registrar-incidente-navegacion {
+    position: sticky;
+    bottom: 0;
+    flex-wrap: nowrap;
+    margin: 0 -1rem;
+    padding: 0.75rem 1rem;
+    background: var(--fondo);
+    border-top: 1px solid var(--borde);
+  }
+
+  .registrar-incidente-navegacion .boton {
+    flex: 1;
+  }
+}
+
+/* Fotos del incidente (#71) */
+.selector-fotos input[type='file'] {
+  max-width: 100%;
+  font: inherit;
+}
+
+.fotos-miniaturas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fotos-miniaturas li {
+  display: grid;
+  gap: 0.25rem;
+  justify-items: center;
+}
+
+.fotos-miniaturas img {
+  display: block;
+  width: 6rem;
+  height: 6rem;
+  object-fit: cover;
+  border: 1px solid var(--borde);
+  border-radius: 0.375rem;
+}
+
+.selector-fotos-errores {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.registrar-incidente-error-fotos {
+  display: grid;
+  gap: 0.5rem;
+  justify-items: start;
+}
+
+.registrar-incidente-error-fotos p {
+  margin: 0;
+}

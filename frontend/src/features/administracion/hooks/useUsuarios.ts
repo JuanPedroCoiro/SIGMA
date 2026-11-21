@@ -1,7 +1,8 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  cambiarEstadoUsuario,
+  activarUsuario,
   crearUsuario,
+  desactivarUsuario,
   listarUsuarios,
   modificarUsuario,
   obtenerUsuario,
@@ -59,10 +60,12 @@ export function useRestablecerPassword(id: number) {
   })
 }
 
-export function useCambiarEstadoUsuario(id: number) {
+export function useDesactivarUsuario(id: number) {
   const invalidar = useInvalidarUsuarios()
-  return useMutation({
-    mutationFn: (accion: 'activar' | 'desactivar') => cambiarEstadoUsuario(id, accion),
-    onSuccess: invalidar,
-  })
+  return useMutation({ mutationFn: () => desactivarUsuario(id), onSuccess: invalidar })
+}
+
+export function useActivarUsuario(id: number) {
+  const invalidar = useInvalidarUsuarios()
+  return useMutation({ mutationFn: () => activarUsuario(id), onSuccess: invalidar })
 }

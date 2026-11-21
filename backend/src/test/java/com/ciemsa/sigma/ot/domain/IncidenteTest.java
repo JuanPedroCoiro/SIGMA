@@ -68,8 +68,75 @@ class IncidenteTest {
     assertThat(incidente.estaEnEsperaDeTercero()).isTrue();
     assertThat(incidente.getTercero()).isEqualTo("UTE");
     assertThat(incidente.getCausa()).isEqualTo("Corte de energía");
+  }
+
+  @Test
+  void ponerEnEsperaDeTercero_dosVeces_lanzaReglaNegocio() {
+    Incidente incidente = enEspera();
+
+    assertThatThrownBy(() -> incidente.ponerEnEsperaDeTercero("UTE", null))
+        .isInstanceOf(ReglaNegocioException.class);
+  }
+
+  // --- Resolver la espera (4b) ---
+
+  @Test
+  void generarOrdenCorrectiva_desdeLaEspera_pasaAConOtConElSlaDesdeEseMomento() {
+    Incidente incidente = enEspera();
+    Instant despues = AHORA.plusSeconds(86_400);
+
+    OrdenTrabajo ot =
+        incidente.generarOrdenCorrectiva(despues, ReglaSLA.crear(1L, Prioridad.ALTA, 2, 8));
+
+    assertThat(incidente.getEstado()).isEqualTo(EstadoIncidente.CON_OT);
+    assertThat(incidente.getTercero()).isEqualTo("UTE");
+    assertThat(ot.getInicioSla()).isEqualTo(despues);
+    assertThat(ot.getFechaLimite()).isEqualTo(Instant.parse("2026-11-03T21:00:00Z"));
+  }
+
+  @Test
+  void generarOrdenCorrectiva_cerradoSinOt_lanzaReglaNegocio() {
+    Incidente incidente = enEspera();
+    incidente.cerrarSinOt();
+
     assertThatThrownBy(() -> incidente.generarOrdenCorrectiva(AHORA, null))
         .isInstanceOf(ReglaNegocioException.class);
+    assertThat(incidente.getEstado()).isEqualTo(EstadoIncidente.CERRADO_SIN_OT);
+  }
+
+  @Test
+  void cerrarSinOt_desdeLaEspera_quedaCerradoSinOt() {
+    Incidente incidente = enEspera();
+
+    incidente.cerrarSinOt();
+
+    assertThat(incidente.getEstado()).isEqualTo(EstadoIncidente.CERRADO_SIN_OT);
+    assertThat(incidente.estaEnEsperaDeTercero()).isFalse();
+  }
+
+  @Test
+  void cerrarSinOt_abierto_lanzaReglaNegocio() {
+    Incidente incidente = incidente(Prioridad.ALTA);
+
+    assertThatThrownBy(incidente::cerrarSinOt).isInstanceOf(ReglaNegocioException.class);
+    assertThat(incidente.getEstado()).isEqualTo(EstadoIncidente.ABIERTO);
+  }
+
+  @Test
+  void cerrarSinOt_conOt_lanzaReglaNegocio() {
+    Incidente incidente = incidente(Prioridad.ALTA);
+    incidente.generarOrdenCorrectiva(AHORA, null);
+
+    assertThatThrownBy(incidente::cerrarSinOt).isInstanceOf(ReglaNegocioException.class);
+    assertThat(incidente.getEstado()).isEqualTo(EstadoIncidente.CON_OT);
+  }
+
+  @Test
+  void cerrarSinOt_dosVeces_lanzaReglaNegocio() {
+    Incidente incidente = enEspera();
+    incidente.cerrarSinOt();
+
+    assertThatThrownBy(incidente::cerrarSinOt).isInstanceOf(ReglaNegocioException.class);
   }
 
   @Test
@@ -79,6 +146,12 @@ class IncidenteTest {
     assertThatThrownBy(() -> incidente.ponerEnEsperaDeTercero(" ", null))
         .isInstanceOf(ReglaNegocioException.class);
     assertThat(incidente.getEstado()).isEqualTo(EstadoIncidente.ABIERTO);
+  }
+
+  private static Incidente enEspera() {
+    Incidente incidente = incidente(Prioridad.ALTA);
+    incidente.ponerEnEsperaDeTercero("UTE", "Corte de energía");
+    return incidente;
   }
 
   private static Incidente incidente(Prioridad prioridad) {

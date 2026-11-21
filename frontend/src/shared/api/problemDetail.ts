@@ -31,6 +31,8 @@ export const TIPOS_PROBLEMA = {
   correoDuplicado: 'correo-duplicado',
   cuadrillaDuplicada: 'cuadrilla-duplicada',
   planillaInvalida: 'planilla-invalida',
+  transicionInvalida: 'transicion-invalida',
+  fechaAnterior: 'fecha-anterior',
 } as const
 
 /** Devuelve el ProblemDetail de un error de axios, o null si la respuesta no trae uno. */

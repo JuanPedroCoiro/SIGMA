@@ -21,6 +21,7 @@ import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.LockedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.web.csrf.CsrfException;
+import org.springframework.web.ErrorResponse;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -166,19 +167,22 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
   }
 
   /**
-   * Los demás 400 que arma Spring (JSON mal formado, un rol que no existe, un id que no es número)
-   * también son datos inválidos: les pone el type de validación. En Spring 7 un ProblemDetail sin
-   * type definido devuelve null (equivale a about:blank).
+   * Los demás 400 que arma Spring (JSON mal formado, un rol que no existe, un id que no es número,
+   * un parámetro obligatorio que falta) también son datos inválidos: les pone el type de
+   * validación. Para algunos, Spring todavía no armó el ProblemDetail (body es null) y se toma el
+   * de la excepción. En Spring 7 un ProblemDetail sin type definido devuelve null.
    */
   @Override
   protected ResponseEntity<Object> handleExceptionInternal(
       Exception ex, Object body, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
-    if (body instanceof ProblemDetail problema
+    Object cuerpo =
+        body == null && ex instanceof ErrorResponse respuesta ? respuesta.getBody() : body;
+    if (cuerpo instanceof ProblemDetail problema
         && status.value() == HttpStatus.BAD_REQUEST.value()
         && problema.getType() == null) {
       problema.setType(URI.create(ERRORES + "validacion"));
     }
-    return super.handleExceptionInternal(ex, body, headers, status, request);
+    return super.handleExceptionInternal(ex, cuerpo, headers, status, request);
   }
 
   // --- Último recurso ---

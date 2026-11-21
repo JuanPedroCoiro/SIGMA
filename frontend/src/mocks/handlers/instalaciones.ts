@@ -12,6 +12,11 @@ const COLUMNAS = ['codigo', 'nombre', 'ruta_zona', 'latitud', 'longitud'] as con
 
 type ErrorFila = { fila: number; campo: string; mensaje: string }
 
+/** En minúsculas y sin tildes, como compara el backend. */
+function sinTildes(texto: string) {
+  return texto.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase()
+}
+
 /**
  * Lectura simplificada de la planilla: CSV separado por punto y coma, como el del backend, pero
  * sin campos entre comillas. Valida lo mismo que la importación real salvo el rectángulo de
@@ -94,6 +99,17 @@ async function textoDelArchivo(request: Request) {
 }
 
 export const handlersInstalaciones = [
+  // Antes del listado: las activas con coordenadas, sin paginar, para el mapa (#70). Las
+  // simuladas están todas activas y tienen coordenadas ficticias alrededor de Montevideo.
+  http.get('/api/v1/instalaciones/mapa', () => {
+    const usuario = usuarioEnSesion()
+    if (!usuario) return sinSesion()
+    if (usuario.rol !== 'JEFATURA' && usuario.rol !== 'OPERADOR') return sinPermiso()
+    return HttpResponse.json(
+      [...base.instalaciones].sort((a, b) => a.codigo.localeCompare(b.codigo)),
+    )
+  }),
+
   http.get('/api/v1/instalaciones', ({ request }) => {
     const usuario = usuarioEnSesion()
     if (!usuario) return sinSesion()
@@ -104,7 +120,12 @@ export const handlersInstalaciones = [
       TAMANIO_MAXIMO,
       Number(url.searchParams.get('size') ?? TAMANIO_POR_DEFECTO) || TAMANIO_POR_DEFECTO,
     )
-    const ordenadas = [...base.instalaciones].sort((a, b) => a.codigo.localeCompare(b.codigo))
+    // Con `buscar`, por código o nombre sin distinguir mayúsculas ni tildes (#40). Las simuladas
+    // están todas activas.
+    const buscar = sinTildes(url.searchParams.get('buscar')?.trim() ?? '')
+    const ordenadas = base.instalaciones
+      .filter((i) => !buscar || sinTildes(`${i.codigo} ${i.nombre}`).includes(buscar))
+      .sort((a, b) => a.codigo.localeCompare(b.codigo))
     return HttpResponse.json({
       contenido: ordenadas.slice(pagina * tamanio, (pagina + 1) * tamanio),
       pagina,

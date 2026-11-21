@@ -1,9 +1,13 @@
 package com.ciemsa.sigma.activos;
 
 import com.ciemsa.sigma.activos.dto.InstalacionResponse;
+import com.ciemsa.sigma.activos.dto.InstalacionResumen;
 import com.ciemsa.sigma.activos.dto.NuevaInstalacion;
+import java.text.Normalizer;
 import java.util.Collection;
 import java.util.List;
+import java.util.Locale;
+import java.util.Optional;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -22,6 +26,50 @@ public class InstalacionService {
   @Transactional(readOnly = true)
   public Page<InstalacionResponse> listar(Pageable pageable) {
     return instalacionRepository.findAll(pageable).map(InstalacionResponse::de);
+  }
+
+  /**
+   * Las activas con sus coordenadas, para el mapa del registro de incidentes (HU-11, #70). Sin
+   * paginar: la red tiene a lo sumo unos cientos de cruces. Si crece, la respuesta es agrupar los
+   * marcadores en el mapa, no paginar.
+   */
+  @Transactional(readOnly = true)
+  public List<InstalacionResponse> listarActivasParaMapa() {
+    return instalacionRepository.findByActivaTrueOrderByCodigoAsc().stream()
+        .map(InstalacionResponse::de)
+        .toList();
+  }
+
+  /**
+   * Búsqueda por código o nombre para elegir la instalación de un incidente (HU-03): solo las
+   * activas, sin distinguir mayúsculas ni tildes.
+   */
+  @Transactional(readOnly = true)
+  public Page<InstalacionResponse> buscarActivas(String texto, Pageable pageable) {
+    return instalacionRepository
+        .buscarActivas("%" + patronSinTildes(texto) + "%", pageable)
+        .map(InstalacionResponse::de);
+  }
+
+  /**
+   * En minúsculas y sin tildes, con los comodines de LIKE escapados con {@code !} para buscarlos
+   * como texto.
+   */
+  static String patronSinTildes(String texto) {
+    String sinTildes =
+        Normalizer.normalize(texto.strip(), Normalizer.Form.NFD)
+            .replaceAll("\\p{M}", "")
+            .toLowerCase(Locale.ROOT);
+    return sinTildes.replace("!", "!!").replace("%", "!%").replace("_", "!_");
+  }
+
+  /** La instalación, si existe y está activa (CU-1 3a). */
+  @Transactional(readOnly = true)
+  public Optional<InstalacionResumen> buscarActiva(Long id) {
+    return instalacionRepository
+        .findById(id)
+        .filter(Instalacion::isActiva)
+        .map(InstalacionResumen::de);
   }
 
   /** De los códigos recibidos, los que ya tienen una instalación. */

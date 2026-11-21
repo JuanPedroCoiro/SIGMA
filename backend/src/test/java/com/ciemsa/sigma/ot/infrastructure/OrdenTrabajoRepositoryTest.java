@@ -2,6 +2,7 @@ package com.ciemsa.sigma.ot.infrastructure;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 
 import com.ciemsa.sigma.TestcontainersConfiguration;
 import com.ciemsa.sigma.activos.Instalacion;
@@ -12,15 +13,18 @@ import com.ciemsa.sigma.administracion.Usuario;
 import com.ciemsa.sigma.administracion.UsuarioRepository;
 import com.ciemsa.sigma.ot.domain.EstadoOT;
 import com.ciemsa.sigma.ot.domain.Incidente;
+import com.ciemsa.sigma.ot.domain.MotivoPausa;
 import com.ciemsa.sigma.ot.domain.OrdenTrabajo;
 import com.ciemsa.sigma.ot.domain.OrigenIncidente;
 import com.ciemsa.sigma.ot.domain.Prioridad;
 import com.ciemsa.sigma.ot.domain.ReglaSLA;
+import com.ciemsa.sigma.ot.infrastructure.OrdenTrabajoRepository.CantidadPorCuadrilla;
 import com.ciemsa.sigma.shared.seguridad.Rol;
 import jakarta.persistence.EntityManager;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -136,16 +140,21 @@ class OrdenTrabajoRepositoryTest {
     OrdenTrabajo ot =
         ordenTrabajoRepository.save(OrdenTrabajo.preventiva(idInstalacion, FECHA, AHORA));
     ot.asignar(idCuadrilla, FECHA, AHORA);
-    ot.pausar(AHORA);
+    ot.pausar(MotivoPausa.FIN_DE_JORNADA, null, idUsuario, AHORA);
     ordenTrabajoRepository.saveAndFlush(ot);
 
-    ot.anular("Ya no hace falta", AHORA);
+    ot.anular("Ya no hace falta", idUsuario, AHORA);
     ordenTrabajoRepository.saveAndFlush(ot);
     entityManager.clear();
 
     OrdenTrabajo leida = ordenTrabajoRepository.findById(ot.getId()).orElseThrow();
     assertThat(leida.getEstado()).isEqualTo(EstadoOT.ANULADA);
     assertThat(leida.getEstadoAnteriorPausa()).isNull();
+    assertThat(leida.getPausas())
+        .singleElement()
+        .satisfies(p -> assertThat(p.getMotivo()).isEqualTo(MotivoPausa.FIN_DE_JORNADA))
+        .satisfies(p -> assertThat(p.getFin()).isEqualTo(AHORA))
+        .satisfies(p -> assertThat(p.getIdUsuarioReanudacion()).isEqualTo(idUsuario));
   }
 
   @ParameterizedTest
@@ -199,6 +208,29 @@ class OrdenTrabajoRepositoryTest {
         .isInstanceOf(DataIntegrityViolationException.class);
   }
 
+  @Test
+  void contarPorCuadrillaParaFecha_cuentaSoloLasEntreManosDeEsaFecha() {
+    Long otraCuadrilla =
+        cuadrillaRepository.save(Cuadrilla.crear("Cuadrilla Test 2", "Sur")).getId();
+    asignada(idCuadrilla, FECHA); // cuenta
+    asignada(idCuadrilla, FECHA); // cuenta
+    asignada(idCuadrilla, FECHA.plusDays(1)); // otra fecha: no cuenta
+    asignada(otraCuadrilla, FECHA); // cuenta para la otra cuadrilla
+    OrdenTrabajo anulada = asignada(idCuadrilla, FECHA);
+    anulada.anular("Duplicada", idUsuario, AHORA);
+    ordenTrabajoRepository.saveAndFlush(anulada); // anulada: ya no cuenta
+    ordenTrabajoRepository.saveAndFlush(
+        OrdenTrabajo.preventiva(idInstalacion, FECHA, AHORA)); // pendiente, sin cuadrilla
+
+    List<CantidadPorCuadrilla> filas =
+        ordenTrabajoRepository.contarPorCuadrillaParaFecha(
+            FECHA, List.of(EstadoOT.ASIGNADA, EstadoOT.EN_PROCESO, EstadoOT.EN_PAUSA));
+
+    assertThat(filas)
+        .extracting(CantidadPorCuadrilla::getIdCuadrilla, CantidadPorCuadrilla::getCantidad)
+        .containsExactlyInAnyOrder(tuple(idCuadrilla, 2L), tuple(otraCuadrilla, 1L));
+  }
+
   private Incidente incidente() {
     return Incidente.registrar(
         idInstalacion,
@@ -211,5 +243,13 @@ class OrdenTrabajoRepositoryTest {
 
   private static int numero(String numeroVisible) {
     return Integer.parseInt(numeroVisible.substring(numeroVisible.indexOf('-') + 1));
+  }
+
+  /** OT preventiva asignada a la cuadrilla para esa fecha, guardada. */
+  private OrdenTrabajo asignada(Long cuadrilla, LocalDate fecha) {
+    OrdenTrabajo ot =
+        ordenTrabajoRepository.save(OrdenTrabajo.preventiva(idInstalacion, fecha, AHORA));
+    ot.asignar(cuadrilla, fecha, AHORA);
+    return ordenTrabajoRepository.saveAndFlush(ot);
   }
 }

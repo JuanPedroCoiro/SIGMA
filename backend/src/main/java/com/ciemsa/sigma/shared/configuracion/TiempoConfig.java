@@ -1,9 +1,13 @@
 package com.ciemsa.sigma.shared.configuracion;
 
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 import java.util.Optional;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.auditing.DateTimeProvider;
 import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
@@ -13,13 +17,41 @@ import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 @EnableJpaAuditing(dateTimeProviderRef = "proveedorFechaAuditoria")
 public class TiempoConfig {
 
+  /**
+   * Avanza de a microsegundos, la precisión de TIMESTAMPTZ: lo que se guarda es exactamente lo que
+   * se devuelve, sin truncar a mano en cada servicio.
+   */
   @Bean
+  @Conditional(DatosDemoDeshabilitado.class)
   Clock clock() {
-    return Clock.systemUTC();
+    return relojDelSistema();
+  }
+
+  /**
+   * Con los datos de la demo activos (#81), el mismo reloj pero desplazable en el hilo que los
+   * genera. En cualquier otro caso no existe y se usa el de arriba, sin envoltorio.
+   */
+  @Bean
+  @Conditional(DatosDemoHabilitado.class)
+  RelojDesplazable relojDesplazable() {
+    return new RelojDesplazable(relojDelSistema());
+  }
+
+  private static Clock relojDelSistema() {
+    return Clock.tick(Clock.systemUTC(), Duration.of(1, ChronoUnit.MICROS));
   }
 
   @Bean
   DateTimeProvider proveedorFechaAuditoria(Clock clock) {
     return () -> Optional.of(Instant.now(clock));
+  }
+
+  /**
+   * Zona de CIEMSA, para decidir qué día es «hoy» (por ejemplo, una fecha de ejecución no puede ser
+   * anterior). Las fechas y horas se siguen guardando en UTC.
+   */
+  @Bean
+  ZoneId zonaHoraria() {
+    return ZoneId.of("America/Montevideo");
   }
 }

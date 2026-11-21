@@ -30,17 +30,18 @@ class EstadoOTTest {
   private static final LocalDate FECHA = LocalDate.parse("2026-11-03");
   private static final Long CUADRILLA = 7L;
   private static final Long OTRA_CUADRILLA = 8L;
+  private static final Long USUARIO = 3L;
 
   enum Operacion {
     ASIGNAR(ot -> ot.asignar(OTRA_CUADRILLA, FECHA, AHORA)),
     LIBERAR(ot -> ot.liberar(AHORA)),
     INICIAR(ot -> ot.iniciar(AHORA)),
-    PAUSAR(ot -> ot.pausar(AHORA)),
-    REANUDAR(ot -> ot.reanudar(AHORA)),
+    PAUSAR(ot -> ot.pausar(MotivoPausa.CLIMA, null, USUARIO, AHORA)),
+    REANUDAR(ot -> ot.reanudar(USUARIO, AHORA)),
     CERRAR(ot -> ot.cerrarTecnicamente(AHORA)),
     VALIDAR(ot -> ot.validar(AHORA)),
     OBSERVAR(ot -> ot.observar(AHORA)),
-    ANULAR(ot -> ot.anular("Duplicada", AHORA));
+    ANULAR(ot -> ot.anular("Duplicada", USUARIO, AHORA));
 
     private final Consumer<OrdenTrabajo> accion;
 
@@ -106,11 +107,11 @@ class EstadoOTTest {
       names = {"PENDIENTE", "ASIGNADA", "EN_PROCESO"})
   void reanudar_vuelveAlEstadoAnteriorALaPausa(EstadoOT anterior) {
     OrdenTrabajo ot = otEn(anterior);
-    ot.pausar(AHORA);
+    ot.pausar(MotivoPausa.CLIMA, null, USUARIO, AHORA);
 
     assertThat(ot.getEstadoAnteriorPausa()).isEqualTo(anterior);
 
-    ot.reanudar(AHORA);
+    ot.reanudar(USUARIO, AHORA);
 
     assertThat(ot.getEstado()).isEqualTo(anterior);
     assertThat(ot.getEstadoAnteriorPausa()).isNull();
@@ -165,21 +166,26 @@ class EstadoOTTest {
       names = {"PENDIENTE", "ASIGNADA"})
   void anular_enPausaSinHaberEmpezado_anulaYCierraLaPausa(EstadoOT anterior) {
     OrdenTrabajo ot = otEn(anterior);
-    ot.pausar(AHORA);
+    ot.pausar(MotivoPausa.CLIMA, null, USUARIO, AHORA);
 
-    ot.anular("El tercero resolvió la falla", AHORA);
+    ot.anular("El tercero resolvió la falla", USUARIO, AHORA);
 
     assertThat(ot.getEstado()).isEqualTo(ANULADA);
     assertThat(ot.getEstadoAnteriorPausa()).isNull();
     assertThat(ot.getMotivoAnulacion()).isEqualTo("El tercero resolvió la falla");
+    assertThat(ot.pausaAbierta()).isEmpty();
+    assertThat(ot.getPausas())
+        .singleElement()
+        .extracting(PausaOT::getIdUsuarioReanudacion)
+        .isEqualTo(USUARIO);
   }
 
   @Test
   void anular_enPausaDesdeEnProceso_lanzaTransicionInvalida() {
     OrdenTrabajo ot = otEn(EN_PROCESO);
-    ot.pausar(AHORA);
+    ot.pausar(MotivoPausa.CLIMA, null, USUARIO, AHORA);
 
-    assertThatThrownBy(() -> ot.anular("Ya no hace falta", AHORA))
+    assertThatThrownBy(() -> ot.anular("Ya no hace falta", USUARIO, AHORA))
         .isInstanceOf(TransicionInvalidaException.class);
     assertThat(ot.getEstado()).isEqualTo(EN_PAUSA);
     assertThat(ot.getEstadoAnteriorPausa()).isEqualTo(EN_PROCESO);
@@ -189,15 +195,26 @@ class EstadoOTTest {
   void anular_enProceso_lanzaTransicionInvalida() {
     OrdenTrabajo ot = otEn(EN_PROCESO);
 
-    assertThatThrownBy(() -> ot.anular("Ya no hace falta", AHORA))
+    assertThatThrownBy(() -> ot.anular("Ya no hace falta", USUARIO, AHORA))
         .isInstanceOf(TransicionInvalidaException.class);
+  }
+
+  @Test
+  void anular_enPausaSinMotivo_noCierraLaPausa() {
+    OrdenTrabajo ot = otEn(PENDIENTE);
+    ot.pausar(MotivoPausa.CLIMA, null, USUARIO, AHORA);
+
+    assertThatThrownBy(() -> ot.anular(" ", USUARIO, AHORA))
+        .isInstanceOf(ReglaNegocioException.class);
+    assertThat(ot.getEstado()).isEqualTo(EN_PAUSA);
+    assertThat(ot.pausaAbierta()).isPresent();
   }
 
   @Test
   void anular_sinMotivo_lanzaReglaNegocio() {
     OrdenTrabajo ot = otEn(PENDIENTE);
 
-    assertThatThrownBy(() -> ot.anular("  ", AHORA))
+    assertThatThrownBy(() -> ot.anular("  ", USUARIO, AHORA))
         .isInstanceOf(ReglaNegocioException.class)
         .isNotInstanceOf(TransicionInvalidaException.class);
     assertThat(ot.getEstado()).isEqualTo(PENDIENTE);
@@ -224,7 +241,7 @@ class EstadoOTTest {
       case EN_PAUSA -> {
         ot.asignar(CUADRILLA, FECHA, AHORA);
         ot.iniciar(AHORA);
-        ot.pausar(AHORA);
+        ot.pausar(MotivoPausa.CLIMA, null, USUARIO, AHORA);
       }
       case CERRADA_TECNICA -> {
         ot.asignar(CUADRILLA, FECHA, AHORA);
@@ -237,7 +254,7 @@ class EstadoOTTest {
         ot.cerrarTecnicamente(AHORA);
         ot.validar(AHORA);
       }
-      case ANULADA -> ot.anular("Duplicada", AHORA);
+      case ANULADA -> ot.anular("Duplicada", USUARIO, AHORA);
     }
     return ot;
   }
