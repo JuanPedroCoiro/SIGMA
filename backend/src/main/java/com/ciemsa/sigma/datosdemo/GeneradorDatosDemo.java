@@ -3,10 +3,12 @@ package com.ciemsa.sigma.datosdemo;
 import com.ciemsa.sigma.administracion.UsuarioDetailsService;
 import com.ciemsa.sigma.ot.application.AnulacionOtService;
 import com.ciemsa.sigma.ot.application.AsignacionOtService;
+import com.ciemsa.sigma.ot.application.EjecucionOtService;
 import com.ciemsa.sigma.ot.application.IncidenteConOt;
 import com.ciemsa.sigma.ot.application.IncidenteService;
 import com.ciemsa.sigma.ot.application.PausaOtService;
 import com.ciemsa.sigma.ot.application.RegistrarIncidenteCommand;
+import com.ciemsa.sigma.ot.domain.CierreTecnico;
 import com.ciemsa.sigma.ot.domain.Incidente;
 import com.ciemsa.sigma.ot.domain.MotivoPausa;
 import com.ciemsa.sigma.ot.domain.OrdenTrabajo;
@@ -24,6 +26,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.function.Supplier;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -38,9 +41,9 @@ import org.springframework.transaction.support.TransactionTemplate;
 /**
  * Genera al arrancar el escenario de la demo (#81) con fechas relativas al arranque: incidentes y
  * OTs en todos los estados del sprint 2, vencidas y por vencer, pausas, reasignaciones, anulaciones
- * y esperas de terceros. Cada acción pasa por el servicio de la aplicación, con el reloj corrido al
- * momento de la acción y el usuario que la hace, así se respetan las reglas y la bitácora queda con
- * todo el historial.
+ * y esperas de terceros, y desde el sprint 3 OTs en proceso y cerradas técnicamente (HU-07). Cada
+ * acción pasa por el servicio de la aplicación, con el reloj corrido al momento de la acción y el
+ * usuario que la hace, así se respetan las reglas y la bitácora queda con todo el historial.
  *
  * <p>Solo si no hay incidentes: reiniciar no duplica nada. Todo en una transacción: si algo falla
  * no queda a medias y el próximo arranque lo vuelve a intentar. Lo registra {@link
@@ -72,6 +75,7 @@ public class GeneradorDatosDemo implements ApplicationRunner {
   private final IncidenteService incidenteService;
   private final AsignacionOtService asignacionOtService;
   private final PausaOtService pausaOtService;
+  private final EjecucionOtService ejecucionOtService;
   private final AnulacionOtService anulacionOtService;
   private final UsuarioDetailsService usuarioDetailsService;
   private final RelojDesplazable reloj;
@@ -194,6 +198,32 @@ public class GeneradorDatosDemo implements ApplicationRunner {
       asignar(improcedente, horas(27), OESTE, hoy);
       anular(improcedente, horas(24), () -> "Improcedente: la cuadrilla verificó que funciona.");
 
+      // En ejecución (HU-07): una en proceso y dos cerradas técnicamente, una en plazo y otra
+      // fuera de plazo (ALTA con límite hace 18 h), para validar u observar (HU-09)
+      Caso enProceso = registrar(horas(10), OPERADOR_1, "DEV-009", LAMPARA, null);
+      asignar(enProceso, horas(9), NORTE, hoy);
+      iniciar(enProceso, horas(2), TECNICO_NORTE);
+      Caso cerradaEnPlazo = registrar(horas(30), OPERADOR_2, "DEV-010", SINCRONIZACION, null);
+      asignar(cerradaEnPlazo, horas(29), ESTE, hoy);
+      iniciar(cerradaEnPlazo, horas(26), TECNICO_ESTE_1);
+      cerrar(
+          cerradaEnPlazo,
+          horas(24),
+          TECNICO_ESTE_1,
+          "El controlador perdió la hora: los grupos de luces se desfasaban.",
+          "Se sincronizó el reloj del controlador y se verificó el ciclo completo.",
+          null);
+      Caso cerradaFueraDePlazo = registrar(horas(26), OPERADOR_1, "DEV-023", APAGADO, null);
+      asignar(cerradaFueraDePlazo, horas(25), NORTE, hoy);
+      iniciar(cerradaFueraDePlazo, horas(20), TECNICO_NORTE);
+      cerrar(
+          cerradaFueraDePlazo,
+          horas(16),
+          TECNICO_NORTE,
+          "Fuente de alimentación quemada por una sobretensión.",
+          "Se cambió la fuente y se probó el cruce en todas las fases.",
+          "Hubo que esperar la fuente de repuesto del depósito.");
+
       // En espera de un tercero
       registrar(horas(5), OPERADOR_1, "DEV-020", APAGADO, "UTE", "Corte de energía en la zona");
       registrar(horas(18), OPERADOR_2, "DEV-012", SINCRONIZACION, "Antel", "Sin enlace de datos");
@@ -261,6 +291,27 @@ public class GeneradorDatosDemo implements ApplicationRunner {
 
     private void reanudar(Caso caso, Duration hace, String tecnico) {
       paso(hace, tecnico, () -> pausaOtService.reanudar(caso.idOt()));
+    }
+
+    private void iniciar(Caso caso, Duration hace, String tecnico) {
+      paso(hace, tecnico, () -> ejecucionOtService.iniciar(caso.idOt()));
+    }
+
+    private void cerrar(
+        Caso caso,
+        Duration hace,
+        String tecnico,
+        String diagnostico,
+        String solucion,
+        String observaciones) {
+      paso(
+          hace,
+          tecnico,
+          () ->
+              ejecucionOtService.cerrar(
+                  caso.idOt(),
+                  UUID.randomUUID(),
+                  new CierreTecnico(diagnostico, solucion, observaciones)));
     }
 
     private void anular(Caso caso, Duration hace, Supplier<String> motivo) {
