@@ -25,7 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class FotosIncidenteService {
 
   public static final int MAXIMO_POR_INCIDENTE = 3;
-  public static final long TAMANIO_MAXIMO = 10L * 1024 * 1024;
+  public static final long TAMANIO_MAXIMO = FotoNueva.TAMANIO_MAXIMO;
 
   private final IncidenteRepository incidenteRepository;
   private final AdjuntoRepository adjuntoRepository;
@@ -45,7 +45,7 @@ public class FotosIncidenteService {
     if (yaTiene + fotos.size() > MAXIMO_POR_INCIDENTE) {
       throw new DemasiadasFotosException(MAXIMO_POR_INCIDENTE, yaTiene);
     }
-    List<TipoImagen> tipos = fotos.stream().map(FotosIncidenteService::validar).toList();
+    List<TipoImagen> tipos = fotos.stream().map(FotoNueva::validar).toList();
 
     List<String> guardadas = new ArrayList<>();
     try {
@@ -85,19 +85,6 @@ public class FotosIncidenteService {
             .findByIdAndIdIncidente(idFoto, idIncidente)
             .orElseThrow(() -> new NoEncontradoException("No existe la foto " + idFoto + "."));
     return new ArchivoFoto(adjunto, almacenArchivos.leer(adjunto.getUbicacion()));
-  }
-
-  private static TipoImagen validar(FotoNueva foto) {
-    String nombre = foto.nombreOriginal() == null ? "La foto" : "«" + foto.nombreOriginal() + "»";
-    if (foto.contenido().length == 0) {
-      throw new FotoInvalidaException(nombre + " está vacía.");
-    }
-    if (foto.contenido().length > TAMANIO_MAXIMO) {
-      throw new FotoInvalidaException(nombre + " supera los 10 MB.");
-    }
-    return TipoImagen.detectar(foto.contenido())
-        .orElseThrow(
-            () -> new FotoInvalidaException(nombre + " no es una imagen JPG, PNG ni WEBP."));
   }
 
   private void exigirIncidente(Long idIncidente) {

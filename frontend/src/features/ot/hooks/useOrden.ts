@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   anularOrden,
   asignarOrdenes,
+  listarFotosOrden,
   obtenerCargaPorCuadrilla,
   obtenerOrden,
   pausarOrden,
@@ -70,4 +71,12 @@ export function useCargaPorCuadrilla(fecha: string) {
     queryFn: () => obtenerCargaPorCuadrilla(fecha),
     enabled: fecha !== '',
   })
+}
+
+/** Clave propia: después del cierre (#89) se invalida con queryKey [CLAVE_FOTOS_ORDEN, id]. */
+export const CLAVE_FOTOS_ORDEN = 'fotos-orden'
+
+/** Las fotos del cierre técnico de la OT (#90). */
+export function useFotosOrden(id: number) {
+  return useQuery({ queryKey: [CLAVE_FOTOS_ORDEN, id], queryFn: () => listarFotosOrden(id) })
 }

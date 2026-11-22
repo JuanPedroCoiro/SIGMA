@@ -4,12 +4,15 @@ import com.ciemsa.sigma.administracion.UsuarioDetailsService;
 import com.ciemsa.sigma.ot.application.AnulacionOtService;
 import com.ciemsa.sigma.ot.application.AsignacionOtService;
 import com.ciemsa.sigma.ot.application.EjecucionOtService;
+import com.ciemsa.sigma.ot.application.FotoCierre;
+import com.ciemsa.sigma.ot.application.FotoNueva;
 import com.ciemsa.sigma.ot.application.IncidenteConOt;
 import com.ciemsa.sigma.ot.application.IncidenteService;
 import com.ciemsa.sigma.ot.application.PausaOtService;
 import com.ciemsa.sigma.ot.application.RegistrarIncidenteCommand;
 import com.ciemsa.sigma.ot.domain.CierreTecnico;
 import com.ciemsa.sigma.ot.domain.Incidente;
+import com.ciemsa.sigma.ot.domain.MomentoFoto;
 import com.ciemsa.sigma.ot.domain.MotivoPausa;
 import com.ciemsa.sigma.ot.domain.OrdenTrabajo;
 import com.ciemsa.sigma.ot.domain.OrigenIncidente;
@@ -22,6 +25,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -59,6 +63,15 @@ public class GeneradorDatosDemo implements ApplicationRunner {
   static final String TECNICO_NORTE = "tecnico1.dev@sigma.test";
   static final String TECNICO_ESTE_1 = "tecnico3.dev@sigma.test";
   static final String TECNICO_ESTE_2 = "tecnico4.dev@sigma.test";
+
+  /**
+   * Una imagen PNG de 1×1 px: el cierre técnico exige al menos una foto (#90, HU-08). Es de la
+   * demo, no de un caso real.
+   */
+  private static final byte[] FOTO_DEMO =
+      Base64.getDecoder()
+          .decode(
+              "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=");
 
   private static final String NORTE = "Cuadrilla Dev Norte";
   private static final String SUR = "Cuadrilla Dev Sur";
@@ -311,7 +324,10 @@ public class GeneradorDatosDemo implements ApplicationRunner {
               ejecucionOtService.cerrar(
                   caso.idOt(),
                   UUID.randomUUID(),
-                  new CierreTecnico(diagnostico, solucion, observaciones)));
+                  new CierreTecnico(diagnostico, solucion, observaciones),
+                  List.of(
+                      new FotoCierre(
+                          MomentoFoto.DESPUES, new FotoNueva("despues-demo.png", FOTO_DEMO)))));
     }
 
     private void anular(Caso caso, Duration hace, Supplier<String> motivo) {

@@ -229,6 +229,35 @@ export const handlersOrdenes = [
     return HttpResponse.json(respuesta(orden))
   }),
 
+  // Fotos del cierre técnico (#90), como FotosOtController: quien puede ver la OT.
+  http.get('/api/v1/ordenes/:id/fotos', ({ params }) => {
+    const { rechazo, orden } = buscarAccesible(params.id)
+    if (rechazo) return rechazo
+    return HttpResponse.json(
+      base.fotosCierre
+        .filter((foto) => foto.idOrdenTrabajo === orden.id)
+        .map(({ idOrdenTrabajo, ...foto }) => ({
+          ...foto,
+          url: `/api/v1/ordenes/${idOrdenTrabajo}/fotos/${foto.id}`,
+        })),
+    )
+  }),
+
+  http.get('/api/v1/ordenes/:id/fotos/:idFoto', ({ params }) => {
+    const { rechazo, orden } = buscarAccesible(params.id)
+    if (rechazo) return rechazo
+    const existe = base.fotosCierre.some(
+      (foto) => foto.id === Number(params.idFoto) && foto.idOrdenTrabajo === orden.id,
+    )
+    if (!existe) {
+      return problema(404, 'no-encontrado', 'Recurso no encontrado', 'No existe la foto.')
+    }
+    return new HttpResponse(
+      '<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160"><rect width="160" height="160" fill="#e5e7eb"/></svg>',
+      { headers: { 'Content-Type': 'image/svg+xml' } },
+    )
+  }),
+
   http.post('/api/v1/ordenes/:id/pausar', async ({ params, request }) => {
     const { rechazo, orden, usuario } = buscarAccesible(params.id)
     if (rechazo) return rechazo

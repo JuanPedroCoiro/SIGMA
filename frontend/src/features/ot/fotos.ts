@@ -2,6 +2,7 @@ import { obtenerProblemDetail } from '../../shared/api/problemDetail'
 
 // Fotos del incidente (#71). Los mismos límites que FotosIncidenteService en el backend; acá se
 // controlan por el tipo que informa el navegador, y el backend vuelve a validar por el contenido.
+// Las fotos del cierre técnico (#90) usan las mismas validaciones con su propio máximo.
 
 export const MAXIMO_FOTOS = 3
 export const TAMANIO_MAXIMO_FOTO = 10 * 1024 * 1024
@@ -15,9 +16,14 @@ export type FotoElegida = {
 
 /**
  * Separa las fotos que se pueden agregar de las que no, con un mensaje por cada rechazo. Las que
- * pasan del máximo quedan afuera con un solo mensaje.
+ * pasan del máximo quedan afuera con un solo mensaje. El máximo es el de las fotos del incidente,
+ * salvo que se indique otro (el cierre técnico admite más, #90).
  */
-export function validarFotosNuevas(cantidadActual: number, nuevas: readonly File[]) {
+export function validarFotosNuevas(
+  cantidadActual: number,
+  nuevas: readonly File[],
+  maximo = MAXIMO_FOTOS,
+) {
   const aceptadas: File[] = []
   const errores: string[] = []
   let sobrantes = 0
@@ -29,7 +35,7 @@ export function validarFotosNuevas(cantidadActual: number, nuevas: readonly File
       errores.push(`${nombre} está vacía.`)
     } else if (archivo.size > TAMANIO_MAXIMO_FOTO) {
       errores.push(`${nombre} supera los 10 MB.`)
-    } else if (cantidadActual + aceptadas.length >= MAXIMO_FOTOS) {
+    } else if (cantidadActual + aceptadas.length >= maximo) {
       sobrantes++
     } else {
       aceptadas.push(archivo)
@@ -37,7 +43,7 @@ export function validarFotosNuevas(cantidadActual: number, nuevas: readonly File
   }
   if (sobrantes > 0) {
     errores.push(
-      `Se pueden adjuntar hasta ${MAXIMO_FOTOS} fotos: ` +
+      `Se pueden adjuntar hasta ${maximo} fotos: ` +
         (sobrantes === 1 ? 'quedó afuera 1.' : `quedaron afuera ${sobrantes}.`),
     )
   }

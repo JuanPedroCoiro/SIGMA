@@ -14,4 +14,10 @@ public interface AdjuntoRepository extends JpaRepository<Adjunto, Long> {
 
   /** Una foto, solo si es de ese incidente (así la URL no sirve para ver fotos de otro). */
   Optional<Adjunto> findByIdAndIdIncidente(Long id, Long idIncidente);
+
+  /** Las fotos del cierre técnico de la OT (#90), en el orden en que se subieron. */
+  List<Adjunto> findByIdOrdenTrabajoOrderByCreadoEnAscIdAsc(Long idOrdenTrabajo);
+
+  /** Una foto, solo si es de esa OT (así la URL no sirve para ver fotos de otra). */
+  Optional<Adjunto> findByIdAndIdOrdenTrabajo(Long id, Long idOrdenTrabajo);
 }

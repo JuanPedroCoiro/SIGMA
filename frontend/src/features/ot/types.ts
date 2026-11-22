@@ -218,3 +218,25 @@ export type DatosIncidente = {
   tercero: string | null
   causa: string | null
 }
+
+/** Momento de una foto del cierre técnico (#90, HU-08). */
+export type MomentoFoto = 'ANTES' | 'DURANTE' | 'DESPUES'
+
+export const MOMENTOS_FOTO: readonly MomentoFoto[] = ['ANTES', 'DURANTE', 'DESPUES']
+
+export const ETIQUETA_MOMENTO: Record<MomentoFoto, string> = {
+  ANTES: 'Antes',
+  DURANTE: 'Durante',
+  DESPUES: 'Después',
+}
+
+/** Una foto del cierre técnico, de GET /api/v1/ordenes/{id}/fotos (#90). */
+export type FotoCierre = FotoIncidente & { momento: MomentoFoto }
+
+/** Lo que envía el técnico al cerrar (CU-3, pasos 6 a 10), además de las fotos. */
+export type DatosCierre = {
+  idOperacion: string
+  diagnostico: string
+  solucion: string
+  observaciones?: string
+}

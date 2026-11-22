@@ -267,3 +267,43 @@ describe('detalle de OT con instalación, cuadrilla e incidente (#57)', () => {
     expect(celdas[5]).toHaveTextContent('Técnico de Prueba')
   })
 })
+
+describe('fotos de la intervención en el detalle (#90)', () => {
+  it('lasMuestraAgrupadasPorMomento', async () => {
+    base.idSesion = ID_OPERADOR
+    const subidaEn = new Date().toISOString()
+    base.fotosCierre.push(
+      {
+        id: 1,
+        idOrdenTrabajo: 1,
+        momento: 'ANTES',
+        nombreOriginal: 'antes.jpg',
+        tipo: 'image/jpeg',
+        tamanioBytes: 10,
+        subidaEn,
+      },
+      {
+        id: 2,
+        idOrdenTrabajo: 1,
+        momento: 'DESPUES',
+        nombreOriginal: 'despues.jpg',
+        tipo: 'image/jpeg',
+        tamanioBytes: 10,
+        subidaEn,
+      },
+    )
+
+    renderizarRuta('/ordenes/1')
+
+    expect(
+      await screen.findByRole('heading', { name: 'Fotos de la intervención' }),
+    ).toBeInTheDocument()
+    const antes = screen.getByRole('list', { name: 'Fotos: Antes' })
+    expect(within(antes).getByRole('img', { name: 'antes.jpg' })).toHaveAttribute(
+      'src',
+      '/api/v1/ordenes/1/fotos/1',
+    )
+    expect(screen.getByRole('list', { name: 'Fotos: Después' })).toBeInTheDocument()
+    expect(screen.queryByRole('list', { name: 'Fotos: Durante' })).not.toBeInTheDocument()
+  })
+})
