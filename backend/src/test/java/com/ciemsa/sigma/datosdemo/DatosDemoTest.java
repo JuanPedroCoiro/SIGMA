@@ -40,13 +40,56 @@ class DatosDemoTest {
   @Test
   void alArrancarGeneraElEscenarioConTodosLosEstados() {
     assertThat(clock).isInstanceOf(RelojDesplazable.class);
-    assertThat(contar("select count(*) from incidente")).isEqualTo(28);
+    assertThat(contar("select count(*) from incidente")).isEqualTo(31);
     assertThat(porEstado("orden_trabajo"))
         .containsExactlyInAnyOrderEntriesOf(
-            Map.of("PENDIENTE", 12L, "ASIGNADA", 8L, "EN_PAUSA", 2L, "ANULADA", 2L));
+            Map.of(
+                "PENDIENTE",
+                12L,
+                "ASIGNADA",
+                8L,
+                "EN_PROCESO",
+                1L,
+                "EN_PAUSA",
+                2L,
+                "CERRADA_TECNICA",
+                2L,
+                "ANULADA",
+                2L));
     assertThat(porEstado("incidente"))
         .containsExactlyInAnyOrderEntriesOf(
-            Map.of("CON_OT", 24L, "EN_ESPERA_TERCERO", 3L, "CERRADO_SIN_OT", 1L));
+            Map.of("CON_OT", 27L, "EN_ESPERA_TERCERO", 3L, "CERRADO_SIN_OT", 1L));
+  }
+
+  @Test
+  void lasOtsEnEjecucionTienenInicioYCierreDelTecnico() {
+    // La en proceso empezó hace 2 h, la inició el técnico de Norte
+    Instant iniciada =
+        jdbc.queryForObject(
+                "select iniciada_en from orden_trabajo where estado = 'EN_PROCESO'",
+                OffsetDateTime.class)
+            .toInstant();
+    assertThat(Duration.between(iniciada, Instant.now()))
+        .isBetween(Duration.ofHours(2), Duration.ofHours(3));
+    assertThat(
+            contar(
+                "select count(*) from registro_auditoria r join usuario u using (id_usuario)"
+                    + " where r.entidad = 'ORDEN_TRABAJO' and r.accion = 'CAMBIO_ESTADO'"
+                    + " and r.valor_nuevo ->> 'estado' = 'EN_PROCESO' and u.rol = 'TECNICO'"))
+        .isEqualTo(3);
+
+    // Las cerradas: con diagnóstico, solución e inicio; una en plazo y otra fuera de plazo
+    assertThat(
+            contar(
+                "select count(*) from orden_trabajo where estado = 'CERRADA_TECNICA'"
+                    + " and diagnostico is not null and solucion is not null"
+                    + " and iniciada_en < cerrada_en and id_operacion_cierre is not null"))
+        .isEqualTo(2);
+    assertThat(
+            contar(
+                "select count(*) from orden_trabajo where estado = 'CERRADA_TECNICA'"
+                    + " and cerrada_en > fecha_limite"))
+        .isEqualTo(1);
   }
 
   @Test

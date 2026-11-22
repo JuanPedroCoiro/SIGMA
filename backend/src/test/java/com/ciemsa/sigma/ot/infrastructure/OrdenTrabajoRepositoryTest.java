@@ -166,7 +166,10 @@ class OrdenTrabajoRepositoryTest {
         "estado = 'EN_PAUSA'", // en pausa sin estado anterior
         "estado_anterior_pausa = 'ASIGNADA'", // estado anterior sin estar en pausa
         "estado = 'ANULADA'", // anulada sin motivo
-        "estado = 'ASIGNADA'" // asignada sin cuadrilla
+        "estado = 'ASIGNADA'", // asignada sin cuadrilla
+        "estado = 'CERRADA_TECNICA'", // cerrada sin los datos del cierre
+        "estado = 'VALIDADA', cerrada_en = now(), diagnostico = 'D', solucion = 'S'" // sin
+        // operación
       })
   void insert_violaUnCheck_esRechazado(String cambio) {
     Long idOt =

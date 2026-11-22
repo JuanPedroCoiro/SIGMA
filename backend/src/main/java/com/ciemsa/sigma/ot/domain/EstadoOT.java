@@ -2,6 +2,7 @@ package com.ciemsa.sigma.ot.domain;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.UUID;
 
 /**
  * Estados de la OT con patrón State (Fig. 18): cada estado sobreescribe solo las operaciones que
@@ -41,6 +42,7 @@ public enum EstadoOT {
 
     @Override
     void iniciar(OrdenTrabajo ot, Instant ahora) {
+      ot.registrarInicio(ahora);
       ot.cambiarEstado(EN_PROCESO, ahora);
     }
 
@@ -68,7 +70,9 @@ public enum EstadoOT {
     }
 
     @Override
-    void cerrarTecnicamente(OrdenTrabajo ot, Instant ahora) {
+    void cerrarTecnicamente(
+        OrdenTrabajo ot, CierreTecnico cierre, UUID idOperacion, Instant ahora) {
+      ot.registrarCierre(cierre, idOperacion, ahora);
       ot.cambiarEstado(CERRADA_TECNICA, ahora);
     }
   },
@@ -152,7 +156,7 @@ public enum EstadoOT {
     throw new TransicionInvalidaException(this, "reanudar");
   }
 
-  void cerrarTecnicamente(OrdenTrabajo ot, Instant ahora) {
+  void cerrarTecnicamente(OrdenTrabajo ot, CierreTecnico cierre, UUID idOperacion, Instant ahora) {
     throw new TransicionInvalidaException(this, "cerrar");
   }
 

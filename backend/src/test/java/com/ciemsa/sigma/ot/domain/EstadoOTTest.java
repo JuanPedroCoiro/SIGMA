@@ -15,6 +15,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.Map;
+import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
@@ -31,6 +32,8 @@ class EstadoOTTest {
   private static final Long CUADRILLA = 7L;
   private static final Long OTRA_CUADRILLA = 8L;
   private static final Long USUARIO = 3L;
+  private static final CierreTecnico CIERRE =
+      new CierreTecnico("Lámpara quemada", "Cambio de lámpara", null);
 
   enum Operacion {
     ASIGNAR(ot -> ot.asignar(OTRA_CUADRILLA, FECHA, AHORA)),
@@ -38,7 +41,7 @@ class EstadoOTTest {
     INICIAR(ot -> ot.iniciar(AHORA)),
     PAUSAR(ot -> ot.pausar(MotivoPausa.CLIMA, null, USUARIO, AHORA)),
     REANUDAR(ot -> ot.reanudar(USUARIO, AHORA)),
-    CERRAR(ot -> ot.cerrarTecnicamente(AHORA)),
+    CERRAR(ot -> ot.cerrarTecnicamente(CIERRE, UUID.randomUUID(), AHORA)),
     VALIDAR(ot -> ot.validar(AHORA)),
     OBSERVAR(ot -> ot.observar(AHORA)),
     ANULAR(ot -> ot.anular("Duplicada", USUARIO, AHORA));
@@ -246,12 +249,12 @@ class EstadoOTTest {
       case CERRADA_TECNICA -> {
         ot.asignar(CUADRILLA, FECHA, AHORA);
         ot.iniciar(AHORA);
-        ot.cerrarTecnicamente(AHORA);
+        ot.cerrarTecnicamente(CIERRE, UUID.randomUUID(), AHORA);
       }
       case VALIDADA -> {
         ot.asignar(CUADRILLA, FECHA, AHORA);
         ot.iniciar(AHORA);
-        ot.cerrarTecnicamente(AHORA);
+        ot.cerrarTecnicamente(CIERRE, UUID.randomUUID(), AHORA);
         ot.validar(AHORA);
       }
       case ANULADA -> ot.anular("Duplicada", USUARIO, AHORA);

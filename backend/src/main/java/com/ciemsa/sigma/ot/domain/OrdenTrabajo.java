@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -88,6 +89,28 @@ public class OrdenTrabajo extends BaseEntity {
 
   @Column(length = 500)
   private String motivoAnulacion;
+
+  /** Primer inicio de la intervención (CU-3, paso 2). */
+  private Instant iniciadaEn;
+
+  /** Cierre técnico: base del cumplimiento del SLA (CU-5). */
+  private Instant cerradaEn;
+
+  @Column(length = CierreTecnico.LARGO_MAXIMO)
+  @Getter(AccessLevel.NONE)
+  private String diagnostico;
+
+  @Column(length = CierreTecnico.LARGO_MAXIMO)
+  @Getter(AccessLevel.NONE)
+  private String solucion;
+
+  @Column(name = "observaciones_cierre", length = CierreTecnico.LARGO_MAXIMO)
+  @Getter(AccessLevel.NONE)
+  private String observacionesCierre;
+
+  /** El envío que cerró la OT: un reintento con el mismo no la cierra de nuevo (R8). */
+  @Column(name = "id_operacion_cierre")
+  private UUID idOperacionCierre;
 
   /** Historial de pausas; a lo sumo una abierta (uq_pausa_ot_abierta). */
   @OneToMany(mappedBy = "ordenTrabajo", cascade = CascadeType.ALL, orphanRemoval = true)
@@ -224,8 +247,22 @@ public class OrdenTrabajo extends BaseEntity {
         new ReanudacionPendiente(pausa.orElseThrow().getMotivo(), idUsuario, ahora, fechaLimite));
   }
 
-  public void cerrarTecnicamente(Instant ahora) {
-    estado.cerrarTecnicamente(this, ahora);
+  /** Solo desde En proceso; {@code idOperacion} identifica el envío (R8). */
+  public void cerrarTecnicamente(CierreTecnico cierre, UUID idOperacion, Instant ahora) {
+    estado.cerrarTecnicamente(this, cierre, idOperacion, ahora);
+  }
+
+  /**
+   * Si ya se cerró con ese envío: el reintento devuelve el resultado anterior sin cerrar de nuevo
+   * (R8, 7b y 8a). Sigue valiendo después de validada.
+   */
+  public boolean cerradaCon(UUID idOperacion) {
+    return idOperacion != null && idOperacion.equals(idOperacionCierre);
+  }
+
+  /** Los datos del último cierre técnico; null si nunca se cerró. */
+  public CierreTecnico getCierre() {
+    return cerradaEn == null ? null : new CierreTecnico(diagnostico, solucion, observacionesCierre);
   }
 
   public void validar(Instant ahora) {
@@ -324,6 +361,23 @@ public class OrdenTrabajo extends BaseEntity {
       this.inicioSla = ahora;
       this.fechaLimite = ahora.plus(plazo);
     }
+  }
+
+  /** Solo el primer inicio: si vuelve por una observación (HU-09), se conserva. */
+  void registrarInicio(Instant ahora) {
+    if (iniciadaEn == null) {
+      this.iniciadaEn = Objects.requireNonNull(ahora);
+    }
+  }
+
+  /** Un cierre posterior (tras una observación, HU-09) pisa los datos del anterior. */
+  void registrarCierre(CierreTecnico cierre, UUID idOperacion, Instant ahora) {
+    Objects.requireNonNull(cierre, "Faltan los datos del cierre.");
+    this.idOperacionCierre = Objects.requireNonNull(idOperacion, "Falta el id de operación.");
+    this.diagnostico = cierre.diagnostico();
+    this.solucion = cierre.solucion();
+    this.observacionesCierre = cierre.observaciones();
+    this.cerradaEn = Objects.requireNonNull(ahora);
   }
 
   void registrarAnulacion(String motivo, Instant ahora) {

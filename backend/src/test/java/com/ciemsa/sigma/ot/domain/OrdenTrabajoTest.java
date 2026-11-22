@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.ciemsa.sigma.shared.domain.ReglaNegocioException;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -15,6 +16,8 @@ class OrdenTrabajoTest {
   private static final Instant LIMITE = Instant.parse("2026-11-02T21:00:00Z");
   private static final LocalDate FECHA = LocalDate.parse("2026-11-03");
   private static final Long USUARIO = 3L;
+  private static final CierreTecnico CIERRE =
+      new CierreTecnico("Lámpara roja quemada", "Cambio de lámpara", "Quedó funcionando");
 
   // --- Vencimiento (condición derivada) ---
 
@@ -63,7 +66,8 @@ class OrdenTrabajoTest {
     OrdenTrabajo ot = correctiva(ReglaSLA.crear(1L, Prioridad.ALTA, 2, 8));
     ot.asignar(7L, FECHA, INICIO);
     ot.iniciar(INICIO);
-    ot.cerrarTecnicamente(INICIO);
+    ot.cerrarTecnicamente(
+        new CierreTecnico("Lámpara quemada", "Cambio de lámpara", null), UUID.randomUUID(), INICIO);
 
     assertThat(ot.estaVencida(LIMITE.plusSeconds(1))).isFalse();
   }
@@ -193,6 +197,93 @@ class OrdenTrabajoTest {
 
     assertThatThrownBy(() -> ot.anular(" ", 4L, INICIO)).isInstanceOf(ReglaNegocioException.class);
     assertThat(ot.extraerEventos(4L)).isEmpty();
+  }
+
+  // --- Inicio y cierre técnico (HU-07) ---
+
+  @Test
+  void iniciar_registraLaHoraDeInicio() {
+    OrdenTrabajo ot = correctiva(null);
+    ot.asignar(7L, FECHA, INICIO);
+    Instant iniciada = INICIO.plusSeconds(600);
+
+    ot.iniciar(iniciada);
+
+    assertThat(ot.getIniciadaEn()).isEqualTo(iniciada);
+    assertThat(ot.getCerradaEn()).isNull();
+    assertThat(ot.getCierre()).isNull();
+  }
+
+  @Test
+  void iniciar_otraVezTrasUnaObservacion_conservaElPrimerInicio() {
+    OrdenTrabajo ot = correctiva(null);
+    ot.asignar(7L, FECHA, INICIO);
+    ot.iniciar(INICIO);
+    ot.cerrarTecnicamente(CIERRE, UUID.randomUUID(), INICIO.plusSeconds(60));
+    ot.observar(INICIO.plusSeconds(120));
+
+    ot.iniciar(INICIO.plusSeconds(180));
+
+    assertThat(ot.getIniciadaEn()).isEqualTo(INICIO);
+  }
+
+  @Test
+  void iniciar_transicionInvalida_noRegistraElInicio() {
+    OrdenTrabajo ot = correctiva(null);
+
+    assertThatThrownBy(() -> ot.iniciar(INICIO)).isInstanceOf(TransicionInvalidaException.class);
+    assertThat(ot.getIniciadaEn()).isNull();
+  }
+
+  @Test
+  void cerrarTecnicamente_guardaLosDatosLaFechaYLaOperacion() {
+    OrdenTrabajo ot = enProceso();
+    UUID operacion = UUID.randomUUID();
+    Instant cerrada = INICIO.plusSeconds(3600);
+
+    ot.cerrarTecnicamente(CIERRE, operacion, cerrada);
+
+    assertThat(ot.getEstado()).isEqualTo(EstadoOT.CERRADA_TECNICA);
+    assertThat(ot.getCierre()).isEqualTo(CIERRE);
+    assertThat(ot.getCerradaEn()).isEqualTo(cerrada);
+    assertThat(ot.getIdOperacionCierre()).isEqualTo(operacion);
+    assertThat(ot.cerradaCon(operacion)).isTrue();
+    assertThat(ot.cerradaCon(UUID.randomUUID())).isFalse();
+    assertThat(ot.cerradaCon(null)).isFalse();
+  }
+
+  @Test
+  void cerrarTecnicamente_desdeAsignada_lanzaTransicionInvalidaSinGuardarDatos() {
+    OrdenTrabajo ot = correctiva(null);
+    ot.asignar(7L, FECHA, INICIO);
+    UUID operacion = UUID.randomUUID();
+
+    assertThatThrownBy(() -> ot.cerrarTecnicamente(CIERRE, operacion, INICIO))
+        .isInstanceOf(TransicionInvalidaException.class);
+    assertThat(ot.getCierre()).isNull();
+    assertThat(ot.cerradaCon(operacion)).isFalse();
+  }
+
+  @Test
+  void extraerEventos_cerrar_cambioDeEstadoACerradaTecnica() {
+    OrdenTrabajo ot = enProceso();
+    ReflectionTestUtils.setField(ot, "id", 99L);
+    ot.extraerEventos(USUARIO);
+    Instant cerrada = INICIO.plusSeconds(3600);
+
+    ot.cerrarTecnicamente(CIERRE, UUID.randomUUID(), cerrada);
+
+    assertThat(ot.extraerEventos(USUARIO))
+        .containsExactly(
+            new EstadoOrdenCambiado(
+                99L, EstadoOT.EN_PROCESO, EstadoOT.CERRADA_TECNICA, USUARIO, cerrada));
+  }
+
+  private static OrdenTrabajo enProceso() {
+    OrdenTrabajo ot = correctiva(null);
+    ot.asignar(7L, FECHA, INICIO);
+    ot.iniciar(INICIO);
+    return ot;
   }
 
   private static OrdenTrabajo correctiva(ReglaSLA regla) {

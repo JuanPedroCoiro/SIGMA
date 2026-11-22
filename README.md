@@ -75,10 +75,11 @@ Todos los datos son ficticios y solo se cargan en el entorno local, nunca en el 
 
 Instalaciones `DEV-001` a `DEV-027`, repartidas por las rutas 1, 5, 8 y 9 y la Interbalnearia. Casos especiales para las pruebas: `DEV-006` está inactiva y `DEV-007` es del «Organismo Dev sin SLA», sin reglas de SLA. Los datos de catálogo están en `db/datos-dev/R__datos_desarrollo.sql`. Si ya existe un usuario, una cuadrilla o una instalación con el mismo correo, nombre o código, se deja como está.
 
-**Escenario de la demo.** Al arrancar, si la base no tiene incidentes, el backend genera 28 incidentes con sus OTs, todos con fechas relativas a ese arranque:
+**Escenario de la demo.** Al arrancar, si la base no tiene incidentes, el backend genera 31 incidentes con sus OTs, todos con fechas relativas a ese arranque:
 
 - OTs vencidas (una ya asignada), por vencer, pendientes en plazo y asignadas a las cuatro cuadrillas para hoy y mañana (una reasignada).
 - Una OT con «SLA sin definir», dos en pausa (por UTE y por materiales), una reanudada tras un tercero y dos anuladas.
+- Una OT en proceso (Norte) y dos cerradas técnicamente con diagnóstico y solución: una en plazo (Este) y otra fuera de plazo (Norte), para validar u observar.
 - Tres incidentes en espera de un tercero (UTE, Antel y Tigo), uno cerrado sin OT y uno cuya OT se generó al resolverse la espera.
 
 Las acciones pasan por los servicios con el usuario que corresponde (operadores, Jefatura y técnicos), así la bitácora muestra quién hizo qué. Las instalaciones `DEV-001` a `DEV-006` quedan sin incidentes, para las pruebas funcionales. Lo genera `datosdemo/GeneradorDatosDemo`.

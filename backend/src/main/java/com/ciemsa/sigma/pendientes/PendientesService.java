@@ -41,17 +41,8 @@ public class PendientesService {
     where o.estado in :estados
     order by\s""";
 
-  // Primero las que corren, por fecha límite; después las pausadas por un tercero (no vencen
-  // hasta reanudar) y al final las que no tienen SLA (sin regla o preventivas). TERCERO es el único
-  // MotivoPausa con reiniciaSla(), que JPQL no puede llamar: si cambia esa regla, cambiar también
-  // este CASE y OrdenPendiente.vencida.
   private static final String POR_VENCIMIENTO =
-      """
-    case
-        when p.motivo = com.ciemsa.sigma.ot.domain.MotivoPausa.TERCERO then 1
-        when o.fechaLimite is null then 2
-        else 0
-    end, o.fechaLimite, o.creadoEn, o.id""";
+      VencimientoSinEntidad.ORDEN_JPQL + ", o.creadoEn, o.id";
 
   // ALTA, MEDIA, BAJA y al final las preventivas (sin prioridad); el texto ordenaría ALTA, BAJA.
   private static final String POR_PRIORIDAD =

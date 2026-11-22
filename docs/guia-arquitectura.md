@@ -442,8 +442,8 @@ La bitácora (`registro_auditoria`, HU-12) se graba en la misma transacción que
 
 **API REST**
 
-- Prefijo `/api/v1` y recursos en plural, como fija 1.13.1.6.1: `/incidentes`, `/ordenes-trabajo`, `/instalaciones`, `/materiales`, `/movimientos-stock`.
-- Las acciones de negocio que cambian el estado son subrecursos con POST: `POST /ordenes-trabajo/{id}/asignacion`, `.../cierre-tecnico`, `.../validacion`.
+- Prefijo `/api/v1` y recursos en plural, como fija 1.13.1.6.1: `/incidentes`, `/ordenes`, `/instalaciones`, `/materiales`, `/movimientos-stock`.
+- Las acciones de negocio que cambian el estado son subrecursos con POST: `POST /ordenes/{id}/iniciar`, `/ordenes/{id}/pausar`, `/ordenes/{id}/cerrar` (cierre técnico, con `idOperacion` para la idempotencia), `/ordenes/{id}/anular`. La bandeja del técnico es `GET /mis-ots`.
 - Códigos: 200 lectura, 201 creación con `Location`, 204 sin cuerpo, 400 validación, 401 sin sesión, 403 rol, 404 no existe, 409 conflicto de estado o de versión.
 - **Listados paginados desde la primera pantalla** (decidido el 17/10): `?page=0&size=20&sort=fechaLimiteSla,asc`; respuesta `PageResponse<T>` con `content`, `page`, `size`, `totalElements`. Tamaño por defecto 20 y máximo 100 (`spring.data.web.pageable.max-page-size=100`). Los filtros van como parámetros (`?estado=ASIGNADA&idCuadrilla=3`).
   - **Se paginan:** OT, incidentes, instalaciones, movimientos de stock, auditoría y usuarios, es decir, todo lo que crece con el uso.
@@ -548,7 +548,7 @@ src/
     │   ├── pages/         # RegistrarIncidentePage
     │   └── types.ts       # tipos que reflejan los DTOs del backend
     ├── ordenes-trabajo/   # tablero de pendientes, asignación, validación, anulación
-    ├── tecnico/           # Mis OTs, iniciar, suspender, cerrar con fotos (vista móvil)
+    ├── tecnico/           # Mis OTs (GET /mis-ots), iniciar (POST /ordenes/{id}/iniciar), pausar y cerrar con fotos (POST /ordenes/{id}/cerrar), vista móvil
     ├── planificacion/     # semana por cuadrilla y reprogramación
     ├── activos/           # ficha, historial y mapa (Leaflet)
     ├── inventario/        # stock y movimientos

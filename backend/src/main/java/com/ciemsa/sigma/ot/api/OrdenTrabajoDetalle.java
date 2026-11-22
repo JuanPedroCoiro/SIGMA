@@ -1,6 +1,7 @@
 package com.ciemsa.sigma.ot.api;
 
 import com.ciemsa.sigma.ot.application.DetalleOt;
+import com.ciemsa.sigma.ot.domain.CierreTecnico;
 import com.ciemsa.sigma.ot.domain.EstadoOT;
 import com.ciemsa.sigma.ot.domain.MotivoPausa;
 import com.ciemsa.sigma.ot.domain.OrdenTrabajo;
@@ -16,7 +17,8 @@ import java.util.Map;
 /**
  * Detalle de una OT: estado, instalación, cuadrilla, incidente, SLA, pausa en curso, tiempos e
  * historial de pausas con quién pausó y reanudó (#57). {@code cuadrilla} es null si no está
- * asignada; {@code incidente}, si es preventiva; {@code tiempos}, si la OT ya no está abierta.
+ * asignada; {@code incidente}, si es preventiva; {@code tiempos}, si la OT ya no está abierta;
+ * {@code iniciadaEn}, si no empezó; {@code cierre}, si nunca se cerró (HU-07).
  */
 public record OrdenTrabajoDetalle(
     Long id,
@@ -33,7 +35,9 @@ public record OrdenTrabajoDetalle(
     boolean vencida,
     Pausa pausaAbierta,
     Tiempos tiempos,
-    List<Pausa> pausas) {
+    List<Pausa> pausas,
+    Instant iniciadaEn,
+    Cierre cierre) {
 
   static OrdenTrabajoDetalle de(DetalleOt detalle) {
     OrdenTrabajo ot = detalle.ordenTrabajo();
@@ -54,7 +58,22 @@ public record OrdenTrabajoDetalle(
         detalle.vencida(),
         pausas.stream().filter(p -> p.fin() == null).findFirst().orElse(null),
         Tiempos.de(detalle.tiempos()),
-        pausas);
+        pausas,
+        ot.getIniciadaEn(),
+        Cierre.de(ot));
+  }
+
+  /** El último cierre técnico (CU-3): lo lee la Jefatura para validar u observar. */
+  public record Cierre(
+      String diagnostico, String solucion, String observaciones, Instant cerradaEn) {
+
+    static Cierre de(OrdenTrabajo ot) {
+      CierreTecnico cierre = ot.getCierre();
+      return cierre == null
+          ? null
+          : new Cierre(
+              cierre.diagnostico(), cierre.solucion(), cierre.observaciones(), ot.getCerradaEn());
+    }
   }
 
   /** {@code nombreUsuarioReanudacion} es null mientras la pausa sigue abierta. */
