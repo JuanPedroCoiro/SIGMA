@@ -22,7 +22,11 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
-/** Fotos de un incidente (#71): Operador y Jefatura, como el registro del incidente. */
+/**
+ * Fotos de un incidente (#71). Suben Operador y Jefatura, al registrarlo o después (#85). Las ven
+ * ellos y el técnico de la cuadrilla que tiene la OT del incidente: la cuadrilla la controla el
+ * servicio (AccesoOt).
+ */
 @RestController
 @RequestMapping("/api/v1/incidentes/{idIncidente}/fotos")
 @RequiredArgsConstructor
@@ -45,12 +49,14 @@ public class FotosIncidenteController {
   }
 
   @GetMapping
+  @PreAuthorize("hasAnyRole('TECNICO','OPERADOR','JEFATURA')")
   public List<FotoResponse> listar(@PathVariable Long idIncidente) {
     return fotosIncidenteService.listar(idIncidente).stream().map(FotoResponse::de).toList();
   }
 
   /** La imagen con su tipo real. Caché solo del navegador: son datos del sistema, no públicos. */
   @GetMapping("/{idFoto}")
+  @PreAuthorize("hasAnyRole('TECNICO','OPERADOR','JEFATURA')")
   public ResponseEntity<byte[]> ver(@PathVariable Long idIncidente, @PathVariable Long idFoto) {
     ArchivoFoto archivo = fotosIncidenteService.leer(idIncidente, idFoto);
     return ResponseEntity.ok()

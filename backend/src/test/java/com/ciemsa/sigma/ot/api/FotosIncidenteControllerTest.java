@@ -18,9 +18,11 @@ import com.ciemsa.sigma.administracion.Usuario;
 import com.ciemsa.sigma.administracion.UsuarioRepository;
 import com.ciemsa.sigma.ot.application.FotosIncidenteService;
 import com.ciemsa.sigma.ot.domain.Incidente;
+import com.ciemsa.sigma.ot.domain.OrdenTrabajo;
 import com.ciemsa.sigma.ot.domain.OrigenIncidente;
 import com.ciemsa.sigma.ot.domain.Prioridad;
 import com.ciemsa.sigma.ot.infrastructure.IncidenteRepository;
+import com.ciemsa.sigma.ot.infrastructure.OrdenTrabajoRepository;
 import com.ciemsa.sigma.ot.infrastructure.OrganismoRepository;
 import com.ciemsa.sigma.shared.archivos.AlmacenArchivos;
 import com.ciemsa.sigma.shared.seguridad.Rol;
@@ -28,6 +30,8 @@ import com.ciemsa.sigma.shared.seguridad.UsuarioAutenticado;
 import com.jayway.jsonpath.JsonPath;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
@@ -64,6 +68,7 @@ class FotosIncidenteControllerTest {
   @Autowired private InstalacionRepository instalacionRepository;
   @Autowired private OrganismoRepository organismoRepository;
   @Autowired private IncidenteRepository incidenteRepository;
+  @Autowired private OrdenTrabajoRepository ordenTrabajoRepository;
 
   private MockMvc mvc;
   private final List<Long> usuarios = new ArrayList<>();
@@ -72,6 +77,8 @@ class FotosIncidenteControllerTest {
   private Cuadrilla cuadrilla;
   private UsuarioAutenticado operador;
   private UsuarioAutenticado tecnico;
+  private Cuadrilla otraCuadrilla;
+  private UsuarioAutenticado tecnicoDeOtraCuadrilla;
   private Incidente incidente;
 
   @BeforeEach
@@ -82,6 +89,11 @@ class FotosIncidenteControllerTest {
         enSesion(guardarUsuario("Operador", "operador.fotos@ciemsa.com", Rol.OPERADOR, null));
     tecnico =
         enSesion(guardarUsuario("Técnico", "tecnico.fotos@ciemsa.com", Rol.TECNICO, cuadrilla));
+    otraCuadrilla = cuadrillaRepository.save(Cuadrilla.crear("Cuadrilla Fotos Sur", null));
+    tecnicoDeOtraCuadrilla =
+        enSesion(
+            guardarUsuario(
+                "Técnico Sur", "tecnico.sur.fotos@ciemsa.com", Rol.TECNICO, otraCuadrilla));
     Long mtop = organismoRepository.findByNombre("MTOP").orElseThrow().getId();
     idCategoria =
         jdbc.queryForObject(
@@ -109,10 +121,16 @@ class FotosIncidenteControllerTest {
     jdbc.queryForList("SELECT ubicacion" + delTest, String.class, idInstalacion)
         .forEach(almacenArchivos::borrar);
     jdbc.update("DELETE" + delTest, idInstalacion);
+    jdbc.update(
+        "DELETE FROM tramo_cuadrilla_ot WHERE id_orden_trabajo IN"
+            + " (SELECT id_orden_trabajo FROM orden_trabajo WHERE id_instalacion = ?)",
+        idInstalacion);
+    jdbc.update("DELETE FROM orden_trabajo WHERE id_instalacion = ?", idInstalacion);
     jdbc.update("DELETE FROM incidente WHERE id_instalacion = ?", idInstalacion);
     jdbc.update("DELETE FROM instalacion WHERE id_instalacion = ?", idInstalacion);
     usuarios.forEach(usuarioRepository::deleteById);
     cuadrillaRepository.deleteById(cuadrilla.getId());
+    cuadrillaRepository.deleteById(otraCuadrilla.getId());
   }
 
   // --- Subir y ver ---
@@ -187,11 +205,55 @@ class FotosIncidenteControllerTest {
   // --- Permisos y existencia ---
 
   @Test
-  void tecnico_403AlSubirYAlVer() throws Exception {
+  void tecnico_403AlSubir() throws Exception {
+    asignarOt(cuadrilla);
+
     subir(tecnico, incidente.getId(), foto("frente.jpg", JPEG)).andExpect(status().isForbidden());
+    sinFotos();
+  }
+
+  @Test
+  void tecnicoDeLaCuadrillaDeLaOt_veLasFotosYLaImagen() throws Exception {
+    String url = subirUnaFoto();
+    asignarOt(cuadrilla);
+
+    mvc.perform(get(FOTOS, incidente.getId()).with(user(tecnico)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.length()").value(1));
+    mvc.perform(get(url).with(user(tecnico)))
+        .andExpect(status().isOk())
+        .andExpect(content().bytes(JPEG));
+  }
+
+  @Test
+  void tecnicoDeOtraCuadrilla_403AlListarYAlVer() throws Exception {
+    String url = subirUnaFoto();
+    asignarOt(cuadrilla);
+
+    mvc.perform(get(FOTOS, incidente.getId()).with(user(tecnicoDeOtraCuadrilla)))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.type").value("/errores/sin-permiso"));
+    mvc.perform(get(url).with(user(tecnicoDeOtraCuadrilla))).andExpect(status().isForbidden());
+  }
+
+  @Test
+  void tecnico_incidenteSinOt_403() throws Exception {
+    String url = subirUnaFoto();
+
     mvc.perform(get(FOTOS, incidente.getId()).with(user(tecnico)))
         .andExpect(status().isForbidden());
-    sinFotos();
+    mvc.perform(get(url).with(user(tecnico))).andExpect(status().isForbidden());
+  }
+
+  @Test
+  void jefatura_subeDespuesDelRegistroConLaOtYaAsignada_201() throws Exception {
+    UsuarioAutenticado jefatura =
+        enSesion(guardarUsuario("Jefatura", "jefatura.fotos@ciemsa.com", Rol.JEFATURA, null));
+    asignarOt(cuadrilla);
+
+    subir(jefatura, incidente.getId(), foto("despues.png", PNG))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.length()").value(1));
   }
 
   @Test
@@ -272,5 +334,25 @@ class FotosIncidenteControllerTest {
       resultado[i] = (byte) valores[i];
     }
     return resultado;
+  }
+
+  /** El Operador sube una foto al incidente y devuelve su url. */
+  private String subirUnaFoto() throws Exception {
+    String respuesta =
+        subir(operador, incidente.getId(), foto("frente.jpg", JPEG))
+            .andExpect(status().isCreated())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+    return JsonPath.read(respuesta, "$[0].url");
+  }
+
+  /** Genera la OT del incidente (sin regla de SLA) y la asigna a la cuadrilla para hoy. */
+  private void asignarOt(Cuadrilla aCuadrilla) {
+    Instant ahora = Instant.now();
+    OrdenTrabajo ot = incidente.generarOrdenCorrectiva(ahora, null);
+    ot.asignar(aCuadrilla.getId(), LocalDate.now(), ahora);
+    incidenteRepository.save(incidente);
+    ordenTrabajoRepository.save(ot);
   }
 }
