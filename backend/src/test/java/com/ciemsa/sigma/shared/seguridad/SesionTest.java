@@ -156,6 +156,27 @@ class SesionTest {
         .andExpect(jsonPath("$.idCuadrilla").value(norte.getId()));
   }
 
+  /** HU-20: la cuadrilla cambia con la sesión abierta; la sesión la lee de la base. */
+  @Test
+  void sesion_tecnicoQueCambioDeCuadrilla_devuelveLaNueva() throws Exception {
+    Cuadrilla norte = cuadrillaRepository.save(Cuadrilla.crear("Cuadrilla Norte", "Norte"));
+    Cuadrilla sur = cuadrillaRepository.save(Cuadrilla.crear("Cuadrilla Sur", "Sur"));
+    Usuario juan =
+        usuarioRepository.save(
+            Usuario.crear(
+                "Juan", "juan@ciemsa.com", passwordEncoder.encode(CONTRASENA), Rol.TECNICO, norte));
+    MockHttpSession sesion = iniciarSesion("juan@ciemsa.com");
+
+    // El login guardó la cuenta (intentos fallidos): se relee para no chocar con la versión.
+    Usuario enLaBase = usuarioRepository.findById(juan.getId()).orElseThrow();
+    enLaBase.modificar("Juan", "juan@ciemsa.com", Rol.TECNICO, sur);
+    usuarioRepository.save(enLaBase);
+
+    mvc.perform(get(SESION).session(sesion))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.idCuadrilla").value(sur.getId()));
+  }
+
   @Test
   void sesion_sinLogin_devuelve401() throws Exception {
     mvc.perform(get(SESION))
