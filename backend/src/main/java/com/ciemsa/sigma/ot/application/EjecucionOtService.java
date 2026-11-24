@@ -2,11 +2,13 @@ package com.ciemsa.sigma.ot.application;
 
 import com.ciemsa.sigma.ot.domain.CierreTecnico;
 import com.ciemsa.sigma.ot.domain.OrdenTrabajo;
+import com.ciemsa.sigma.ot.domain.TipoImagen;
 import com.ciemsa.sigma.ot.infrastructure.OrdenTrabajoRepository;
 import com.ciemsa.sigma.shared.domain.ConflictoException;
 import com.ciemsa.sigma.shared.seguridad.UsuarioActual;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +32,7 @@ public class EjecucionOtService {
   private final Clock clock;
   private final ApplicationEventPublisher eventos;
   private final ArmadorDetalleOt armadorDetalleOt;
+  private final FotosCierreService fotosCierreService;
 
   /** Paso 2: Asignada → En proceso, con la hora de inicio. */
   public DetalleOt iniciar(Long idOrdenTrabajo) {
@@ -40,13 +43,14 @@ public class EjecucionOtService {
   }
 
   /**
-   * Pasos 6 a 10: En proceso → Cerrada técnicamente en una sola transacción. Idempotente (R8, 7b y
-   * 8a): si la OT ya se cerró con {@code idOperacion}, devuelve el resultado anterior sin cerrar de
-   * nuevo. La OT se bloquea para que dos reintentos simultáneos no compitan. 8b: si ya no es de la
-   * cuadrilla (reasignada) es 403; si ya no está En proceso (anulada, cerrada con otro envío), 400
-   * con el estado actual.
+   * Pasos 6 a 10: En proceso → Cerrada técnicamente con sus fotos (HU-08), en una sola transacción.
+   * Idempotente (R8, 7b y 8a): si la OT ya se cerró con {@code idOperacion}, devuelve el resultado
+   * anterior sin cerrar de nuevo ni guardar las fotos otra vez. La OT se bloquea para que dos
+   * reintentos simultáneos no compitan. 8b: si ya no es de la cuadrilla (reasignada) es 403; si ya
+   * no está En proceso (anulada, cerrada con otro envío), 400 con el estado actual.
    */
-  public DetalleOt cerrar(Long idOrdenTrabajo, UUID idOperacion, CierreTecnico cierre) {
+  public DetalleOt cerrar(
+      Long idOrdenTrabajo, UUID idOperacion, CierreTecnico cierre, List<FotoCierre> fotos) {
     Objects.requireNonNull(idOperacion, "Falta el id de operación.");
     OrdenTrabajo ot = accesoOt.buscarParaModificar(idOrdenTrabajo);
     Instant ahora = Instant.now(clock);
@@ -58,6 +62,8 @@ public class EjecucionOtService {
           "operacion-repetida", "Ese identificador de operación ya se usó para cerrar otra OT.");
     }
     ot.cerrarTecnicamente(cierre, idOperacion, ahora);
+    List<TipoImagen> tipos = fotosCierreService.validar(fotos);
+    fotosCierreService.guardar(ot.getId(), fotos, tipos);
     return guardarYPublicar(ot, ahora);
   }
 

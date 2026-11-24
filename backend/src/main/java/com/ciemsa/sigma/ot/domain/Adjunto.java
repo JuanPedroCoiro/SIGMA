@@ -15,8 +15,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 /**
- * Archivo adjunto (Fig. 7): por ahora, foto de un incidente (#71). El contenido está en
- * AlmacenArchivos; acá, sus datos y dónde encontrarlo.
+ * Archivo adjunto (Fig. 7): foto de un incidente (#71) o del cierre técnico de una OT (#90), nunca
+ * de los dos. El contenido está en AlmacenArchivos; acá, sus datos y dónde encontrarlo.
  */
 @Entity
 @Table(name = "adjunto")
@@ -31,8 +31,18 @@ public class Adjunto extends BaseEntity {
   @Column(name = "id_adjunto")
   private Long id;
 
-  @Column(name = "id_incidente", nullable = false)
+  /** El incidente, si es una foto del incidente (#71); null si es del cierre de una OT. */
+  @Column(name = "id_incidente")
   private Long idIncidente;
+
+  /** La OT, si es una foto del cierre técnico (#90); null si es del incidente. */
+  @Column(name = "id_orden_trabajo")
+  private Long idOrdenTrabajo;
+
+  /** Antes, Durante o Después: solo en las fotos del cierre (#90). */
+  @Enumerated(EnumType.STRING)
+  @Column(length = 10)
+  private MomentoFoto momento;
 
   /** Solo para mostrar: el archivo se guarda con otro nombre. */
   @Column(name = "nombre_original", nullable = false, length = LARGO_NOMBRE)
@@ -61,6 +71,25 @@ public class Adjunto extends BaseEntity {
       Long idUsuario) {
     Adjunto adjunto = new Adjunto();
     adjunto.idIncidente = Objects.requireNonNull(idIncidente);
+    adjunto.nombreOriginal = limpiarNombre(nombreOriginal);
+    adjunto.tipo = Objects.requireNonNull(tipo);
+    adjunto.tamanioBytes = tamanioBytes;
+    adjunto.ubicacion = Objects.requireNonNull(ubicacion);
+    adjunto.idUsuario = Objects.requireNonNull(idUsuario);
+    return adjunto;
+  }
+
+  public static Adjunto fotoDeCierre(
+      Long idOrdenTrabajo,
+      MomentoFoto momento,
+      String nombreOriginal,
+      TipoImagen tipo,
+      long tamanioBytes,
+      String ubicacion,
+      Long idUsuario) {
+    Adjunto adjunto = new Adjunto();
+    adjunto.idOrdenTrabajo = Objects.requireNonNull(idOrdenTrabajo);
+    adjunto.momento = Objects.requireNonNull(momento);
     adjunto.nombreOriginal = limpiarNombre(nombreOriginal);
     adjunto.tipo = Objects.requireNonNull(tipo);
     adjunto.tamanioBytes = tamanioBytes;

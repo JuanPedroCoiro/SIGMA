@@ -1,13 +1,14 @@
 package com.ciemsa.sigma.ot.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -29,9 +30,12 @@ import com.ciemsa.sigma.ot.infrastructure.IncidenteRepository;
 import com.ciemsa.sigma.ot.infrastructure.OrdenTrabajoRepository;
 import com.ciemsa.sigma.ot.infrastructure.OrganismoRepository;
 import com.ciemsa.sigma.ot.infrastructure.ReglaSlaRepository;
+import com.ciemsa.sigma.shared.archivos.AlmacenArchivos;
 import com.ciemsa.sigma.shared.seguridad.Rol;
 import com.ciemsa.sigma.shared.seguridad.UsuarioAutenticado;
+import com.jayway.jsonpath.JsonPath;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -47,6 +51,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.event.ApplicationEvents;
 import org.springframework.test.context.event.RecordApplicationEvents;
 import org.springframework.test.web.servlet.MockMvc;
@@ -66,7 +71,10 @@ class EjecucionOtControllerTest {
 
   private static final String ORDENES = "/api/v1/ordenes";
   private static final String HASH = "$2a$10$hashDePrueba";
+  private static final byte[] JPEG = bytes(0xFF, 0xD8, 0xFF, 0xE0, 1, 2, 3, 4);
+  private static final byte[] PNG = bytes(0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A, 5, 6);
 
+  @Autowired private AlmacenArchivos almacenArchivos;
   @Autowired private WebApplicationContext context;
   @Autowired private ApplicationEvents eventos;
   @Autowired private JdbcTemplate jdbc;
@@ -123,6 +131,10 @@ class EjecucionOtControllerTest {
   void tearDown() {
     String ordenesDeLaInstalacion =
         " (SELECT id_orden_trabajo FROM orden_trabajo WHERE id_instalacion = ?)";
+    String fotosDeLasOrdenes = " FROM adjunto WHERE id_orden_trabajo IN" + ordenesDeLaInstalacion;
+    jdbc.queryForList("SELECT ubicacion" + fotosDeLasOrdenes, String.class, idInstalacion)
+        .forEach(almacenArchivos::borrar);
+    jdbc.update("DELETE" + fotosDeLasOrdenes, idInstalacion);
     jdbc.update(
         "DELETE FROM pausa_ot WHERE id_orden_trabajo IN" + ordenesDeLaInstalacion, idInstalacion);
     jdbc.update(
@@ -273,17 +285,13 @@ class EjecucionOtControllerTest {
   void cerrar_sinDiagnosticoNiSolucionNiOperacion_devuelve400ConLosCampos() throws Exception {
     iniciar(tecnicoNorte, ot).andExpect(status().isOk());
 
-    mvc.perform(
-            post(ORDENES + "/" + ot.getId() + "/cerrar")
-                .with(user(tecnicoNorte))
-                .with(csrf())
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"diagnostico\": \" \", \"observaciones\": \"Nada\"}"))
-        .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.type").value("/errores/validacion"))
-        .andExpect(jsonPath("$.errores[*].campo").value(hasItem("idOperacion")))
-        .andExpect(jsonPath("$.errores[*].campo").value(hasItem("diagnostico")))
-        .andExpect(jsonPath("$.errores[*].campo").value(hasItem("solucion")));
+    enviarCierre(
+            tecnicoNorte,
+            ot,
+            datos("{\"diagnostico\": \" \", \"observaciones\": \"Nada\"}"),
+            List.of(foto("antes.jpg", JPEG)),
+            List.of("ANTES"))
+        .andExpect(status().isBadRequest());
 
     assertThat(estadoEnLaBase()).isEqualTo(EstadoOT.EN_PROCESO);
   }
@@ -351,10 +359,9 @@ class EjecucionOtControllerTest {
     mvc.perform(post(ORDENES + "/" + ot.getId() + "/iniciar").with(csrf()))
         .andExpect(status().isUnauthorized());
     mvc.perform(
-            post(ORDENES + "/" + ot.getId() + "/cerrar")
-                .with(csrf())
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(cuerpoCierre(UUID.randomUUID(), "D", "S", null)))
+            multipart(ORDENES + "/" + ot.getId() + "/cerrar")
+                .file(datos(cuerpoCierre(UUID.randomUUID(), "D", "S", null)))
+                .with(csrf()))
         .andExpect(status().isUnauthorized());
   }
 
@@ -379,6 +386,7 @@ class EjecucionOtControllerTest {
         post(ORDENES + "/" + orden.getId() + "/iniciar").with(user(quien)).with(csrf()));
   }
 
+  /** El cierre de siempre, con una foto de «Antes» (HU-08 exige al menos una). */
   private ResultActions cerrar(
       UsuarioAutenticado quien,
       OrdenTrabajo orden,
@@ -387,12 +395,40 @@ class EjecucionOtControllerTest {
       String solucion,
       String observaciones)
       throws Exception {
-    return mvc.perform(
-        post(ORDENES + "/" + orden.getId() + "/cerrar")
-            .with(user(quien))
-            .with(csrf())
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(cuerpoCierre(operacion, diagnostico, solucion, observaciones)));
+    return enviarCierre(
+        quien,
+        orden,
+        datos(cuerpoCierre(operacion, diagnostico, solucion, observaciones)),
+        List.of(foto("antes.jpg", JPEG)),
+        List.of("ANTES"));
+  }
+
+  private ResultActions enviarCierre(
+      UsuarioAutenticado quien,
+      OrdenTrabajo orden,
+      MockMultipartFile datos,
+      List<MockMultipartFile> fotos,
+      List<String> momentos)
+      throws Exception {
+    var pedido = multipart(ORDENES + "/" + orden.getId() + "/cerrar").file(datos);
+    fotos.forEach(pedido::file);
+    momentos.forEach(momento -> pedido.param("momentos", momento));
+    return mvc.perform(pedido.with(user(quien)).with(csrf()));
+  }
+
+  private static MockMultipartFile datos(String json) {
+    return new MockMultipartFile(
+        "datos", "", MediaType.APPLICATION_JSON_VALUE, json.getBytes(StandardCharsets.UTF_8));
+  }
+
+  /** El tipo declarado es siempre image/jpeg: lo que vale es el contenido. */
+  private static MockMultipartFile foto(String nombre, byte[] contenido) {
+    return new MockMultipartFile("fotos", nombre, "image/jpeg", contenido);
+  }
+
+  private Integer fotosEnLaBase() {
+    return jdbc.queryForObject(
+        "SELECT count(*) FROM adjunto WHERE id_orden_trabajo = ?", Integer.class, ot.getId());
   }
 
   private static String cuerpoCierre(
@@ -488,5 +524,151 @@ class EjecucionOtControllerTest {
         true,
         null,
         null);
+  }
+
+  // --- Fotos del cierre (#90, HU-08) ---
+
+  @Test
+  void cerrar_conFotos_lasGuardaConSuMomentoYSeVen() throws Exception {
+    iniciar(tecnicoNorte, ot).andExpect(status().isOk());
+
+    enviarCierre(
+            tecnicoNorte,
+            ot,
+            datos(cuerpoCierre(UUID.randomUUID(), "Diagnóstico", "Solución", null)),
+            List.of(foto("antes.jpg", JPEG), foto("despues.png", PNG)),
+            List.of("ANTES", "DESPUES"))
+        .andExpect(status().isOk());
+
+    assertThat(estadoEnLaBase()).isEqualTo(EstadoOT.CERRADA_TECNICA);
+    String respuesta =
+        mvc.perform(get(ORDENES + "/" + ot.getId() + "/fotos").with(user(jefatura)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.length()").value(2))
+            .andExpect(jsonPath("$[0].momento").value("ANTES"))
+            .andExpect(jsonPath("$[0].tipo").value("image/jpeg"))
+            .andExpect(jsonPath("$[1].momento").value("DESPUES"))
+            .andExpect(jsonPath("$[1].tipo").value("image/png"))
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+    String url = JsonPath.read(respuesta, "$[0].url");
+    mvc.perform(get(url).with(user(tecnicoNorte)))
+        .andExpect(status().isOk())
+        .andExpect(content().bytes(JPEG));
+  }
+
+  @Test
+  void cerrar_sinFotos_400YNoCierra() throws Exception {
+    iniciar(tecnicoNorte, ot).andExpect(status().isOk());
+
+    enviarCierre(
+            tecnicoNorte,
+            ot,
+            datos(cuerpoCierre(UUID.randomUUID(), "Diagnóstico", "Solución", null)),
+            List.of(),
+            List.of())
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.type").value("/errores/foto-invalida"))
+        .andExpect(jsonPath("$.detail").value("El cierre técnico exige al menos una foto."));
+
+    assertThat(estadoEnLaBase()).isEqualTo(EstadoOT.EN_PROCESO);
+  }
+
+  @Test
+  void cerrar_masDeSeisFotos_400YNoGuardaNinguna() throws Exception {
+    iniciar(tecnicoNorte, ot).andExpect(status().isOk());
+    List<MockMultipartFile> siete = new ArrayList<>();
+    List<String> momentos = new ArrayList<>();
+    for (int i = 0; i < 7; i++) {
+      siete.add(foto("foto" + i + ".jpg", JPEG));
+      momentos.add("DURANTE");
+    }
+
+    enviarCierre(
+            tecnicoNorte,
+            ot,
+            datos(cuerpoCierre(UUID.randomUUID(), "Diagnóstico", "Solución", null)),
+            siete,
+            momentos)
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.type").value("/errores/foto-invalida"));
+
+    assertThat(estadoEnLaBase()).isEqualTo(EstadoOT.EN_PROCESO);
+    assertThat(fotosEnLaBase()).isZero();
+  }
+
+  @Test
+  void cerrar_unaQueNoEsImagen_400NoCierraNiGuardaLasDemas() throws Exception {
+    iniciar(tecnicoNorte, ot).andExpect(status().isOk());
+
+    enviarCierre(
+            tecnicoNorte,
+            ot,
+            datos(cuerpoCierre(UUID.randomUUID(), "Diagnóstico", "Solución", null)),
+            List.of(foto("antes.jpg", JPEG), foto("texto.jpg", "hola".getBytes())),
+            List.of("ANTES", "DESPUES"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.type").value("/errores/foto-invalida"));
+
+    assertThat(estadoEnLaBase()).isEqualTo(EstadoOT.EN_PROCESO);
+    assertThat(fotosEnLaBase()).isZero();
+  }
+
+  @Test
+  void cerrar_momentosQueNoCoincidenConLasFotos_400() throws Exception {
+    iniciar(tecnicoNorte, ot).andExpect(status().isOk());
+
+    enviarCierre(
+            tecnicoNorte,
+            ot,
+            datos(cuerpoCierre(UUID.randomUUID(), "Diagnóstico", "Solución", null)),
+            List.of(foto("antes.jpg", JPEG), foto("despues.jpg", JPEG)),
+            List.of("ANTES"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.type").value("/errores/foto-invalida"));
+  }
+
+  @Test
+  void cerrar_momentoQueNoExiste_400() throws Exception {
+    iniciar(tecnicoNorte, ot).andExpect(status().isOk());
+
+    enviarCierre(
+            tecnicoNorte,
+            ot,
+            datos(cuerpoCierre(UUID.randomUUID(), "Diagnóstico", "Solución", null)),
+            List.of(foto("antes.jpg", JPEG)),
+            List.of("MIENTRAS"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.type").value("/errores/validacion"));
+  }
+
+  @Test
+  void cerrar_reintentoConLaMismaOperacion_noDuplicaLasFotos() throws Exception {
+    iniciar(tecnicoNorte, ot).andExpect(status().isOk());
+    UUID operacion = UUID.randomUUID();
+
+    cerrar(tecnicoNorte, ot, operacion, "Diagnóstico", "Solución", null).andExpect(status().isOk());
+    cerrar(tecnicoNorte, ot, operacion, "Diagnóstico", "Solución", null).andExpect(status().isOk());
+
+    assertThat(fotosEnLaBase()).isEqualTo(1);
+  }
+
+  @Test
+  void fotosDeLaOt_tecnicoDeOtraCuadrilla_403() throws Exception {
+    iniciar(tecnicoNorte, ot).andExpect(status().isOk());
+    cerrar(tecnicoNorte, ot, UUID.randomUUID(), "Diagnóstico", "Solución", null)
+        .andExpect(status().isOk());
+
+    mvc.perform(get(ORDENES + "/" + ot.getId() + "/fotos").with(user(tecnicoSur)))
+        .andExpect(status().isForbidden());
+  }
+
+  private static byte[] bytes(int... valores) {
+    byte[] resultado = new byte[valores.length];
+    for (int i = 0; i < valores.length; i++) {
+      resultado[i] = (byte) valores[i];
+    }
+    return resultado;
   }
 }

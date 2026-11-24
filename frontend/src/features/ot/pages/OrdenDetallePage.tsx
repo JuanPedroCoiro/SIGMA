@@ -17,7 +17,7 @@ import {
   validarFotosNuevas,
 } from '../fotos'
 import { useFotosIncidente, useSubirFotosIncidente } from '../hooks/useIncidentes'
-import { useOrden } from '../hooks/useOrden'
+import { useFotosOrden, useOrden } from '../hooks/useOrden'
 import {
   ETIQUETA_ESTADO_OT,
   ETIQUETA_MOTIVO,
@@ -25,6 +25,8 @@ import {
   ETIQUETA_PRIORIDAD,
   MOTIVO_QUE_REINICIA_SLA,
   MOTIVOS_PAUSA,
+  ETIQUETA_MOMENTO,
+  MOMENTOS_FOTO,
   type IncidenteDeOT,
   type OrdenTrabajoDetalle,
 } from '../types'
@@ -92,6 +94,8 @@ export function OrdenDetallePage() {
       <AccionesPausa orden={datos} />
 
       {datos.incidente && <Incidente incidente={datos.incidente} />}
+
+      <FotosDeLaIntervencion idOrden={datos.id} />
 
       {datos.tiempos && (
         <section aria-labelledby="titulo-tiempos">
@@ -167,6 +171,43 @@ function Incidente({ incidente }: { incidente: IncidenteDeOT }) {
         {incidente.causa && <Fila termino="Causa" valor={incidente.causa} />}
       </dl>
       <FotosDelIncidente idIncidente={incidente.id} />
+    </section>
+  )
+}
+
+/**
+ * Las fotos del cierre técnico (#90), agrupadas por momento. Las ve quien puede ver la OT. Sin
+ * fotos (la OT todavía no se cerró), no se muestra nada.
+ */
+function FotosDeLaIntervencion({ idOrden }: { idOrden: number }) {
+  const fotos = useFotosOrden(idOrden)
+
+  if (fotos.isPending) return null
+  if (fotos.isError) {
+    return <p className="campo-ayuda">No se pudieron cargar las fotos de la intervención.</p>
+  }
+  if (fotos.data.length === 0) return null
+  return (
+    <section aria-labelledby="titulo-fotos-intervencion">
+      <h2 id="titulo-fotos-intervencion">Fotos de la intervención</h2>
+      {MOMENTOS_FOTO.map((momento) => {
+        const delMomento = fotos.data.filter((foto) => foto.momento === momento)
+        if (delMomento.length === 0) return null
+        return (
+          <div key={momento}>
+            <h3 className="orden-fotos-titulo">{ETIQUETA_MOMENTO[momento]}</h3>
+            <ul className="orden-fotos" aria-label={`Fotos: ${ETIQUETA_MOMENTO[momento]}`}>
+              {delMomento.map((foto) => (
+                <li key={foto.id}>
+                  <a href={foto.url} target="_blank" rel="noreferrer">
+                    <img src={foto.url} alt={foto.nombreOriginal} loading="lazy" />
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )
+      })}
     </section>
   )
 }

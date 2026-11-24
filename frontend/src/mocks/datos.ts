@@ -1,6 +1,7 @@
 import type {
   EstadoIncidente,
   EstadoOT,
+  MomentoFoto,
   MotivoPausa,
   OrigenIncidente,
   PausaOT,
@@ -89,6 +90,12 @@ export type FotoSimulada = {
   subidaEn: string
 }
 
+/** Una foto del cierre técnico (#90). Sin contenido: la imagen es un marcador. */
+export type FotoCierreSimulada = Omit<FotoSimulada, 'idIncidente'> & {
+  idOrdenTrabajo: number
+  momento: MomentoFoto
+}
+
 type Base = {
   usuarios: UsuarioSimulado[]
   cuadrillas: CuadrillaSimulada[]
@@ -97,6 +104,7 @@ type Base = {
   incidentes: IncidenteSimulado[]
   categorias: CategoriaSimulada[]
   fotos: FotoSimulada[]
+  fotosCierre: FotoCierreSimulada[]
   /** Usuario con la sesión abierta, o null. */
   idSesion: number | null
 }
@@ -351,6 +359,7 @@ function crearBaseInicial(): Base {
     incidentes: crearIncidentes(),
     categorias: crearCategorias(),
     fotos: [],
+    fotosCierre: [],
     idSesion: null,
   }
 }
