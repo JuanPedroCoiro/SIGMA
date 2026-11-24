@@ -1,7 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
+  obtenerProblemDetail,
+  tipoProblema,
+  TIPOS_PROBLEMA,
+} from '../../../shared/api/problemDetail'
+import { CLAVE_RESUMEN_INICIO } from '../../pendientes/hooks/useResumenInicio'
+import {
   anularOrden,
   asignarOrdenes,
+  iniciarOrden,
   listarFotosOrden,
   obtenerCargaPorCuadrilla,
   obtenerOrden,
@@ -70,6 +77,39 @@ export function useCargaPorCuadrilla(fecha: string) {
     queryKey: [CLAVE_ORDENES, 'carga-por-cuadrilla', fecha],
     queryFn: () => obtenerCargaPorCuadrilla(fecha),
     enabled: fecha !== '',
+  })
+}
+
+/** Si el error es «ya está En proceso»: el reintento de un inicio que ya se hizo (HU-07). */
+function yaEstabaEnProceso(error: unknown) {
+  const problema = obtenerProblemDetail(error)
+  return (
+    tipoProblema(problema) === TIPOS_PROBLEMA.transicionInvalida &&
+    problema?.estadoActual === 'EN_PROCESO'
+  )
+}
+
+/**
+ * CU-3 paso 2: Asignada → En proceso. Si ya estaba En proceso (el primer intento llegó pero se
+ * perdió la respuesta, o lo inició un compañero), es un éxito: se trae la OT como está.
+ */
+export function useIniciarOrden(id: number) {
+  const queryClient = useQueryClient()
+  const actualizar = useActualizarOrden(id)
+  return useMutation({
+    mutationFn: async () => {
+      try {
+        return await iniciarOrden(id)
+      } catch (error) {
+        if (yaEstabaEnProceso(error)) return obtenerOrden(id)
+        throw error
+      }
+    },
+    onSuccess: (orden) =>
+      Promise.all([
+        actualizar(orden),
+        queryClient.invalidateQueries({ queryKey: CLAVE_RESUMEN_INICIO }),
+      ]),
   })
 }
 
