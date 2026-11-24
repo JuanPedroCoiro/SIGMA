@@ -18,7 +18,8 @@ import java.util.Map;
  * Detalle de una OT: estado, instalación, cuadrilla, incidente, SLA, pausa en curso, tiempos e
  * historial de pausas con quién pausó y reanudó (#57). {@code cuadrilla} es null si no está
  * asignada; {@code incidente}, si es preventiva; {@code tiempos}, si la OT ya no está abierta;
- * {@code iniciadaEn}, si no empezó; {@code cierre}, si nunca se cerró (HU-07).
+ * {@code iniciadaEn}, si no empezó; {@code cierre}, si nunca se cerró (HU-07). {@code tramos}: qué
+ * cuadrilla tuvo la OT y cuándo, del más viejo al más nuevo (HU-20).
  */
 public record OrdenTrabajoDetalle(
     Long id,
@@ -37,7 +38,8 @@ public record OrdenTrabajoDetalle(
     Tiempos tiempos,
     List<Pausa> pausas,
     Instant iniciadaEn,
-    Cierre cierre) {
+    Cierre cierre,
+    List<DetalleOt.Tramo> tramos) {
 
   static OrdenTrabajoDetalle de(DetalleOt detalle) {
     OrdenTrabajo ot = detalle.ordenTrabajo();
@@ -60,7 +62,8 @@ public record OrdenTrabajoDetalle(
         Tiempos.de(detalle.tiempos()),
         pausas,
         ot.getIniciadaEn(),
-        Cierre.de(ot));
+        Cierre.de(ot),
+        detalle.tramos());
   }
 
   /** El último cierre técnico (CU-3): lo lee la Jefatura para validar u observar. */

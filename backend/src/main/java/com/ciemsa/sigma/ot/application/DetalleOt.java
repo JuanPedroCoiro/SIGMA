@@ -5,14 +5,16 @@ import com.ciemsa.sigma.ot.domain.OrigenIncidente;
 import com.ciemsa.sigma.ot.domain.PausaOT;
 import com.ciemsa.sigma.ot.domain.Prioridad;
 import com.ciemsa.sigma.ot.domain.TiemposOT;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 
 /**
  * Una OT con lo que se calcula al consultarla y lo que se lee de otras tablas, armado dentro de la
- * transacción (las pausas son lazy) por {@link ArmadorDetalleOt}. {@code tiempos} es null si la OT
- * ya no está abierta; {@code cuadrilla}, si no está asignada; {@code incidente}, si es preventiva.
- * {@code nombresUsuarios} tiene los nombres de quienes pausaron y reanudaron, por id.
+ * transacción (las pausas y los tramos son lazy) por {@link ArmadorDetalleOt}. {@code tiempos} es
+ * null si la OT ya no está abierta; {@code cuadrilla}, si no está asignada; {@code incidente}, si
+ * es preventiva. {@code nombresUsuarios} tiene los nombres de quienes pausaron y reanudaron, por
+ * id. {@code tramos}: qué cuadrilla tuvo la OT y cuándo (HU-20), del más viejo al más nuevo.
  */
 public record DetalleOt(
     OrdenTrabajo ordenTrabajo,
@@ -22,7 +24,8 @@ public record DetalleOt(
     Instalacion instalacion,
     Cuadrilla cuadrilla,
     Incidente incidente,
-    Map<Long, String> nombresUsuarios) {
+    Map<Long, String> nombresUsuarios,
+    List<Tramo> tramos) {
 
   public record Instalacion(Long id, String codigo, String nombre) {}
 
@@ -38,4 +41,7 @@ public record DetalleOt(
       String descripcion,
       String tercero,
       String causa) {}
+
+  /** {@code hasta} es null mientras la cuadrilla tiene la OT a cargo. */
+  public record Tramo(Long idCuadrilla, String nombreCuadrilla, Instant desde, Instant hasta) {}
 }

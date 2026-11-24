@@ -2,7 +2,9 @@ package com.ciemsa.sigma.pendientes;
 
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
@@ -56,7 +58,8 @@ import org.springframework.web.context.WebApplicationContext;
 
 /**
  * Bandeja «Mis OTs» (#88, HU-07) contra PostgreSQL: las OTs se arman con el dominio y se guardan
- * por los repositorios; anular y reasignar pasan por los endpoints de la Jefatura (#47).
+ * por los repositorios; anular y reasignar pasan por los endpoints de la Jefatura (#47). También
+ * las pendientes sin asignar que el técnico puede tomar (#93, HU-20).
  */
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
@@ -295,6 +298,46 @@ class MisOtsControllerTest {
         .andExpect(jsonPath("$.contenido[*].id").value(contains(ot.getId().intValue())));
   }
 
+  // --- Pendientes sin asignar (HU-20) ---
+
+  @Test
+  void pendientesSinAsignar_soloLasPendientesSinCuadrilla() throws Exception {
+    OrdenTrabajo sinAsignar = guardarOt(Prioridad.MEDIA, null, null, ot -> {});
+    OrdenTrabajo asignada = guardarOt(Prioridad.MEDIA, sur, hoy, ot -> {});
+    OrdenTrabajo enPausa =
+        guardarOt(
+            Prioridad.MEDIA,
+            null,
+            null,
+            ot -> ot.pausar(MotivoPausa.CLIMA, null, operador.getId(), Instant.now()));
+
+    pendientesSinAsignar(tecnicoNorte)
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.contenido[*].id").value(hasItem(sinAsignar.getId().intValue())))
+        .andExpect(jsonPath("$.contenido[*].id").value(not(hasItem(asignada.getId().intValue()))))
+        .andExpect(jsonPath("$.contenido[*].id").value(not(hasItem(enPausa.getId().intValue()))));
+  }
+
+  @Test
+  void pendientesSinAsignar_laMasUrgentePrimero() throws Exception {
+    OrdenTrabajo media = guardarOt(Prioridad.MEDIA, null, null, ot -> {});
+    OrdenTrabajo alta = guardarOt(Prioridad.ALTA, null, null, ot -> {});
+
+    pendientesSinAsignar(tecnicoNorte)
+        .andExpect(status().isOk())
+        .andExpect(
+            jsonPath("$.contenido[?(@.id in [%d, %d])].id".formatted(alta.getId(), media.getId()))
+                .value(contains(alta.getId().intValue(), media.getId().intValue())));
+  }
+
+  @Test
+  void pendientesSinAsignar_operadorYJefatura_devuelven403() throws Exception {
+    mvc.perform(get(MIS_OTS + "/pendientes-sin-asignar").with(user(operador)))
+        .andExpect(status().isForbidden());
+    mvc.perform(get(MIS_OTS + "/pendientes-sin-asignar").with(user(jefatura)))
+        .andExpect(status().isForbidden());
+  }
+
   // --- Permisos ---
 
   @Test
@@ -314,6 +357,12 @@ class MisOtsControllerTest {
 
   private ResultActions misOts(UsuarioAutenticado quien) throws Exception {
     return mvc.perform(get(MIS_OTS).with(user(quien)));
+  }
+
+  /** De a 100 (el máximo): los datos de prueba también tienen pendientes sin asignar. */
+  private ResultActions pendientesSinAsignar(UsuarioAutenticado quien) throws Exception {
+    return mvc.perform(
+        get(MIS_OTS + "/pendientes-sin-asignar").param("size", "100").with(user(quien)));
   }
 
   private void iniciar(OrdenTrabajo ot) {

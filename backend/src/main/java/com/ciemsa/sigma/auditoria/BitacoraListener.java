@@ -8,6 +8,7 @@ import static com.ciemsa.sigma.auditoria.AccionAuditada.CAMBIO_ESTADO;
 import static com.ciemsa.sigma.auditoria.AccionAuditada.CIERRE_SIN_OT;
 import static com.ciemsa.sigma.auditoria.AccionAuditada.DESACTIVACION;
 import static com.ciemsa.sigma.auditoria.AccionAuditada.GENERACION;
+import static com.ciemsa.sigma.auditoria.AccionAuditada.LIBERACION;
 import static com.ciemsa.sigma.auditoria.AccionAuditada.MODIFICACION;
 import static com.ciemsa.sigma.auditoria.AccionAuditada.PAUSA;
 import static com.ciemsa.sigma.auditoria.AccionAuditada.REANUDACION;
@@ -35,6 +36,7 @@ import com.ciemsa.sigma.ot.domain.IncidenteRegistrado;
 import com.ciemsa.sigma.ot.domain.OrdenAnulada;
 import com.ciemsa.sigma.ot.domain.OrdenAsignada;
 import com.ciemsa.sigma.ot.domain.OrdenGenerada;
+import com.ciemsa.sigma.ot.domain.OrdenLiberada;
 import com.ciemsa.sigma.ot.domain.OrdenPausada;
 import com.ciemsa.sigma.ot.domain.OrdenReanudada;
 import java.util.LinkedHashMap;
@@ -166,6 +168,19 @@ class BitacoraListener {
         e.ocurridoEn(),
         null,
         valores("motivo", e.motivo(), "fechaLimite", e.fechaLimite()));
+  }
+
+  /** La cuadrilla que tenía la OT queda como valor anterior: ahora no la tiene nadie (HU-20). */
+  @EventListener
+  public void on(OrdenLiberada e) {
+    auditoria.registrar(
+        ORDEN_TRABAJO,
+        e.idOrdenTrabajo(),
+        LIBERACION,
+        e.idUsuario(),
+        e.ocurridoEn(),
+        valores("idCuadrilla", e.idCuadrilla()),
+        null);
   }
 
   @EventListener

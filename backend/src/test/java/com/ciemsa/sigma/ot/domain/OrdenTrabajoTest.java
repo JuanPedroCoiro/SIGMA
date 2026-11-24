@@ -377,4 +377,90 @@ class OrdenTrabajoTest {
         .isInstanceOf(ReglaNegocioException.class);
     assertThat(ot.tramoAbierto()).isPresent();
   }
+
+  // --- Tomar y liberar (HU-20) ---
+
+  @Test
+  void tomar_pendiente_abreElTramoConLaFechaDeHoy() {
+    OrdenTrabajo ot = correctiva(null);
+
+    ot.tomar(7L, FECHA, INICIO);
+
+    assertThat(ot.getEstado()).isEqualTo(EstadoOT.ASIGNADA);
+    assertThat(ot.getIdCuadrilla()).isEqualTo(7L);
+    assertThat(ot.getFechaEjecucion()).isEqualTo(FECHA);
+    assertThat(ot.tramoAbierto())
+        .hasValueSatisfying(tramo -> assertThat(tramo.getIdCuadrilla()).isEqualTo(7L));
+  }
+
+  @Test
+  void tomar_yaAsignada_lanzaTransicionInvalidaYNoLaQuita() {
+    OrdenTrabajo ot = correctiva(null);
+    ot.tomar(7L, FECHA, INICIO);
+
+    assertThatThrownBy(() -> ot.tomar(8L, FECHA, INICIO.plusSeconds(1)))
+        .isInstanceOf(TransicionInvalidaException.class);
+    assertThat(ot.getIdCuadrilla()).isEqualTo(7L);
+    assertThat(ot.getTramos()).hasSize(1);
+  }
+
+  @Test
+  void extraerEventos_tomar_cambioDeEstadoYAsignacionSinCuadrillaAnterior() {
+    OrdenTrabajo ot = correctiva(null);
+    ReflectionTestUtils.setField(ot, "id", 99L);
+    ot.extraerEventos(USUARIO);
+
+    ot.tomar(7L, FECHA, INICIO);
+
+    assertThat(ot.extraerEventos(5L))
+        .containsExactly(
+            new EstadoOrdenCambiado(99L, EstadoOT.PENDIENTE, EstadoOT.ASIGNADA, 5L, INICIO),
+            new OrdenAsignada(99L, null, 7L, null, FECHA, 5L, INICIO));
+  }
+
+  @Test
+  void liberar_enProceso_quitaCuadrillaYFechaYConservaElInicio() {
+    OrdenTrabajo ot = enProceso();
+    Instant liberada = INICIO.plusSeconds(3600);
+
+    ot.liberar(liberada);
+
+    assertThat(ot.getEstado()).isEqualTo(EstadoOT.PENDIENTE);
+    assertThat(ot.getIdCuadrilla()).isNull();
+    assertThat(ot.getFechaEjecucion()).isNull();
+    assertThat(ot.getIniciadaEn()).isEqualTo(INICIO);
+    assertThat(ot.tramoAbierto()).isEmpty();
+  }
+
+  @Test
+  void extraerEventos_liberar_cambioDeEstadoYOrdenLiberadaConLaCuadrilla() {
+    OrdenTrabajo ot = enProceso();
+    ReflectionTestUtils.setField(ot, "id", 99L);
+    ot.extraerEventos(USUARIO);
+    Instant liberada = INICIO.plusSeconds(3600);
+
+    ot.liberar(liberada);
+
+    assertThat(ot.extraerEventos(5L))
+        .containsExactly(
+            new EstadoOrdenCambiado(99L, EstadoOT.EN_PROCESO, EstadoOT.PENDIENTE, 5L, liberada),
+            new OrdenLiberada(99L, 7L, 5L, liberada));
+  }
+
+  @Test
+  void liberarYTomarOtraCuadrilla_dosTramosYElPrimerInicio() {
+    OrdenTrabajo ot = enProceso();
+    Instant liberada = INICIO.plusSeconds(3600);
+    Instant tomada = INICIO.plusSeconds(7200);
+
+    ot.liberar(liberada);
+    ot.tomar(8L, FECHA, tomada);
+    ot.iniciar(tomada);
+
+    assertThat(ot.getTramos()).hasSize(2);
+    assertThat(ot.getTramos().getFirst().getHasta()).isEqualTo(liberada);
+    assertThat(ot.tramoAbierto())
+        .hasValueSatisfying(tramo -> assertThat(tramo.getIdCuadrilla()).isEqualTo(8L));
+    assertThat(ot.getIniciadaEn()).isEqualTo(INICIO);
+  }
 }
