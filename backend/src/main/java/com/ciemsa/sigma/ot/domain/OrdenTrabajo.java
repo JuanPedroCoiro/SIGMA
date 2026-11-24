@@ -209,8 +209,9 @@ public class OrdenTrabajo extends BaseEntity {
   // Operaciones (Fig. 7 y Fig. 18): delegan en el estado
 
   /**
-   * Asignar, tomar o reasignar. Deja pendiente un {@link OrdenAsignada} con la cuadrilla anterior;
-   * si la cuadrilla y la fecha son las mismas, no cambia nada y no hay evento.
+   * Asignar o reasignar (Jefatura, HU-05). Deja pendiente un {@link OrdenAsignada} con la cuadrilla
+   * anterior; si la cuadrilla y la fecha son las mismas, no cambia nada y no hay evento. El técnico
+   * usa {@link #tomar}.
    */
   public void asignar(Long idCuadrilla, LocalDate fechaEjecucion, Instant ahora) {
     Long anterior = this.idCuadrilla;
@@ -224,8 +225,23 @@ public class OrdenTrabajo extends BaseEntity {
     }
   }
 
+  /**
+   * El técnico toma una OT pendiente para su cuadrilla con la fecha de hoy (HU-20, CU-2 1a). Deja
+   * un {@link OrdenAsignada} sin cuadrilla anterior, como una primera asignación.
+   */
+  public void tomar(Long idCuadrilla, LocalDate hoy, Instant ahora) {
+    estado.tomar(this, idCuadrilla, hoy, ahora);
+    pendientes.add(new AsignacionPendiente(null, idCuadrilla, null, hoy, ahora));
+  }
+
+  /**
+   * La cuadrilla suelta la OT (HU-20): vuelve a Pendiente sin asignar. La hora de inicio se
+   * conserva (es el primer inicio de la intervención); los tramos dicen quién la tuvo.
+   */
   public void liberar(Instant ahora) {
+    Long cuadrilla = this.idCuadrilla; // quitarCuadrilla la pone en null
     estado.liberar(this, ahora);
+    pendientes.add(new LiberacionPendiente(cuadrilla, ahora));
   }
 
   public void iniciar(Instant ahora) {
@@ -281,11 +297,11 @@ public class OrdenTrabajo extends BaseEntity {
 
   /**
    * Devuelve los eventos de dominio pendientes ({@link OrdenGenerada}, {@link EstadoOrdenCambiado},
-   * {@link OrdenAsignada}, {@link OrdenPausada}, {@link OrdenReanudada}, {@link OrdenAnulada}) en
-   * el orden en que ocurrieron y los descarta. Se llama después de guardar, porque los eventos
-   * llevan el id de la OT. {@code idUsuario} es quien hizo la acción: lo pasa el servicio, que
-   * conoce al usuario actual, y queda en los eventos que no lo traen de la operación (para la
-   * bitácora).
+   * {@link OrdenAsignada}, {@link OrdenPausada}, {@link OrdenReanudada}, {@link OrdenLiberada},
+   * {@link OrdenAnulada}) en el orden en que ocurrieron y los descarta. Se llama después de
+   * guardar, porque los eventos llevan el id de la OT. {@code idUsuario} es quien hizo la acción:
+   * lo pasa el servicio, que conoce al usuario actual, y queda en los eventos que no lo traen de la
+   * operación (para la bitácora).
    */
   public List<Object> extraerEventos(Long idUsuario) {
     if (id == null) {
@@ -316,6 +332,8 @@ public class OrdenTrabajo extends BaseEntity {
           new OrdenPausada(id, p.motivo(), p.detalle(), p.idUsuario(), p.ocurridoEn());
       case ReanudacionPendiente r ->
           new OrdenReanudada(id, r.motivo(), r.idUsuario(), r.ocurridoEn(), r.fechaLimite());
+      case LiberacionPendiente l ->
+          new OrdenLiberada(id, l.idCuadrilla(), idUsuario, l.ocurridoEn());
       case AnulacionPendiente a -> new OrdenAnulada(id, a.motivo(), a.idUsuario(), a.ocurridoEn());
     };
   }
@@ -336,9 +354,11 @@ public class OrdenTrabajo extends BaseEntity {
     this.fechaEjecucion = fechaEjecucion;
   }
 
+  /** Al liberar: sin cuadrilla tampoco hay fecha de ejecución. */
   void quitarCuadrilla(Instant ahora) {
     cerrarTramo(ahora);
     this.idCuadrilla = null;
+    this.fechaEjecucion = null;
   }
 
   /** Abre la pausa; la valida (motivo y detalle) antes de cambiar nada. */
@@ -403,7 +423,8 @@ public class OrdenTrabajo extends BaseEntity {
           AsignacionPendiente,
           PausaPendiente,
           ReanudacionPendiente,
-          AnulacionPendiente {}
+          AnulacionPendiente,
+          LiberacionPendiente {}
 
   /** Cambio de estado; anterior null = la OT recién generada. */
   private record CambioPendiente(EstadoOT anterior, EstadoOT nuevo, Instant ocurridoEn)
@@ -428,4 +449,7 @@ public class OrdenTrabajo extends BaseEntity {
   private record ReanudacionPendiente(
       MotivoPausa motivo, Long idUsuario, Instant ocurridoEn, Instant fechaLimite)
       implements Pendiente {}
+
+  /** {@code idCuadrilla} es la que tenía la OT antes de liberarla. */
+  private record LiberacionPendiente(Long idCuadrilla, Instant ocurridoEn) implements Pendiente {}
 }

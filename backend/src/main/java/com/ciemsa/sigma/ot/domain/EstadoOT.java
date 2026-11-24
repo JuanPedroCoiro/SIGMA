@@ -18,6 +18,13 @@ public enum EstadoOT {
       ot.cambiarEstado(ASIGNADA, ahora);
     }
 
+    /** Un técnico toma la OT para su cuadrilla (HU-20): solo si nadie la tiene. */
+    @Override
+    void tomar(OrdenTrabajo ot, Long idCuadrilla, LocalDate hoy, Instant ahora) {
+      ot.registrarAsignacion(idCuadrilla, hoy, ahora);
+      ot.cambiarEstado(ASIGNADA, ahora);
+    }
+
     @Override
     void pausar(
         OrdenTrabajo ot, MotivoPausa motivo, String detalle, Long idUsuario, Instant ahora) {
@@ -138,6 +145,14 @@ public enum EstadoOT {
 
   void asignar(OrdenTrabajo ot, Long idCuadrilla, LocalDate fechaEjecucion, Instant ahora) {
     throw new TransicionInvalidaException(this, "asignar");
+  }
+
+  /**
+   * Solo PENDIENTE la admite. No se reutiliza asignar porque desde ASIGNADA reasigna: un segundo
+   * técnico que toma al mismo tiempo le quitaría la OT al primero.
+   */
+  void tomar(OrdenTrabajo ot, Long idCuadrilla, LocalDate hoy, Instant ahora) {
+    throw new TransicionInvalidaException(this, "tomar");
   }
 
   void liberar(OrdenTrabajo ot, Instant ahora) {

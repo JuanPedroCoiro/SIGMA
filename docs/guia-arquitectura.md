@@ -131,9 +131,10 @@ Se usan nueve patrones, cada uno en un lugar concreto del dominio y la mayoría 
 
 | Operación | Desde | Hacia |
 | --- | --- | --- |
-| `asignar` (asignar o tomar) | Pendiente | Asignada |
+| `asignar` (Jefatura) | Pendiente | Asignada |
+| `tomar` (Técnico, para su cuadrilla y con la fecha de hoy) | Pendiente | Asignada |
 | `asignar` (reasignar) | Asignada | Asignada |
-| `liberar` (borra la cuadrilla) | Asignada, En proceso | Pendiente |
+| `liberar` (borra la cuadrilla y la fecha; conserva la hora de inicio) | Asignada, En proceso | Pendiente |
 | `iniciar` | Asignada | En proceso |
 | `pausar` | Pendiente, Asignada, En proceso | En pausa (guarda el estado anterior) |
 | `reanudar` | En pausa | El estado anterior a la pausa |
@@ -143,6 +144,8 @@ Se usan nueve patrones, cada uno en un lugar concreto del dominio y la mayoría 
 | `anular` | Pendiente, Asignada, o En pausa si antes estaba Pendiente o Asignada | Anulada |
 
 La pausa reemplaza a la suspensión de CU-3 3a (antes «volver a Asignada»): la OT queda En pausa con su motivo (`pausa_ot`) y al reanudar vuelve a donde estaba. Una OT que ya empezó no se anula, ni siquiera desde la pausa.
+
+`tomar` es una operación aparte y no reutiliza `asignar`: desde Asignada, `asignar` reasigna, y un segundo técnico que toma al mismo tiempo le quitaría la OT al primero. Con la fila bloqueada, el segundo la encuentra Asignada y recibe 400. Qué cuadrilla tuvo la OT y cuándo queda en sus tramos (`tramo_cuadrilla_ot`), que se ven en el detalle.
 
 ```java
 // ot/domain/EstadoOT.java (extracto): cada estado sabe qué operaciones admite (Fig. 18)
@@ -443,7 +446,7 @@ La bitácora (`registro_auditoria`, HU-12) se graba en la misma transacción que
 **API REST**
 
 - Prefijo `/api/v1` y recursos en plural, como fija 1.13.1.6.1: `/incidentes`, `/ordenes`, `/instalaciones`, `/materiales`, `/movimientos-stock`.
-- Las acciones de negocio que cambian el estado son subrecursos con POST: `POST /ordenes/{id}/iniciar`, `/ordenes/{id}/pausar`, `/ordenes/{id}/cerrar` (cierre técnico, con `idOperacion` para la idempotencia), `/ordenes/{id}/anular`. La bandeja del técnico es `GET /mis-ots`.
+- Las acciones de negocio que cambian el estado son subrecursos con POST: `POST /ordenes/{id}/iniciar`, `/ordenes/{id}/pausar`, `/ordenes/{id}/cerrar` (cierre técnico, con `idOperacion` para la idempotencia), `/ordenes/{id}/anular`, `/ordenes/{id}/tomar` y `/ordenes/{id}/liberar`. La bandeja del técnico es `GET /mis-ots`, y las pendientes que puede tomar, `GET /mis-ots/pendientes-sin-asignar`.
 - Códigos: 200 lectura, 201 creación con `Location`, 204 sin cuerpo, 400 validación, 401 sin sesión, 403 rol, 404 no existe, 409 conflicto de estado o de versión.
 - **Listados paginados desde la primera pantalla** (decidido el 17/10): `?page=0&size=20&sort=fechaLimiteSla,asc`; respuesta `PageResponse<T>` con `content`, `page`, `size`, `totalElements`. Tamaño por defecto 20 y máximo 100 (`spring.data.web.pageable.max-page-size=100`). Los filtros van como parámetros (`?estado=ASIGNADA&idCuadrilla=3`).
   - **Se paginan:** OT, incidentes, instalaciones, movimientos de stock, auditoría y usuarios, es decir, todo lo que crece con el uso.

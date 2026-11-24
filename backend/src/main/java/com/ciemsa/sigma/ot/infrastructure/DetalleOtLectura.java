@@ -57,4 +57,18 @@ public class DetalleOtLectura {
             .getResultList();
     return filas.stream().collect(Collectors.toMap(f -> (Long) f[0], f -> (String) f[1]));
   }
+
+  /** Nombre de cada cuadrilla de {@code idsCuadrilla}, indexado por su id (para los tramos). */
+  public Map<Long, String> nombresDeCuadrillas(Collection<Long> idsCuadrilla) {
+    if (idsCuadrilla.isEmpty()) {
+      return Map.of();
+    }
+    List<Object[]> filas =
+        entityManager
+            .createQuery(
+                "select c.id, c.nombre from Cuadrilla c where c.id in :ids", Object[].class)
+            .setParameter("ids", idsCuadrilla)
+            .getResultList();
+    return filas.stream().collect(Collectors.toMap(f -> (Long) f[0], f -> (String) f[1]));
+  }
 }

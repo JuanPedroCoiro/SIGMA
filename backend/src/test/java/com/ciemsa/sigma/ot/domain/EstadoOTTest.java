@@ -44,6 +44,7 @@ class EstadoOTTest {
     CERRAR(ot -> ot.cerrarTecnicamente(CIERRE, UUID.randomUUID(), AHORA)),
     VALIDAR(ot -> ot.validar(AHORA)),
     OBSERVAR(ot -> ot.observar(AHORA)),
+    TOMAR(ot -> ot.tomar(OTRA_CUADRILLA, FECHA, AHORA)),
     ANULAR(ot -> ot.anular("Duplicada", USUARIO, AHORA));
 
     private final Consumer<OrdenTrabajo> accion;
@@ -58,7 +59,14 @@ class EstadoOTTest {
       Map.of(
           PENDIENTE,
           Map.of(
-              Operacion.ASIGNAR, ASIGNADA, Operacion.PAUSAR, EN_PAUSA, Operacion.ANULAR, ANULADA),
+              Operacion.ASIGNAR,
+              ASIGNADA,
+              Operacion.TOMAR,
+              ASIGNADA,
+              Operacion.PAUSAR,
+              EN_PAUSA,
+              Operacion.ANULAR,
+              ANULADA),
           ASIGNADA,
           Map.of(
               Operacion.ASIGNAR, ASIGNADA,

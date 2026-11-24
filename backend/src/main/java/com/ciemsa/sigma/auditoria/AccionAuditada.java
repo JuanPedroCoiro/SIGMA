@@ -12,6 +12,7 @@ public enum AccionAuditada {
   REASIGNACION,
   PAUSA,
   REANUDACION,
+  LIBERACION,
   ANULACION,
   // Usuario y cuadrilla
   ALTA,
