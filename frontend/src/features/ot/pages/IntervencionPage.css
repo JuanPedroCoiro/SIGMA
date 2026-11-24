@@ -36,16 +36,19 @@
 }
 
 /* Los botones de pausa, grandes como el resto en el celular. */
-.intervencion-acciones .acciones-pausa {
+.intervencion-acciones .acciones-pausa,
+.cierre-tecnico-pausa .acciones-pausa {
   justify-items: stretch;
 }
 
-.intervencion-acciones .acciones-pausa > .boton {
+.intervencion-acciones .acciones-pausa > .boton,
+.cierre-tecnico-pausa .acciones-pausa > .boton {
   min-height: 3rem;
 }
 
 @media (min-width: 40rem) {
-  .intervencion-acciones .acciones-pausa {
+  .intervencion-acciones .acciones-pausa,
+  .cierre-tecnico-pausa .acciones-pausa {
     justify-items: start;
   }
 }

@@ -1,4 +1,5 @@
-import { Link, useParams } from 'react-router-dom'
+import { useEffect } from 'react'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { obtenerProblemDetail } from '../../../shared/api/problemDetail'
 import { formatearFechaMontevideo, formatearHoraMontevideo } from '../../../shared/lib/fechas'
 import { AccionesPausa } from '../components/AccionesPausa'
@@ -29,6 +30,23 @@ function mensajeDeError(error: unknown) {
 export function IntervencionPage() {
   const id = Number(useParams().id)
   const orden = useOrden(id)
+  const [parametros, setParametros] = useSearchParams()
+  const estado = orden.data?.estado
+
+  // El paso del cierre (`?paso=`) solo tiene sentido En proceso: después de cerrar (o si se
+  // vuelve con «Atrás» a un paso), se saca de la URL.
+  useEffect(() => {
+    if (estado && estado !== 'EN_PROCESO' && parametros.has('paso')) {
+      setParametros(
+        (actuales) => {
+          const siguientes = new URLSearchParams(actuales)
+          siguientes.delete('paso')
+          return siguientes
+        },
+        { replace: true },
+      )
+    }
+  }, [estado, parametros, setParametros])
 
   if (orden.isPending) return <p>Cargando...</p>
   if (orden.isError) {
@@ -107,14 +125,8 @@ function Acciones({ orden }: { orden: OrdenTrabajoDetalle }) {
         </div>
       )
     case 'EN_PROCESO':
-      return (
-        <>
-          <div className="intervencion-acciones">
-            <AccionesPausa orden={orden} />
-          </div>
-          <FormularioCierre key={orden.id} orden={orden} />
-        </>
-      )
+      // «Pausar» va dentro del cierre: sabe si hay algo cargado y pide confirmación.
+      return <FormularioCierre key={orden.id} orden={orden} />
     case 'EN_PAUSA':
       return (
         <div className="intervencion-acciones">

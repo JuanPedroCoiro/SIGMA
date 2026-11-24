@@ -2,6 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { obtenerProblemDetail } from '../../../shared/api/problemDetail'
+import { DialogoConfirmacion } from '../../../shared/components/DialogoConfirmacion'
 import { Modal } from '../../../shared/components/Modal'
 import { aplicarErroresDelServidor } from '../../../shared/lib/erroresFormulario'
 import { esquemaPausa, type CamposPausa, type ValoresPausa } from '../esquemas'
@@ -18,15 +19,22 @@ import './AccionesPausa.css'
 
 type Props = {
   orden: Pick<OrdenTrabajoDetalle, 'id' | 'numero' | 'estado'>
+  /**
+   * Si se indica, «Pausar» pide confirmación con este texto antes de abrir el diálogo de pausa:
+   * por ejemplo, en el cierre técnico con algo cargado, que se pierde al pausar (HU-07).
+   */
+  avisoAntesDePausar?: string | null
 }
 
 /**
  * «Pausar» (con motivo y detalle) o «Reanudar», según el estado de la OT. Se usa en el detalle de
- * la OT y en el tablero (#43). Si la OT no se puede pausar ni reanudar, no muestra nada.
+ * la OT, en el tablero (#43) y en la intervención del técnico (HU-07). Si la OT no se puede pausar
+ * ni reanudar, no muestra nada.
  */
-export function AccionesPausa({ orden }: Props) {
+export function AccionesPausa({ orden, avisoAntesDePausar = null }: Props) {
   const reanudar = useReanudarOrden(orden.id)
   const [dialogoAbierto, setDialogoAbierto] = useState(false)
+  const [confirmando, setConfirmando] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const enPausa = orden.estado === 'EN_PAUSA'
@@ -63,11 +71,25 @@ export function AccionesPausa({ orden }: Props) {
           className="boton boton-secundario"
           onClick={() => {
             setError(null)
-            setDialogoAbierto(true)
+            if (avisoAntesDePausar) setConfirmando(true)
+            else setDialogoAbierto(true)
           }}
         >
           Pausar
         </button>
+      )}
+      {confirmando && (
+        <DialogoConfirmacion
+          titulo={`Pausar ${orden.numero}`}
+          textoConfirmar="Pausar igual"
+          onCancelar={() => setConfirmando(false)}
+          onConfirmar={() => {
+            setConfirmando(false)
+            setDialogoAbierto(true)
+          }}
+        >
+          <p>{avisoAntesDePausar}</p>
+        </DialogoConfirmacion>
       )}
       {dialogoAbierto && <DialogoPausa orden={orden} onCerrar={() => setDialogoAbierto(false)} />}
     </div>
