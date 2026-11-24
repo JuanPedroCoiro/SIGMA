@@ -10,7 +10,7 @@ import {
   type Prioridad,
 } from '../../types'
 import type { FotoElegida } from '../../fotos'
-import { MiniaturasFotos } from './MiniaturasFotos'
+import { MiniaturasFotos } from '../MiniaturasFotos'
 import type { PasoConCampos } from './pasos'
 
 type Props = {

@@ -1,6 +1,6 @@
 import { useState, type ChangeEvent } from 'react'
 import { MAXIMO_FOTOS, TIPOS_FOTO, validarFotosNuevas, type FotoElegida } from '../../fotos'
-import { MiniaturasFotos } from './MiniaturasFotos'
+import { MiniaturasFotos } from '../MiniaturasFotos'
 
 type Props = {
   fotos: readonly FotoElegida[]
