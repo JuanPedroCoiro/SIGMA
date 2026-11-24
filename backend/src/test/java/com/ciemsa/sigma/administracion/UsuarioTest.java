@@ -73,6 +73,50 @@ class UsuarioTest {
     assertThat(usuario.getCuadrilla()).isNull();
   }
 
+  // --- Cambio de cuadrilla por el técnico (HU-20) ---
+
+  @Test
+  void cambiarDeCuadrilla_aOtraActiva_laCambiaYDevuelveTrue() {
+    Cuadrilla norte = cuadrilla("Cuadrilla Norte", 1L);
+    Cuadrilla sur = cuadrilla("Cuadrilla Sur", 2L);
+    Usuario tecnico = Usuario.crear("Juan", "juan@ciemsa.com", HASH, Rol.TECNICO, norte);
+
+    assertThat(tecnico.cambiarDeCuadrilla(sur)).isTrue();
+    assertThat(tecnico.getCuadrilla()).isSameAs(sur);
+  }
+
+  @Test
+  void cambiarDeCuadrilla_aLaMisma_noCambiaNadaYDevuelveFalse() {
+    Cuadrilla norte = cuadrilla("Cuadrilla Norte", 1L);
+    Usuario tecnico = Usuario.crear("Juan", "juan@ciemsa.com", HASH, Rol.TECNICO, norte);
+
+    // Otra instancia con el mismo id, como la que trae la base.
+    assertThat(tecnico.cambiarDeCuadrilla(cuadrilla("Cuadrilla Norte", 1L))).isFalse();
+    assertThat(tecnico.getCuadrilla()).isSameAs(norte);
+  }
+
+  @Test
+  void cambiarDeCuadrilla_aUnaInactiva_lanzaReglaNegocioYNoCambia() {
+    Cuadrilla norte = cuadrilla("Cuadrilla Norte", 1L);
+    Cuadrilla inactiva = cuadrilla("Cuadrilla Centro", 5L);
+    ReflectionTestUtils.setField(inactiva, "activa", false);
+    Usuario tecnico = Usuario.crear("Juan", "juan@ciemsa.com", HASH, Rol.TECNICO, norte);
+
+    assertThatThrownBy(() -> tecnico.cambiarDeCuadrilla(inactiva))
+        .isInstanceOf(ReglaNegocioException.class)
+        .hasMessageContaining("inactiva");
+    assertThat(tecnico.getCuadrilla()).isSameAs(norte);
+  }
+
+  @Test
+  void cambiarDeCuadrilla_noTecnico_lanzaReglaNegocio() {
+    Usuario usuario = operador();
+
+    assertThatThrownBy(() -> usuario.cambiarDeCuadrilla(cuadrilla("Cuadrilla Sur", 2L)))
+        .isInstanceOf(ReglaNegocioException.class);
+    assertThat(usuario.getCuadrilla()).isNull();
+  }
+
   @Test
   void darDeBaja_usuarioActivo_quedaInactivo() {
     Usuario usuario = operador();
@@ -182,6 +226,13 @@ class UsuarioTest {
 
   private static Usuario operador() {
     return Usuario.crear("Ana", "ana@ciemsa.com", HASH, Rol.OPERADOR, null);
+  }
+
+  /** Con id, como una cuadrilla guardada. */
+  private static Cuadrilla cuadrilla(String nombre, Long id) {
+    Cuadrilla cuadrilla = Cuadrilla.crear(nombre, null);
+    ReflectionTestUtils.setField(cuadrilla, "id", id);
+    return cuadrilla;
   }
 
   private static void fallar(Usuario usuario, int veces, Instant cuando) {

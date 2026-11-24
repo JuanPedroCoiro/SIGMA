@@ -89,6 +89,26 @@ public class Usuario extends BaseEntity {
     asignarRol(rol, cuadrilla);
   }
 
+  /**
+   * El técnico se suma a otra cuadrilla activa (HU-20); vuelve a la suya de la misma forma. Las OTs
+   * no se tocan: siguen en la cuadrilla que las tiene. Devuelve false si ya estaba en esa
+   * cuadrilla.
+   */
+  public boolean cambiarDeCuadrilla(Cuadrilla nueva) {
+    Objects.requireNonNull(nueva);
+    if (!rol.requiereCuadrilla()) {
+      throw new ReglaNegocioException("Solo un técnico pertenece a una cuadrilla.");
+    }
+    if (estaEn(nueva)) {
+      return false;
+    }
+    if (!nueva.isActiva()) {
+      throw new ReglaNegocioException("La cuadrilla " + nueva.getNombre() + " está inactiva.");
+    }
+    this.cuadrilla = nueva;
+    return true;
+  }
+
   /** La Jefatura asigna una contraseña nueva (CU-13b). También levanta un bloqueo vigente. */
   public void restablecerContrasena(String nuevoPasswordHash) {
     this.passwordHash = Objects.requireNonNull(nuevoPasswordHash);
@@ -136,6 +156,13 @@ public class Usuario extends BaseEntity {
   /** Un ingreso correcto corta la racha de intentos fallidos. */
   public void registrarIngresoExitoso() {
     desbloquear();
+  }
+
+  /** Por id, porque la cuadrilla actual puede ser un proxy de Hibernate (LAZY). */
+  private boolean estaEn(Cuadrilla otra) {
+    return cuadrilla != null
+        && (cuadrilla == otra
+            || (cuadrilla.getId() != null && cuadrilla.getId().equals(otra.getId())));
   }
 
   private void desbloquear() {

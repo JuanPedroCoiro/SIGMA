@@ -4,6 +4,7 @@ import static com.ciemsa.sigma.auditoria.AccionAuditada.ACTIVACION;
 import static com.ciemsa.sigma.auditoria.AccionAuditada.ALTA;
 import static com.ciemsa.sigma.auditoria.AccionAuditada.ANULACION;
 import static com.ciemsa.sigma.auditoria.AccionAuditada.ASIGNACION;
+import static com.ciemsa.sigma.auditoria.AccionAuditada.CAMBIO_CUADRILLA;
 import static com.ciemsa.sigma.auditoria.AccionAuditada.CAMBIO_ESTADO;
 import static com.ciemsa.sigma.auditoria.AccionAuditada.CIERRE_SIN_OT;
 import static com.ciemsa.sigma.auditoria.AccionAuditada.DESACTIVACION;
@@ -26,6 +27,7 @@ import com.ciemsa.sigma.administracion.eventos.EventosCuadrilla.CuadrillaCreada;
 import com.ciemsa.sigma.administracion.eventos.EventosCuadrilla.CuadrillaDesactivada;
 import com.ciemsa.sigma.administracion.eventos.EventosCuadrilla.CuadrillaModificada;
 import com.ciemsa.sigma.administracion.eventos.EventosUsuario.ContrasenaRestablecida;
+import com.ciemsa.sigma.administracion.eventos.EventosUsuario.CuadrillaCambiada;
 import com.ciemsa.sigma.administracion.eventos.EventosUsuario.UsuarioActivado;
 import com.ciemsa.sigma.administracion.eventos.EventosUsuario.UsuarioCreado;
 import com.ciemsa.sigma.administracion.eventos.EventosUsuario.UsuarioDesactivado;
@@ -268,6 +270,19 @@ class BitacoraListener {
         e.ocurridoEn(),
         valores("activo", false),
         valores("activo", true));
+  }
+
+  /** HU-20: quién (el técnico), cuándo y de qué cuadrilla a cuál. */
+  @EventListener
+  public void on(CuadrillaCambiada e) {
+    auditoria.registrar(
+        USUARIO,
+        e.idCuenta(),
+        CAMBIO_CUADRILLA,
+        e.idUsuario(),
+        e.ocurridoEn(),
+        valores("idCuadrilla", e.idCuadrillaAnterior()),
+        valores("idCuadrilla", e.idCuadrillaNueva()));
   }
 
   // --- Cuadrillas ---
