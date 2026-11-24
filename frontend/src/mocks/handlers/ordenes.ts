@@ -8,6 +8,8 @@ import {
   type PausaOT,
 } from '../../features/ot/types'
 import { TIPOS_PROBLEMA, type ErrorCampo } from '../../shared/api/problemDetail'
+import { MAXIMO_FOTOS_CIERRE } from '../../features/ot/fotosCierre'
+import { MOMENTOS_FOTO, type DatosCierre, type MomentoFoto } from '../../features/ot/types'
 import { hoyEnMontevideo } from '../../shared/lib/fechas'
 import { base, guardarBase, type OrdenSimulada, type PausaSimulada } from '../datos'
 import {
@@ -18,9 +20,11 @@ import {
   sinSesion,
   usuarioEnSesion,
 } from '../problemas'
+import { archivosDe, camposDeTexto, detectarTipo, partesDelMultipart } from './fotos'
 
 // Detalle (con instalación, cuadrilla e incidente, #57), pausar y reanudar una OT (#39). Técnico (solo su cuadrilla), Operador y Jefatura.
 // Asignar y carga por cuadrilla (#41), solo la Jefatura.
+// Iniciar y cierre técnico con fotos (HU-07, HU-08), solo el técnico de la cuadrilla de la OT.
 
 const MINUTO = 60_000
 const PAUSABLES = ['PENDIENTE', 'ASIGNADA', 'EN_PROCESO']
@@ -108,6 +112,13 @@ function respuesta(orden: OrdenSimulada): OrdenTrabajoDetalle {
       ? null
       : { totalMinutos, enPausaMinutos, efectivoMinutos: totalMinutos - pausado },
     pausas: orden.pausas.map(conNombres),
+    iniciadaEn: orden.iniciadaEn,
+    cierre: orden.cierre && {
+      diagnostico: orden.cierre.diagnostico,
+      solucion: orden.cierre.solucion,
+      observaciones: orden.cierre.observaciones,
+      cerradaEn: orden.cierre.cerradaEn,
+    },
   }
 }
 
@@ -134,7 +145,64 @@ const transicionInvalida = (operacion: string, orden: OrdenSimulada) =>
     TIPOS_PROBLEMA.transicionInvalida,
     'Regla de negocio no cumplida',
     `No se puede ${operacion} una OT en estado ${orden.estado}.`,
+    // Como TransicionInvalidaException (CU-3 8b): la pantalla decide con el estado actual.
+    { estadoActual: orden.estado },
   )
+
+/**
+ * Iniciar y cerrar (EjecucionOtController): primero el rol (@PreAuthorize, solo TECNICO); el
+ * acceso a la OT (AccesoOt) lo resuelve `accesoDelTecnico`, después de validar el pedido.
+ */
+function rechazoNoTecnico() {
+  const usuario = usuarioEnSesion()
+  if (!usuario) return sinSesion()
+  if (usuario.rol !== 'TECNICO') return sinPermiso()
+  return null
+}
+
+/** Como AccesoOt.buscarParaModificar para el técnico: 404 si no existe, 403 si no es suya. */
+function accesoDelTecnico(id: string | readonly string[] | undefined) {
+  const usuario = usuarioEnSesion()
+  const orden = base.ordenes.find((o) => o.id === Number(id))
+  if (!orden) {
+    return {
+      rechazo: problema(404, 'no-encontrado', 'Recurso no encontrado', 'No existe la OT.'),
+    }
+  }
+  if (!usuario || orden.idCuadrilla !== usuario.idCuadrilla) return { rechazo: sinPermiso() }
+  return { orden }
+}
+
+const fotoInvalida = (detalle: string) =>
+  problema(400, TIPOS_PROBLEMA.fotoInvalida, 'Regla de negocio no cumplida', detalle)
+
+const MAXIMO_TEXTO_CIERRE = 2000
+
+/** Los errores de @Valid sobre CerrarOtRequest, con los mismos mensajes. */
+function erroresDelCierre(datos: Partial<DatosCierre>): ErrorCampo[] {
+  const errores: ErrorCampo[] = []
+  if (!datos.idOperacion) {
+    errores.push({ campo: 'idOperacion', mensaje: 'Falta el identificador de la operación.' })
+  }
+  const largo = (texto: string | undefined) => (texto ?? '').length > MAXIMO_TEXTO_CIERRE
+  if (!datos.diagnostico?.trim()) {
+    errores.push({ campo: 'diagnostico', mensaje: 'Indicá el diagnóstico.' })
+  } else if (largo(datos.diagnostico)) {
+    errores.push({ campo: 'diagnostico', mensaje: 'El diagnóstico admite hasta 2000 caracteres.' })
+  }
+  if (!datos.solucion?.trim()) {
+    errores.push({ campo: 'solucion', mensaje: 'Indicá la solución.' })
+  } else if (largo(datos.solucion)) {
+    errores.push({ campo: 'solucion', mensaje: 'La solución admite hasta 2000 caracteres.' })
+  }
+  if (largo(datos.observaciones)) {
+    errores.push({
+      campo: 'observaciones',
+      mensaje: 'Las observaciones admiten hasta 2000 caracteres.',
+    })
+  }
+  return errores
+}
 
 export const handlersOrdenes = [
   // Antes que /ordenes/:id: si no, MSW tomaría «carga-por-cuadrilla» como el id de una OT.
@@ -307,6 +375,96 @@ export const handlersOrdenes = [
     }
     orden.estado = orden.estadoAnteriorPausa ?? 'PENDIENTE'
     orden.estadoAnteriorPausa = null
+    guardarBase()
+    return HttpResponse.json(respuesta(orden))
+  }),
+
+  // CU-3 paso 2: Asignada → En proceso, con la hora de inicio.
+  http.post('/api/v1/ordenes/:id/iniciar', ({ params }) => {
+    const rechazoRol = rechazoNoTecnico()
+    if (rechazoRol) return rechazoRol
+    const { rechazo, orden } = accesoDelTecnico(params.id)
+    if (rechazo) return rechazo
+    if (orden.estado !== 'ASIGNADA') return transicionInvalida('iniciar', orden)
+    orden.estado = 'EN_PROCESO'
+    orden.iniciadaEn = new Date().toISOString()
+    guardarBase()
+    return HttpResponse.json(respuesta(orden))
+  }),
+
+  // CU-3 pasos 6 a 10 con las fotos (HU-08), en el orden en que valida el backend: primero el
+  // controller (datos y momentos), después EjecucionOtService (acceso, idempotencia, estado) y
+  // FotosCierreService.validar (cantidad y tipo de las fotos).
+  http.post('/api/v1/ordenes/:id/cerrar', async ({ params, request }) => {
+    const rechazoRol = rechazoNoTecnico()
+    if (rechazoRol) return rechazoRol
+
+    const partes = await partesDelMultipart(request)
+    const parteDatos = partes.find((p) => p.campo === 'datos')
+    const datos: Partial<DatosCierre> = parteDatos
+      ? (JSON.parse(new TextDecoder().decode(parteDatos.bytes)) as Partial<DatosCierre>)
+      : {}
+    const errores = erroresDelCierre(datos)
+    if (errores.length > 0) {
+      return problema(400, TIPOS_PROBLEMA.validacion, 'Datos inválidos', 'Revisá los campos.', {
+        errores,
+      })
+    }
+    const fotos = archivosDe(partes, 'fotos')
+    const momentos = camposDeTexto(partes, 'momentos')
+    if (
+      fotos.length !== momentos.length ||
+      !momentos.every((m) => MOMENTOS_FOTO.includes(m as MomentoFoto))
+    ) {
+      return fotoInvalida('Indicá el momento de cada foto: antes, durante o después del trabajo.')
+    }
+
+    const { rechazo, orden } = accesoDelTecnico(params.id)
+    if (rechazo) return rechazo
+    // Reintento de un cierre ya hecho (R8): el mismo resultado, sin cerrar ni guardar de nuevo.
+    if (orden.cierre?.idOperacion === datos.idOperacion) {
+      return HttpResponse.json(respuesta(orden))
+    }
+    if (base.ordenes.some((o) => o.cierre?.idOperacion === datos.idOperacion)) {
+      return problema(
+        409,
+        TIPOS_PROBLEMA.operacionRepetida,
+        'Conflicto con el estado actual',
+        'Ese identificador de operación ya se usó para cerrar otra OT.',
+      )
+    }
+    if (orden.estado !== 'EN_PROCESO') return transicionInvalida('cerrar', orden)
+    if (fotos.length === 0) return fotoInvalida('El cierre técnico exige al menos una foto.')
+    if (fotos.length > MAXIMO_FOTOS_CIERRE) {
+      return fotoInvalida(`El cierre técnico admite hasta ${MAXIMO_FOTOS_CIERRE} fotos.`)
+    }
+    const tipos: string[] = []
+    for (const foto of fotos) {
+      const tipo = detectarTipo(foto.bytes)
+      if (!tipo) return fotoInvalida(`«${foto.nombre}» no es una imagen JPG, PNG ni WEBP.`)
+      tipos.push(tipo)
+    }
+
+    const ahora = new Date().toISOString()
+    fotos.forEach((foto, i) => {
+      base.fotosCierre.push({
+        id: Math.max(0, ...base.fotosCierre.map((f) => f.id)) + 1,
+        idOrdenTrabajo: orden.id,
+        nombreOriginal: foto.nombre,
+        tipo: tipos[i],
+        tamanioBytes: foto.bytes.byteLength,
+        subidaEn: ahora,
+        momento: momentos[i] as MomentoFoto,
+      })
+    })
+    orden.estado = 'CERRADA_TECNICA'
+    orden.cierre = {
+      idOperacion: datos.idOperacion ?? '',
+      diagnostico: datos.diagnostico?.trim() ?? '',
+      solucion: datos.solucion?.trim() ?? '',
+      observaciones: datos.observaciones?.trim() || null,
+      cerradaEn: ahora,
+    }
     guardarBase()
     return HttpResponse.json(respuesta(orden))
   }),
