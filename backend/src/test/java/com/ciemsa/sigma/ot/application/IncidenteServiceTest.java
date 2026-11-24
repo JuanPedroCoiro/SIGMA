@@ -10,7 +10,17 @@ import static org.mockito.Mockito.when;
 
 import com.ciemsa.sigma.activos.InstalacionService;
 import com.ciemsa.sigma.activos.dto.InstalacionResumen;
-import com.ciemsa.sigma.ot.domain.*;
+import com.ciemsa.sigma.ot.domain.CategoriaFalla;
+import com.ciemsa.sigma.ot.domain.EstadoIncidente;
+import com.ciemsa.sigma.ot.domain.EstadoOT;
+import com.ciemsa.sigma.ot.domain.Incidente;
+import com.ciemsa.sigma.ot.domain.IncidenteCerradoSinOt;
+import com.ciemsa.sigma.ot.domain.IncidenteRegistrado;
+import com.ciemsa.sigma.ot.domain.OrdenGenerada;
+import com.ciemsa.sigma.ot.domain.OrdenTrabajo;
+import com.ciemsa.sigma.ot.domain.OrigenIncidente;
+import com.ciemsa.sigma.ot.domain.Prioridad;
+import com.ciemsa.sigma.ot.domain.ReglaSLA;
 import com.ciemsa.sigma.ot.infrastructure.CategoriaFallaRepository;
 import com.ciemsa.sigma.ot.infrastructure.IncidenteRepository;
 import com.ciemsa.sigma.ot.infrastructure.OrdenTrabajoRepository;

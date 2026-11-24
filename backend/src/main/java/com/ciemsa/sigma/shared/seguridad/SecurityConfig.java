@@ -61,7 +61,6 @@ public class SecurityConfig {
                     .deleteCookies("JSESSIONID"))
         .csrf(csrf -> csrf.spa())
         .addFilterAfter(new CsrfCookieFilter(), CsrfFilter.class)
-        .addFilterAfter(new CsrfCookieFilter(), CsrfFilter.class)
         .addFilterAfter(new UsuarioEnLogFilter(), SecurityContextHolderFilter.class)
         .requestCache(RequestCacheConfigurer::disable)
         .exceptionHandling(
