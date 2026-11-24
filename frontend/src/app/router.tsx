@@ -15,6 +15,7 @@ import { InicioPage } from './InicioPage'
 import { Layout } from './layout/Layout'
 import { NoEncontradaPage } from './NoEncontradaPage'
 import { RutaProtegida } from './rutas/RutaProtegida'
+import { MisOtsPage } from '../features/pendientes/pages/MisOtsPage'
 import { PendientesPage } from '../features/pendientes/pages/PendientesPage'
 
 export const rutas: RouteObject[] = [
@@ -38,6 +39,11 @@ export const rutas: RouteObject[] = [
             // El técnico solo ve las OTs de su cuadrilla: lo verifica el backend.
             element: <RutaProtegida roles={['JEFATURA', 'OPERADOR', 'TECNICO']} />,
             children: [{ path: 'ordenes/:id', element: <OrdenDetallePage /> }],
+          },
+          {
+            // Bandeja e intervención del técnico (HU-07): solo las OTs de su cuadrilla.
+            element: <RutaProtegida roles={['TECNICO']} />,
+            children: [{ path: 'mis-ots', element: <MisOtsPage /> }],
           },
           {
             element: <RutaProtegida roles={['JEFATURA']} />,
