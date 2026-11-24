@@ -56,6 +56,12 @@ describe('router', () => {
     expect(screen.queryByRole('link', { name: 'Mis OTs' })).not.toBeInTheDocument()
   })
 
+  it('rutaDeMisOts_operador_loRedirigeAlInicio', () => {
+    const { router } = renderizarRuta('/mis-ots/1', sesionDe('OPERADOR'))
+
+    expect(router.state.location.pathname).toBe('/')
+  })
+
   it('menu_registrarIncidente_loVenOperadorYJefaturaPeroNoElTecnico', () => {
     // Solo en el menú: el inicio también tiene el botón «Registrar incidente» (#72).
     const menu = () => within(screen.getByRole('navigation', { name: 'Menú principal' }))

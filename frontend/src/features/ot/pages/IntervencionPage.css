@@ -1,0 +1,51 @@
+/* Intervención del técnico (HU-07): una columna, pensada para el celular. */
+.intervencion {
+  display: grid;
+  gap: 1rem;
+  max-width: 40rem;
+}
+
+.intervencion h1,
+.intervencion p {
+  margin: 0;
+}
+
+.intervencion-datos {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.25rem 0.75rem;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.intervencion-datos dt {
+  color: var(--texto-suave);
+}
+
+.intervencion-datos dd {
+  margin: 0;
+}
+
+.intervencion-vencida {
+  color: var(--error);
+}
+
+.intervencion-acciones {
+  display: grid;
+  gap: 0.75rem;
+}
+
+/* Los botones de pausa, grandes como el resto en el celular. */
+.intervencion-acciones .acciones-pausa {
+  justify-items: stretch;
+}
+
+.intervencion-acciones .acciones-pausa > .boton {
+  min-height: 3rem;
+}
+
+@media (min-width: 40rem) {
+  .intervencion-acciones .acciones-pausa {
+    justify-items: start;
+  }
+}

@@ -8,6 +8,7 @@ import { CLAVE_RESUMEN_INICIO } from '../../pendientes/hooks/useResumenInicio'
 import {
   anularOrden,
   asignarOrdenes,
+  cerrarOrden,
   iniciarOrden,
   listarFotosOrden,
   obtenerCargaPorCuadrilla,
@@ -15,7 +16,8 @@ import {
   pausarOrden,
   reanudarOrden,
 } from '../api/ordenesApi'
-import type { DatosAsignacion, DatosPausa, OrdenTrabajoDetalle } from '../types'
+import type { FotoParaCierre } from '../fotosCierre'
+import type { DatosAsignacion, DatosCierre, DatosPausa, OrdenTrabajoDetalle } from '../types'
 
 export const CLAVE_ORDENES = 'ordenes'
 
@@ -108,6 +110,31 @@ export function useIniciarOrden(id: number) {
     onSuccess: (orden) =>
       Promise.all([
         actualizar(orden),
+        queryClient.invalidateQueries({ queryKey: CLAVE_RESUMEN_INICIO }),
+      ]),
+  })
+}
+
+/** Lo que manda el formulario de cierre: los datos (con el idOperacion) y las fotos elegidas. */
+export type EnvioCierre = {
+  datos: DatosCierre
+  fotos: readonly FotoParaCierre[]
+}
+
+/**
+ * CU-3 pasos 6 a 10 con las fotos (HU-08). El idOperacion lo genera el formulario una vez y lo
+ * repite en cada reintento. Al cerrar se recargan la OT, la bandeja, las fotos del cierre y el
+ * resumen del inicio.
+ */
+export function useCerrarOrden(id: number) {
+  const queryClient = useQueryClient()
+  const actualizar = useActualizarOrden(id)
+  return useMutation({
+    mutationFn: ({ datos, fotos }: EnvioCierre) => cerrarOrden(id, datos, fotos),
+    onSuccess: (orden) =>
+      Promise.all([
+        actualizar(orden),
+        queryClient.invalidateQueries({ queryKey: [CLAVE_FOTOS_ORDEN, id] }),
         queryClient.invalidateQueries({ queryKey: CLAVE_RESUMEN_INICIO }),
       ]),
   })

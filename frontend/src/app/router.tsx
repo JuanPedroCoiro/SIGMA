@@ -9,6 +9,7 @@ import { UsuarioDetallePage } from '../features/administracion/pages/UsuarioDeta
 import { UsuariosPage } from '../features/administracion/pages/UsuariosPage'
 import { InicioSesionPage } from '../features/autenticacion/pages/InicioSesionPage'
 import { EstadoPage } from '../features/estado/pages/EstadoPage'
+import { IntervencionPage } from '../features/ot/pages/IntervencionPage'
 import { OrdenDetallePage } from '../features/ot/pages/OrdenDetallePage'
 import { RegistrarIncidentePage } from '../features/ot/pages/RegistrarIncidentePage'
 import { InicioPage } from './InicioPage'
@@ -43,7 +44,10 @@ export const rutas: RouteObject[] = [
           {
             // Bandeja e intervención del técnico (HU-07): solo las OTs de su cuadrilla.
             element: <RutaProtegida roles={['TECNICO']} />,
-            children: [{ path: 'mis-ots', element: <MisOtsPage /> }],
+            children: [
+              { path: 'mis-ots', element: <MisOtsPage /> },
+              { path: 'mis-ots/:id', element: <IntervencionPage /> },
+            ],
           },
           {
             element: <RutaProtegida roles={['JEFATURA']} />,
