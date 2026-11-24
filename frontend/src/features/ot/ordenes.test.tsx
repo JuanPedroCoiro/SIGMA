@@ -268,7 +268,6 @@ describe('detalle de OT con instalación, cuadrilla e incidente (#57)', () => {
   })
 })
 
-<<<<<<< HEAD
 describe('fotos de la intervención en el detalle (#90)', () => {
   it('lasMuestraAgrupadasPorMomento', async () => {
     base.idSesion = ID_OPERADOR
@@ -306,7 +305,9 @@ describe('fotos de la intervención en el detalle (#90)', () => {
     )
     expect(screen.getByRole('list', { name: 'Fotos: Después' })).toBeInTheDocument()
     expect(screen.queryByRole('list', { name: 'Fotos: Durante' })).not.toBeInTheDocument()
-=======
+  })
+})
+
 describe('fotos del incidente en el detalle de la OT (#85)', () => {
   const JPEG = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3, 4])
 
@@ -357,6 +358,5 @@ describe('fotos del incidente en el detalle de la OT (#85)', () => {
 
     expect(await screen.findByLabelText('Agregar fotos')).toBeDisabled()
     expect(screen.getByText('El incidente ya tiene 3 fotos, el máximo.')).toBeInTheDocument()
->>>>>>> origin/develop
   })
 })

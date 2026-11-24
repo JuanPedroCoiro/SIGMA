@@ -9,10 +9,6 @@ import {
 } from '../../../shared/lib/fechas'
 import { AccionesPausa } from '../components/AccionesPausa'
 import { formatearDuracion } from '../duracion'
-<<<<<<< HEAD
-import { useFotosIncidente } from '../hooks/useIncidentes'
-import { useFotosOrden, useOrden } from '../hooks/useOrden'
-=======
 import {
   MAXIMO_FOTOS,
   TIPOS_FOTO,
@@ -21,8 +17,7 @@ import {
   validarFotosNuevas,
 } from '../fotos'
 import { useFotosIncidente, useSubirFotosIncidente } from '../hooks/useIncidentes'
-import { useOrden } from '../hooks/useOrden'
->>>>>>> origin/develop
+import { useFotosOrden, useOrden } from '../hooks/useOrden'
 import {
   ETIQUETA_ESTADO_OT,
   ETIQUETA_MOTIVO,
@@ -181,7 +176,6 @@ function Incidente({ incidente }: { incidente: IncidenteDeOT }) {
 }
 
 /**
-<<<<<<< HEAD
  * Las fotos del cierre técnico (#90), agrupadas por momento. Las ve quien puede ver la OT. Sin
  * fotos (la OT todavía no se cerró), no se muestra nada.
  */
@@ -219,14 +213,10 @@ function FotosDeLaIntervencion({ idOrden }: { idOrden: number }) {
 }
 
 /**
- * Las fotos del incidente (#71). El backend solo se las muestra a Operador y Jefatura, como el
- * registro; al Técnico no se le piden. Sin fotos, no se muestra nada.
-=======
  * Las fotos del incidente (#71, #85). Las ven Operador, Jefatura y el técnico de la cuadrilla que
  * tiene la OT (el backend controla la cuadrilla). Operador y Jefatura pueden agregar fotos después
  * del registro, hasta el máximo: por ejemplo, si falló la subida al registrar. El técnico, sin
  * fotos, no ve la sección.
->>>>>>> origin/develop
  */
 function FotosDelIncidente({ idIncidente }: { idIncidente: number }) {
   const sesion = useSesion()
