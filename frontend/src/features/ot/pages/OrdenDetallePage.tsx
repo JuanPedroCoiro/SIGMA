@@ -1,3 +1,4 @@
+import { useState, type ChangeEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useSesion } from '../../../app/sesion/useSesion'
 import { obtenerProblemDetail } from '../../../shared/api/problemDetail'
@@ -8,7 +9,14 @@ import {
 } from '../../../shared/lib/fechas'
 import { AccionesPausa } from '../components/AccionesPausa'
 import { formatearDuracion } from '../duracion'
-import { useFotosIncidente } from '../hooks/useIncidentes'
+import {
+  MAXIMO_FOTOS,
+  TIPOS_FOTO,
+  mensajeErrorFotos,
+  textoCantidadFotos,
+  validarFotosNuevas,
+} from '../fotos'
+import { useFotosIncidente, useSubirFotosIncidente } from '../hooks/useIncidentes'
 import { useOrden } from '../hooks/useOrden'
 import {
   ETIQUETA_ESTADO_OT,
@@ -164,34 +172,107 @@ function Incidente({ incidente }: { incidente: IncidenteDeOT }) {
 }
 
 /**
- * Las fotos del incidente (#71). El backend solo se las muestra a Operador y Jefatura, como el
- * registro; al Técnico no se le piden. Sin fotos, no se muestra nada.
+ * Las fotos del incidente (#71, #85). Las ven Operador, Jefatura y el técnico de la cuadrilla que
+ * tiene la OT (el backend controla la cuadrilla). Operador y Jefatura pueden agregar fotos después
+ * del registro, hasta el máximo: por ejemplo, si falló la subida al registrar. El técnico, sin
+ * fotos, no ve la sección.
  */
 function FotosDelIncidente({ idIncidente }: { idIncidente: number }) {
   const sesion = useSesion()
-  const puedeVer =
+  const autenticado = sesion.estado === 'autenticado'
+  const puedeSubir =
     sesion.estado === 'autenticado' &&
     (sesion.usuario.rol === 'OPERADOR' || sesion.usuario.rol === 'JEFATURA')
-  const fotos = useFotosIncidente(idIncidente, puedeVer)
+  const fotos = useFotosIncidente(idIncidente, autenticado)
 
-  if (!puedeVer || fotos.isPending) return null
+  if (!autenticado || fotos.isPending) return null
   if (fotos.isError) {
     return <p className="campo-ayuda">No se pudieron cargar las fotos del incidente.</p>
   }
-  if (fotos.data.length === 0) return null
+  if (fotos.data.length === 0 && !puedeSubir) return null
   return (
     <>
       <h3 className="orden-fotos-titulo">Fotos</h3>
-      <ul className="orden-fotos" aria-label="Fotos del incidente">
-        {fotos.data.map((foto) => (
-          <li key={foto.id}>
-            <a href={foto.url} target="_blank" rel="noreferrer">
-              <img src={foto.url} alt={foto.nombreOriginal} loading="lazy" />
-            </a>
-          </li>
-        ))}
-      </ul>
+      {fotos.data.length > 0 ? (
+        <ul className="orden-fotos" aria-label="Fotos del incidente">
+          {fotos.data.map((foto) => (
+            <li key={foto.id}>
+              <a href={foto.url} target="_blank" rel="noreferrer">
+                <img src={foto.url} alt={foto.nombreOriginal} loading="lazy" />
+              </a>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="campo-ayuda">El incidente no tiene fotos.</p>
+      )}
+      {puedeSubir && <AgregarFotos idIncidente={idIncidente} cantidadActual={fotos.data.length} />}
     </>
+  )
+}
+
+/**
+ * Agrega fotos a un incidente ya registrado (#85): se suben apenas se eligen. Las mismas
+ * validaciones que en el registro; el backend vuelve a validar y controla el máximo.
+ */
+function AgregarFotos({
+  idIncidente,
+  cantidadActual,
+}: {
+  idIncidente: number
+  cantidadActual: number
+}) {
+  const subir = useSubirFotosIncidente()
+  const [errores, setErrores] = useState<string[]>([])
+  const [aviso, setAviso] = useState<string | null>(null)
+  const completo = cantidadActual >= MAXIMO_FOTOS
+
+  function elegir(evento: ChangeEvent<HTMLInputElement>) {
+    const archivos = Array.from(evento.target.files ?? [])
+    // Así se puede volver a elegir el mismo archivo si la subida falló.
+    evento.target.value = ''
+    const { aceptadas, errores: rechazos } = validarFotosNuevas(cantidadActual, archivos)
+    setErrores(rechazos)
+    setAviso(null)
+    if (aceptadas.length === 0) return
+    subir.mutate(
+      { idIncidente, archivos: aceptadas },
+      {
+        onSuccess: (subidas) => setAviso(`Se adjuntaron ${textoCantidadFotos(subidas.length)}.`),
+        onError: (error) =>
+          setErrores([...rechazos, `No se pudieron subir las fotos: ${mensajeErrorFotos(error)}`]),
+      },
+    )
+  }
+
+  return (
+    <div className="campo orden-fotos-agregar">
+      <label htmlFor="fotos-nuevas">Agregar fotos</label>
+      <span className="campo-ayuda" id="fotos-nuevas-ayuda">
+        Hasta {MAXIMO_FOTOS} en total, JPG, PNG o WEBP de hasta 10 MB cada una.
+      </span>
+      <input
+        id="fotos-nuevas"
+        type="file"
+        accept={TIPOS_FOTO.join(',')}
+        multiple
+        disabled={completo || subir.isPending}
+        aria-describedby="fotos-nuevas-ayuda"
+        onChange={elegir}
+      />
+      {subir.isPending && <span className="campo-ayuda">Subiendo...</span>}
+      {completo && (
+        <span className="campo-ayuda">El incidente ya tiene {MAXIMO_FOTOS} fotos, el máximo.</span>
+      )}
+      {aviso && <p role="status">{aviso}</p>}
+      {errores.length > 0 && (
+        <ul className="campo-error" role="alert">
+          {errores.map((error) => (
+            <li key={error}>{error}</li>
+          ))}
+        </ul>
+      )}
+    </div>
   )
 }
 

@@ -2,12 +2,13 @@ import { http, HttpResponse } from 'msw/http'
 import { MAXIMO_FOTOS, TAMANIO_MAXIMO_FOTO } from '../../features/ot/fotos'
 import type { FotoIncidente } from '../../features/ot/types'
 import { base, guardarBase, type FotoSimulada } from '../datos'
-import { problema } from '../problemas'
+import { problema, sinPermiso, sinSesion, usuarioEnSesion } from '../problemas'
 import { rechazoJefaturaUOperador } from './pendientes'
 
-// Fotos del incidente (#71), como FotosIncidenteController: Operador y Jefatura. El tipo se
-// reconoce por el contenido. Los datos van en la base simulada; el contenido, solo en memoria
-// (no entra en sessionStorage): después de recargar, la imagen es un marcador.
+// Fotos del incidente (#71), como FotosIncidenteController: suben Operador y Jefatura; las ven ellos
+// y el técnico de la cuadrilla de la OT (#85). El tipo se reconoce por el contenido. Los datos van
+// en la base simulada; el contenido, solo en memoria (no entra en sessionStorage): después de
+// recargar, la imagen es un marcador.
 
 const contenidos = new Map<number, { bytes: Uint8Array<ArrayBuffer>; tipo: string }>()
 
@@ -84,6 +85,20 @@ function fotosDe(idIncidente: number) {
   return base.fotos.filter((f) => f.idIncidente === idIncidente)
 }
 
+/**
+ * Ver las fotos (#85), como AccesoOt.verificarIncidente: Operador y Jefatura, todas; el técnico,
+ * solo las del incidente cuya OT es de su cuadrilla (sin OT, ninguna).
+ */
+function rechazoVerFotos(idIncidente: number) {
+  const usuario = usuarioEnSesion()
+  if (!usuario) return sinSesion()
+  if (usuario.rol === 'JEFATURA' || usuario.rol === 'OPERADOR') return null
+  if (usuario.rol !== 'TECNICO') return sinPermiso()
+  const orden = base.ordenes.find((o) => o.idIncidente === idIncidente)
+  if (!orden || orden.idCuadrilla !== usuario.idCuadrilla) return sinPermiso()
+  return null
+}
+
 export const handlersFotos = [
   http.post('/api/v1/incidentes/:id/fotos', async ({ params, request }) => {
     const rechazo = rechazoJefaturaUOperador()
@@ -134,9 +149,9 @@ export const handlersFotos = [
   }),
 
   http.get('/api/v1/incidentes/:id/fotos', ({ params }) => {
-    const rechazo = rechazoJefaturaUOperador()
-    if (rechazo) return rechazo
     const idIncidente = Number(params.id)
+    const rechazo = rechazoVerFotos(idIncidente)
+    if (rechazo) return rechazo
     if (!base.incidentes.some((i) => i.id === idIncidente)) {
       return noEncontrado(`No existe el incidente ${idIncidente}.`)
     }
@@ -144,7 +159,7 @@ export const handlersFotos = [
   }),
 
   http.get('/api/v1/incidentes/:id/fotos/:idFoto', ({ params }) => {
-    const rechazo = rechazoJefaturaUOperador()
+    const rechazo = rechazoVerFotos(Number(params.id))
     if (rechazo) return rechazo
     const idFoto = Number(params.idFoto)
     const foto = base.fotos.find((f) => f.id === idFoto && f.idIncidente === Number(params.id))

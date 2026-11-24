@@ -267,3 +267,56 @@ describe('detalle de OT con instalación, cuadrilla e incidente (#57)', () => {
     expect(celdas[5]).toHaveTextContent('Técnico de Prueba')
   })
 })
+
+describe('fotos del incidente en el detalle de la OT (#85)', () => {
+  const JPEG = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3, 4])
+
+  function agregarFoto(id: number) {
+    base.fotos.push({
+      id,
+      idIncidente: orden(1).idIncidente!,
+      nombreOriginal: `foto-${id}.jpg`,
+      tipo: 'image/jpeg',
+      tamanioBytes: JPEG.length,
+      subidaEn: new Date().toISOString(),
+    })
+  }
+
+  it('tecnicoDeLaCuadrilla_veLasFotosPeroNoPuedeAgregar', async () => {
+    base.idSesion = ID_TECNICO_NORTE
+    agregarFoto(1)
+
+    renderizarRuta('/ordenes/1')
+
+    const lista = await screen.findByRole('list', { name: 'Fotos del incidente' })
+    expect(within(lista).getByRole('img', { name: 'foto-1.jpg' })).toBeInTheDocument()
+    expect(screen.queryByLabelText('Agregar fotos')).not.toBeInTheDocument()
+  })
+
+  it('operador_agregaUnaFotoDespuesDelRegistro', async () => {
+    base.idSesion = ID_OPERADOR
+    renderizarRuta('/ordenes/1')
+
+    const selector = await screen.findByLabelText('Agregar fotos')
+    expect(screen.getByText('El incidente no tiene fotos.')).toBeInTheDocument()
+    fireEvent.change(selector, {
+      target: { files: [new File([JPEG], 'poste.jpg', { type: 'image/jpeg' })] },
+    })
+
+    expect(await screen.findByText('Se adjuntaron 1 foto.')).toBeInTheDocument()
+    expect(await screen.findByRole('img', { name: 'poste.jpg' })).toBeInTheDocument()
+    expect(base.fotos.filter((f) => f.idIncidente === orden(1).idIncidente)).toHaveLength(1)
+  })
+
+  it('conTresFotos_noPermiteAgregarMas', async () => {
+    base.idSesion = ID_OPERADOR
+    agregarFoto(1)
+    agregarFoto(2)
+    agregarFoto(3)
+
+    renderizarRuta('/ordenes/1')
+
+    expect(await screen.findByLabelText('Agregar fotos')).toBeDisabled()
+    expect(screen.getByText('El incidente ya tiene 3 fotos, el máximo.')).toBeInTheDocument()
+  })
+})
