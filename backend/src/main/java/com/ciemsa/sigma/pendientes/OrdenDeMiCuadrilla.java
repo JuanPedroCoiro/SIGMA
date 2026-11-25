@@ -12,7 +12,9 @@ import java.time.LocalDate;
  * Una OT de la bandeja «Mis OTs» del técnico (CU-3, HU-07). {@code prioridad}, {@code categoria} y
  * {@code numeroIncidente} son null en las preventivas; {@code iniciadaEn}, si todavía no empezó;
  * {@code pausa}, si no está en pausa. {@code estadoAnteriorPausa} solo en EN_PAUSA. La dirección,
- * la ruta y las coordenadas de la instalación son para abrir el mapa desde el celular.
+ * la ruta y las coordenadas de la instalación son para abrir el mapa desde el celular. {@code
+ * observacion}: la última de la Jefatura, si la OT volvió observada (HU-09); null si nunca se
+ * observó.
  */
 public record OrdenDeMiCuadrilla(
     Long id,
@@ -29,7 +31,8 @@ public record OrdenDeMiCuadrilla(
     boolean vencida,
     Instant iniciadaEn,
     Instalacion instalacion,
-    Pausa pausa) {
+    Pausa pausa,
+    Observacion observacion) {
 
   static OrdenDeMiCuadrilla de(FilaOrdenDeMiCuadrilla fila, Instant ahora) {
     return new OrdenDeMiCuadrilla(
@@ -56,7 +59,10 @@ public record OrdenDeMiCuadrilla(
             fila.longitud()),
         fila.motivoPausa() == null
             ? null
-            : new Pausa(fila.motivoPausa(), fila.detallePausa(), fila.inicioPausa()));
+            : new Pausa(fila.motivoPausa(), fila.detallePausa(), fila.inicioPausa()),
+        fila.motivoObservacion() == null
+            ? null
+            : new Observacion(fila.motivoObservacion(), fila.observadaEn()));
   }
 
   public record Instalacion(
@@ -69,4 +75,7 @@ public record OrdenDeMiCuadrilla(
       BigDecimal longitud) {}
 
   public record Pausa(MotivoPausa motivo, String detalle, Instant inicio) {}
+
+  /** La última observación de la Jefatura (HU-09, CU-5 4a): qué tiene que corregir la cuadrilla. */
+  public record Observacion(String motivo, Instant observadaEn) {}
 }

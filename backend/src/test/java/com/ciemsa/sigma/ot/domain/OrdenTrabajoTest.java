@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.ciemsa.sigma.shared.domain.ReglaNegocioException;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -220,7 +221,7 @@ class OrdenTrabajoTest {
     ot.asignar(7L, FECHA, INICIO);
     ot.iniciar(INICIO);
     ot.cerrarTecnicamente(CIERRE, UUID.randomUUID(), INICIO.plusSeconds(60));
-    ot.observar(INICIO.plusSeconds(120));
+    ot.observar("Falta la foto del después", INICIO.plusSeconds(120));
 
     ot.iniciar(INICIO.plusSeconds(180));
 
@@ -277,6 +278,115 @@ class OrdenTrabajoTest {
         .containsExactly(
             new EstadoOrdenCambiado(
                 99L, EstadoOT.EN_PROCESO, EstadoOT.CERRADA_TECNICA, USUARIO, cerrada));
+  }
+
+  // --- Validar u observar (HU-09) ---
+
+  @Test
+  void extraerEventos_observar_cambioDeEstadoYOrdenObservadaConElMotivo() {
+    OrdenTrabajo ot = enProceso();
+    ReflectionTestUtils.setField(ot, "id", 99L);
+    ot.cerrarTecnicamente(CIERRE, UUID.randomUUID(), INICIO.plusSeconds(60));
+    ot.extraerEventos(USUARIO);
+    Instant observada = INICIO.plusSeconds(120);
+
+    ot.observar("  Falta la foto del después  ", observada);
+
+    assertThat(ot.extraerEventos(4L))
+        .containsExactly(
+            new EstadoOrdenCambiado(
+                99L, EstadoOT.CERRADA_TECNICA, EstadoOT.ASIGNADA, 4L, observada),
+            new OrdenObservada(99L, "Falta la foto del después", 4L, observada));
+  }
+
+  @Test
+  void observar_motivoDeMasDe500_lanzaReglaNegocioSinEventos() {
+    OrdenTrabajo ot = enProceso();
+    ReflectionTestUtils.setField(ot, "id", 99L);
+    ot.cerrarTecnicamente(CIERRE, UUID.randomUUID(), INICIO.plusSeconds(60));
+    ot.extraerEventos(USUARIO);
+
+    assertThatThrownBy(() -> ot.observar("x".repeat(501), INICIO.plusSeconds(120)))
+        .isInstanceOf(ReglaNegocioException.class);
+
+    assertThat(ot.extraerEventos(4L)).isEmpty();
+  }
+
+  @Test
+  void observarYCerrarDeNuevo_elCierreNuevoPisaAlAnteriorYQuedaLaObservacion() {
+    OrdenTrabajo ot = enProceso();
+    ot.cerrarTecnicamente(CIERRE, UUID.randomUUID(), INICIO.plusSeconds(60));
+    ot.observar("Falta la foto del después", INICIO.plusSeconds(120));
+    ot.iniciar(INICIO.plusSeconds(180));
+    CierreTecnico segundo = new CierreTecnico("Lámpara roja quemada", "Cambio y foto", null);
+
+    ot.cerrarTecnicamente(segundo, UUID.randomUUID(), INICIO.plusSeconds(240));
+
+    assertThat(ot.getCierre()).isEqualTo(segundo);
+    assertThat(ot.getCerradaEn()).isEqualTo(INICIO.plusSeconds(240));
+    assertThat(ot.getMotivoObservacion()).isEqualTo("Falta la foto del después");
+  }
+
+  @Test
+  void cerradaEnPlazo_justoEnElLimite_cumple() {
+    OrdenTrabajo ot = correctiva(ReglaSLA.crear(1L, Prioridad.ALTA, 2, 8));
+    ot.asignar(7L, FECHA, INICIO);
+    ot.iniciar(INICIO);
+
+    ot.cerrarTecnicamente(CIERRE, UUID.randomUUID(), LIMITE);
+
+    assertThat(ot.cerradaEnPlazo()).isTrue();
+  }
+
+  @Test
+  void cerradaEnPlazo_despuesDelLimite_noCumpleAunqueSeValideAntes() {
+    OrdenTrabajo ot = correctiva(ReglaSLA.crear(1L, Prioridad.ALTA, 2, 8));
+    ot.asignar(7L, FECHA, INICIO);
+    ot.iniciar(INICIO);
+    ot.cerrarTecnicamente(CIERRE, UUID.randomUUID(), LIMITE.plusSeconds(1));
+
+    ot.validar(LIMITE.plusSeconds(60));
+
+    assertThat(ot.cerradaEnPlazo()).isFalse();
+  }
+
+  @Test
+  void cerradaEnPlazo_sinSlaOSinCerrar_esNull() {
+    OrdenTrabajo sinSla = enProceso();
+    sinSla.cerrarTecnicamente(CIERRE, UUID.randomUUID(), INICIO.plusSeconds(60));
+    OrdenTrabajo sinCerrar = correctiva(ReglaSLA.crear(1L, Prioridad.ALTA, 2, 8));
+
+    assertThat(sinSla.cerradaEnPlazo()).isNull();
+    assertThat(sinCerrar.cerradaEnPlazo()).isNull();
+  }
+
+  @Test
+  void momentosFaltantes_soloCuentaLasFotosDelCierrePosteriorALaObservacion() {
+    OrdenTrabajo ot = enProceso();
+    ot.cerrarTecnicamente(CIERRE, UUID.randomUUID(), INICIO.plusSeconds(60));
+    Adjunto antesViejo = foto(MomentoFoto.ANTES, INICIO.plusSeconds(60));
+    Adjunto despuesViejo = foto(MomentoFoto.DESPUES, INICIO.plusSeconds(60));
+    assertThat(ot.momentosFaltantes(List.of(antesViejo, despuesViejo))).isEmpty();
+
+    ot.observar("Las fotos no se ven", INICIO.plusSeconds(120));
+    Adjunto despuesNuevo = foto(MomentoFoto.DESPUES, INICIO.plusSeconds(240));
+
+    assertThat(ot.momentosFaltantes(List.of(antesViejo, despuesViejo, despuesNuevo)))
+        .containsExactly(MomentoFoto.ANTES);
+  }
+
+  @Test
+  void momentosFaltantes_conSoloDurante_faltanAntesYDespues() {
+    OrdenTrabajo ot = enProceso();
+
+    assertThat(ot.momentosFaltantes(List.of(foto(MomentoFoto.DURANTE, INICIO))))
+        .containsExactly(MomentoFoto.ANTES, MomentoFoto.DESPUES);
+  }
+
+  private static Adjunto foto(MomentoFoto momento, Instant creadaEn) {
+    Adjunto foto = Adjunto.fotoDeCierre(1L, momento, "f.jpg", TipoImagen.JPEG, 10, "x", 5L);
+    ReflectionTestUtils.setField(foto, "creadoEn", creadaEn);
+    return foto;
   }
 
   private static OrdenTrabajo enProceso() {

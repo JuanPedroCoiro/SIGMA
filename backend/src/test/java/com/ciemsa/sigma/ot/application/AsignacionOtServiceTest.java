@@ -181,7 +181,10 @@ class AsignacionOtServiceTest {
    */
   private static List<DetalleOt> detallesDe(List<OrdenTrabajo> ordenes) {
     return ordenes.stream()
-        .map(o -> new DetalleOt(o, false, null, List.of(), null, null, null, Map.of(), List.of()))
+        .map(
+            o ->
+                new DetalleOt(
+                    o, false, null, List.of(), null, null, null, Map.of(), List.of(), List.of()))
         .toList();
   }
 }

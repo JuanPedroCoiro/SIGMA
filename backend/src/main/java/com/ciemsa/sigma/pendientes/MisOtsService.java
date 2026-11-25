@@ -46,7 +46,7 @@ public class MisOtsService {
       o.id, o.numero, o.tipo, o.estado, o.estadoAnteriorPausa, inc.prioridad, cat.nombre,
       inc.numero, o.fechaEjecucion, o.fechaLimite, o.iniciadaEn,
       ins.id, ins.codigo, ins.nombre, ins.direccion, ins.rutaZona, ins.latitud, ins.longitud,
-      p.motivo, p.detalle, p.inicio)
+      p.motivo, p.detalle, p.inicio, o.motivoObservacion, o.observadaEn)
   from OrdenTrabajo o
       join Instalacion ins on ins.id = o.idInstalacion
       left join o.incidente inc

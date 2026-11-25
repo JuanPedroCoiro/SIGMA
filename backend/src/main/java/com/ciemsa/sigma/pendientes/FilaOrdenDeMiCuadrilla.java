@@ -30,4 +30,6 @@ public record FilaOrdenDeMiCuadrilla(
     BigDecimal longitud,
     MotivoPausa motivoPausa,
     String detallePausa,
-    Instant inicioPausa) {}
+    Instant inicioPausa,
+    String motivoObservacion,
+    Instant observadaEn) {}

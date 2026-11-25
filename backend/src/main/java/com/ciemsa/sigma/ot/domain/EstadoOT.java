@@ -15,7 +15,7 @@ public enum EstadoOT {
   PENDIENTE {
     @Override
     void asignar(OrdenTrabajo ot, Long idCuadrilla, LocalDate fechaEjecucion, Instant ahora) {
-      ot.registrarAsignacion(idCuadrilla, fechaEjecucion, ahora); // asignar o tomar
+      ot.registrarAsignacion(idCuadrilla, fechaEjecucion, ahora); // asignar
       ot.cambiarEstado(ASIGNADA, ahora);
     }
 
@@ -111,12 +111,15 @@ public enum EstadoOT {
   CERRADA_TECNICA {
     @Override
     void validar(OrdenTrabajo ot, Instant ahora) {
+      ot.registrarValidacion(ahora);
       ot.cambiarEstado(VALIDADA, ahora);
     }
 
+    /** Vuelve a la misma cuadrilla (CU-5 4a); el motivo se valida antes de cambiar el estado. */
     @Override
-    void observar(OrdenTrabajo ot, Instant ahora) {
-      ot.cambiarEstado(ASIGNADA, ahora); // vuelve a la misma cuadrilla
+    void observar(OrdenTrabajo ot, String motivo, Instant ahora) {
+      ot.registrarObservacion(motivo, ahora);
+      ot.cambiarEstado(ASIGNADA, ahora);
     }
 
     @Override
@@ -186,7 +189,7 @@ public enum EstadoOT {
     throw new TransicionInvalidaException(this, "validar");
   }
 
-  void observar(OrdenTrabajo ot, Instant ahora) {
+  void observar(OrdenTrabajo ot, String motivo, Instant ahora) {
     throw new TransicionInvalidaException(this, "observar");
   }
 

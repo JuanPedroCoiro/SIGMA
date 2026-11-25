@@ -139,13 +139,15 @@ Se usan nueve patrones, cada uno en un lugar concreto del dominio y la mayoría 
 | `pausar` | Pendiente, Asignada, En proceso | En pausa (guarda el estado anterior) |
 | `reanudar` | En pausa | El estado anterior a la pausa |
 | `cerrarTecnicamente` | En proceso | Cerrada técnica |
-| `validar` | Cerrada técnica | Validada |
-| `observar` | Cerrada técnica | Asignada |
+| `validar` (Jefatura; guarda `validada_en`) | Cerrada técnica | Validada |
+| `observar` (Jefatura, con motivo) | Cerrada técnica | Asignada, a la misma cuadrilla |
 | `anular` | Pendiente, Asignada, o En pausa si antes estaba Pendiente o Asignada | Anulada |
 
 La pausa reemplaza a la suspensión de CU-3 3a (antes «volver a Asignada»): la OT queda En pausa con su motivo (`pausa_ot`) y al reanudar vuelve a donde estaba. Una OT que ya empezó no se anula, ni siquiera desde la pausa.
 
 `tomar` es una operación aparte y no reutiliza `asignar`: desde Asignada, `asignar` reasigna, y un segundo técnico que toma al mismo tiempo le quitaría la OT al primero. Con la fila bloqueada, el segundo la encuentra Asignada y recibe 400. Qué cuadrilla tuvo la OT y cuándo queda en sus tramos (`tramo_cuadrilla_ot`), que se ven en el detalle.
+
+Validar u observar (HU-09, CU-5). El cumplimiento del SLA no se guarda: `OrdenTrabajo.cerradaEnPlazo()` lo calcula con la fecha del cierre técnico (`cerrada_en`), no con la de validación, y cerrar justo en el límite cumple. Al observar, la OT vuelve a la misma cuadrilla con el motivo; la OT guarda solo la última observación (`motivo_observacion`, `observada_en`), que la cuadrilla ve en «Mis OTs», y el historial queda en la bitácora (`OBSERVACION`). Si al último cierre le falta la foto Antes o la Después (3a), validar responde 409 `/errores/fotos-faltantes` con `momentosFaltantes`: es una advertencia, y la Jefatura valida igual reenviando con `aceptarSinFotos: true`. Las fotos de un cierre anterior a la última observación no cuentan, porque ese cierre se rechazó. El detalle trae `fotosFaltantes` para advertir antes de apretar «Validar».
 
 ```java
 // ot/domain/EstadoOT.java (extracto): cada estado sabe qué operaciones admite (Fig. 18)
@@ -446,8 +448,8 @@ La bitácora (`registro_auditoria`, HU-12) se graba en la misma transacción que
 **API REST**
 
 - Prefijo `/api/v1` y recursos en plural, como fija 1.13.1.6.1: `/incidentes`, `/ordenes`, `/instalaciones`, `/materiales`, `/movimientos-stock`.
-- Las acciones de negocio que cambian el estado son subrecursos con POST: `POST /ordenes/{id}/iniciar`, `/ordenes/{id}/pausar`, `/ordenes/{id}/cerrar` (cierre técnico, con `idOperacion` para la idempotencia), `/ordenes/{id}/anular`, `/ordenes/{id}/tomar` y `/ordenes/{id}/liberar`. La bandeja del técnico es `GET /mis-ots`, y las pendientes que puede tomar, `GET /mis-ots/pendientes-sin-asignar`.
-- Códigos: 200 lectura, 201 creación con `Location`, 204 sin cuerpo, 400 validación, 401 sin sesión, 403 rol, 404 no existe, 409 conflicto de estado o de versión.
+- Las acciones de negocio que cambian el estado son subrecursos con POST: `POST /ordenes/{id}/iniciar`, `/ordenes/{id}/pausar`, `/ordenes/{id}/cerrar` (cierre técnico, con `idOperacion` para la idempotencia), `/ordenes/{id}/anular`, `/ordenes/{id}/tomar`, `/ordenes/{id}/liberar`, `/ordenes/{id}/validar` y `/ordenes/{id}/observar`. La bandeja del técnico es `GET /mis-ots`, y las pendientes que puede tomar, `GET /mis-ots/pendientes-sin-asignar`. Las OTs que esperan la validación de la Jefatura, `GET /pendientes/por-validar`.
+- Códigos: 200 lectura, 201 creación con `Location`, 204 sin cuerpo, 400 validación, 401 sin sesión, 403 rol, 404 no existe, 409 conflicto de estado o de versión, o una advertencia que hay que confirmar (fotos que faltan al validar).
 - **Listados paginados desde la primera pantalla** (decidido el 17/10): `?page=0&size=20&sort=fechaLimiteSla,asc`; respuesta `PageResponse<T>` con `content`, `page`, `size`, `totalElements`. Tamaño por defecto 20 y máximo 100 (`spring.data.web.pageable.max-page-size=100`). Los filtros van como parámetros (`?estado=ASIGNADA&idCuadrilla=3`).
   - **Se paginan:** OT, incidentes, instalaciones, movimientos de stock, auditoría y usuarios, es decir, todo lo que crece con el uso.
   - **No se paginan:** los catálogos chicos (organismos, categorías de falla, reglas de SLA, cuadrillas), que se devuelven como lista completa para los desplegables.

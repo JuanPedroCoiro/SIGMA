@@ -21,6 +21,7 @@ import com.ciemsa.sigma.administracion.Usuario;
 import com.ciemsa.sigma.administracion.UsuarioRepository;
 import com.ciemsa.sigma.administracion.dto.CuadrillaRequest;
 import com.ciemsa.sigma.administracion.dto.CuadrillaResponse;
+import com.ciemsa.sigma.ot.domain.OrdenObservada;
 import com.ciemsa.sigma.ot.infrastructure.OrganismoRepository;
 import com.ciemsa.sigma.shared.seguridad.Rol;
 import com.ciemsa.sigma.shared.seguridad.UsuarioAutenticado;
@@ -42,6 +43,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
@@ -89,6 +91,7 @@ class BitacoraTest {
   @Autowired private JdbcTemplate jdbc;
   @Autowired private JsonMapper jsonMapper;
   @Autowired private TransactionTemplate transacciones;
+  @Autowired private ApplicationEventPublisher publicador;
   @Autowired private AuditoriaService auditoriaService;
   @Autowired private CuadrillaService cuadrillaService;
   @Autowired private UsuarioRepository usuarioRepository;
@@ -625,6 +628,26 @@ class BitacoraTest {
     mvc.perform(get("/api/v1/bitacora?size=500").with(user(jefatura)))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.tamanio").value(100));
+  }
+
+  /**
+   * La observación (HU-09) queda con su motivo. Se publica el evento directo porque el endpoint
+   * llega en un paso posterior; el recorrido completo lo prueba su test de integración.
+   */
+  @Test
+  void observarOt_dejaLaObservacionConElMotivo() {
+    Long idOt = 900_000_000L + System.nanoTime() % 1_000_000;
+
+    transacciones.executeWithoutResult(
+        tx ->
+            publicador.publishEvent(
+                new OrdenObservada(idOt, "Falta la foto del después", jefatura.getId(), AHORA)));
+
+    Registro observacion =
+        unico(registros(EntidadAuditada.ORDEN_TRABAJO, idOt), AccionAuditada.OBSERVACION);
+    esDe(observacion, AccionAuditada.OBSERVACION, jefatura);
+    assertThat(observacion.anterior()).isNull();
+    assertThat(observacion.nuevo().get("motivo").asString()).isEqualTo("Falta la foto del después");
   }
 
   // --- Helpers ---

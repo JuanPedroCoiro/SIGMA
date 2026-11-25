@@ -3,6 +3,7 @@ package com.ciemsa.sigma.ot.api;
 import com.ciemsa.sigma.ot.application.DetalleOt;
 import com.ciemsa.sigma.ot.domain.CierreTecnico;
 import com.ciemsa.sigma.ot.domain.EstadoOT;
+import com.ciemsa.sigma.ot.domain.MomentoFoto;
 import com.ciemsa.sigma.ot.domain.MotivoPausa;
 import com.ciemsa.sigma.ot.domain.OrdenTrabajo;
 import com.ciemsa.sigma.ot.domain.PausaOT;
@@ -19,7 +20,11 @@ import java.util.Map;
  * historial de pausas con quién pausó y reanudó (#57). {@code cuadrilla} es null si no está
  * asignada; {@code incidente}, si es preventiva; {@code tiempos}, si la OT ya no está abierta;
  * {@code iniciadaEn}, si no empezó; {@code cierre}, si nunca se cerró (HU-07). {@code tramos}: qué
- * cuadrilla tuvo la OT y cuándo, del más viejo al más nuevo (HU-20).
+ * cuadrilla tuvo la OT y cuándo, del más viejo al más nuevo (HU-20). Para validar (HU-09, CU-5):
+ * {@code cerradaEnPlazo} se mide con la fecha del cierre técnico (null sin cierre o sin SLA);
+ * {@code observacion}, la última de la Jefatura (null si nunca se observó); {@code validadaEn},
+ * null si no se validó; {@code fotosFaltantes}, los momentos Antes y Después sin foto en el último
+ * cierre, solo mientras está cerrada técnicamente.
  */
 public record OrdenTrabajoDetalle(
     Long id,
@@ -39,7 +44,11 @@ public record OrdenTrabajoDetalle(
     List<Pausa> pausas,
     Instant iniciadaEn,
     Cierre cierre,
-    List<DetalleOt.Tramo> tramos) {
+    List<DetalleOt.Tramo> tramos,
+    Boolean cerradaEnPlazo,
+    Observacion observacion,
+    Instant validadaEn,
+    List<MomentoFoto> fotosFaltantes) {
 
   static OrdenTrabajoDetalle de(DetalleOt detalle) {
     OrdenTrabajo ot = detalle.ordenTrabajo();
@@ -63,7 +72,24 @@ public record OrdenTrabajoDetalle(
         pausas,
         ot.getIniciadaEn(),
         Cierre.de(ot),
-        detalle.tramos());
+        detalle.tramos(),
+        ot.cerradaEnPlazo(),
+        Observacion.de(ot),
+        ot.getValidadaEn(),
+        detalle.fotosFaltantes());
+  }
+
+  /**
+   * La última observación de la Jefatura (HU-09, CU-5 4a): qué hay que corregir. Null si nunca se
+   * observó.
+   */
+  public record Observacion(String motivo, Instant observadaEn) {
+
+    static Observacion de(OrdenTrabajo ot) {
+      return ot.getMotivoObservacion() == null
+          ? null
+          : new Observacion(ot.getMotivoObservacion(), ot.getObservadaEn());
+    }
   }
 
   /** El último cierre técnico (CU-3): lo lee la Jefatura para validar u observar. */

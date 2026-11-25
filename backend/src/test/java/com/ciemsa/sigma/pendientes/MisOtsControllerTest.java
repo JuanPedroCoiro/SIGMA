@@ -298,6 +298,44 @@ class MisOtsControllerTest {
         .andExpect(jsonPath("$.contenido[*].id").value(contains(ot.getId().intValue())));
   }
 
+  @Test
+  void otObservada_vuelveALaBandejaConLaObservacion() throws Exception {
+    OrdenTrabajo ot =
+        guardarOt(
+            Prioridad.MEDIA,
+            norte,
+            hoy,
+            o -> {
+              iniciar(o);
+              o.cerrarTecnicamente(
+                  new CierreTecnico("Diagnóstico", "Solución", null),
+                  UUID.randomUUID(),
+                  Instant.now());
+            });
+    misOts(tecnicoNorte).andExpect(jsonPath("$.totalElementos").value(0));
+
+    mvc.perform(
+            post(ORDENES + "/" + ot.getId() + "/observar")
+                .with(user(jefatura))
+                .with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"motivo\": \"Falta la foto del después\"}"))
+        .andExpect(status().isOk());
+
+    misOts(tecnicoNorte)
+        .andExpect(jsonPath("$.contenido[*].id").value(contains(ot.getId().intValue())))
+        .andExpect(jsonPath("$.contenido[0].estado").value("ASIGNADA"))
+        .andExpect(jsonPath("$.contenido[0].observacion.motivo").value("Falta la foto del después"))
+        .andExpect(jsonPath("$.contenido[0].observacion.observadaEn").isNotEmpty());
+  }
+
+  @Test
+  void otNuncaObservada_sinObservacion() throws Exception {
+    guardarOt(Prioridad.MEDIA, norte, hoy, o -> {});
+
+    misOts(tecnicoNorte).andExpect(jsonPath("$.contenido[0].observacion").value(nullValue()));
+  }
+
   // --- Pendientes sin asignar (HU-20) ---
 
   @Test

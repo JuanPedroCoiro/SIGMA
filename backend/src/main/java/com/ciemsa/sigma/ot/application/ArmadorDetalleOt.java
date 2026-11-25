@@ -1,7 +1,10 @@
 package com.ciemsa.sigma.ot.application;
 
+import com.ciemsa.sigma.ot.domain.EstadoOT;
+import com.ciemsa.sigma.ot.domain.MomentoFoto;
 import com.ciemsa.sigma.ot.domain.OrdenTrabajo;
 import com.ciemsa.sigma.ot.domain.TramoCuadrillaOT;
+import com.ciemsa.sigma.ot.infrastructure.AdjuntoRepository;
 import com.ciemsa.sigma.ot.infrastructure.DetalleOtLectura;
 import com.ciemsa.sigma.ot.infrastructure.FilaDetalleOt;
 import java.time.Instant;
@@ -24,12 +27,16 @@ import org.springframework.stereotype.Component;
 class ArmadorDetalleOt {
 
   private final DetalleOtLectura lectura;
+  private final AdjuntoRepository adjuntoRepository;
 
   DetalleOt armar(OrdenTrabajo ot, Instant ahora) {
     return armar(List.of(ot), ahora).getFirst();
   }
 
-  /** En el mismo orden que {@code ordenes}, con tres consultas en total. */
+  /**
+   * En el mismo orden que {@code ordenes}, con tres consultas en total y una más por cada OT
+   * cerrada técnicamente (sus fotos).
+   */
   List<DetalleOt> armar(List<OrdenTrabajo> ordenes, Instant ahora) {
     Map<Long, FilaDetalleOt> filas =
         lectura.filas(ordenes.stream().map(OrdenTrabajo::getId).toList());
@@ -50,8 +57,22 @@ class ArmadorDetalleOt {
         .map(
             ot ->
                 detalle(
-                    ot, Objects.requireNonNull(filas.get(ot.getId())), nombres, cuadrillas, ahora))
+                    ot,
+                    Objects.requireNonNull(filas.get(ot.getId())),
+                    nombres,
+                    cuadrillas,
+                    fotosFaltantes(ot),
+                    ahora))
         .toList();
+  }
+
+  /** Solo se consultan las fotos de las cerradas: es la advertencia antes de validar (CU-5 3a). */
+  private List<MomentoFoto> fotosFaltantes(OrdenTrabajo ot) {
+    if (ot.getEstado() != EstadoOT.CERRADA_TECNICA) {
+      return List.of();
+    }
+    return ot.momentosFaltantes(
+        adjuntoRepository.findByIdOrdenTrabajoOrderByCreadoEnAscIdAsc(ot.getId()));
   }
 
   private static DetalleOt detalle(
@@ -59,6 +80,7 @@ class ArmadorDetalleOt {
       FilaDetalleOt fila,
       Map<Long, String> nombres,
       Map<Long, String> cuadrillas,
+      List<MomentoFoto> fotosFaltantes,
       Instant ahora) {
     return new DetalleOt(
         ot,
@@ -90,6 +112,7 @@ class ArmadorDetalleOt {
                         cuadrillas.get(t.getIdCuadrilla()),
                         t.getDesde(),
                         t.getHasta()))
-            .toList());
+            .toList(),
+        fotosFaltantes);
   }
 }

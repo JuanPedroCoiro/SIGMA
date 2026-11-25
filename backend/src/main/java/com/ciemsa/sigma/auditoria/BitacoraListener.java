@@ -10,6 +10,7 @@ import static com.ciemsa.sigma.auditoria.AccionAuditada.DESACTIVACION;
 import static com.ciemsa.sigma.auditoria.AccionAuditada.GENERACION;
 import static com.ciemsa.sigma.auditoria.AccionAuditada.LIBERACION;
 import static com.ciemsa.sigma.auditoria.AccionAuditada.MODIFICACION;
+import static com.ciemsa.sigma.auditoria.AccionAuditada.OBSERVACION;
 import static com.ciemsa.sigma.auditoria.AccionAuditada.PAUSA;
 import static com.ciemsa.sigma.auditoria.AccionAuditada.REANUDACION;
 import static com.ciemsa.sigma.auditoria.AccionAuditada.REASIGNACION;
@@ -37,6 +38,7 @@ import com.ciemsa.sigma.ot.domain.OrdenAnulada;
 import com.ciemsa.sigma.ot.domain.OrdenAsignada;
 import com.ciemsa.sigma.ot.domain.OrdenGenerada;
 import com.ciemsa.sigma.ot.domain.OrdenLiberada;
+import com.ciemsa.sigma.ot.domain.OrdenObservada;
 import com.ciemsa.sigma.ot.domain.OrdenPausada;
 import com.ciemsa.sigma.ot.domain.OrdenReanudada;
 import java.util.LinkedHashMap;
@@ -181,6 +183,23 @@ class BitacoraListener {
         e.ocurridoEn(),
         valores("idCuadrilla", e.idCuadrilla()),
         null);
+  }
+
+  /**
+   * La Jefatura observó la OT cerrada (HU-09, CU-5 4a): el motivo queda como valor nuevo. El paso
+   * de Cerrada técnica a Asignada lo registra el EstadoOrdenCambiado; validar queda solo como ese
+   * cambio de estado, a VALIDADA.
+   */
+  @EventListener
+  public void on(OrdenObservada e) {
+    auditoria.registrar(
+        ORDEN_TRABAJO,
+        e.idOrdenTrabajo(),
+        OBSERVACION,
+        e.idUsuario(),
+        e.ocurridoEn(),
+        null,
+        valores("motivo", e.motivo()));
   }
 
   @EventListener

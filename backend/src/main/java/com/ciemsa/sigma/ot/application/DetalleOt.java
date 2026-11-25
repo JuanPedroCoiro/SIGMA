@@ -1,5 +1,6 @@
 package com.ciemsa.sigma.ot.application;
 
+import com.ciemsa.sigma.ot.domain.MomentoFoto;
 import com.ciemsa.sigma.ot.domain.OrdenTrabajo;
 import com.ciemsa.sigma.ot.domain.OrigenIncidente;
 import com.ciemsa.sigma.ot.domain.PausaOT;
@@ -14,7 +15,9 @@ import java.util.Map;
  * transacción (las pausas y los tramos son lazy) por {@link ArmadorDetalleOt}. {@code tiempos} es
  * null si la OT ya no está abierta; {@code cuadrilla}, si no está asignada; {@code incidente}, si
  * es preventiva. {@code nombresUsuarios} tiene los nombres de quienes pausaron y reanudaron, por
- * id. {@code tramos}: qué cuadrilla tuvo la OT y cuándo (HU-20), del más viejo al más nuevo.
+ * id. {@code tramos}: qué cuadrilla tuvo la OT y cuándo (HU-20), del más viejo al más nuevo. {@code
+ * fotosFaltantes}: si está cerrada técnicamente, los momentos obligatorios sin foto en el último
+ * cierre (HU-09, CU-5 3a); vacía en cualquier otro estado.
  */
 public record DetalleOt(
     OrdenTrabajo ordenTrabajo,
@@ -25,7 +28,8 @@ public record DetalleOt(
     Cuadrilla cuadrilla,
     Incidente incidente,
     Map<Long, String> nombresUsuarios,
-    List<Tramo> tramos) {
+    List<Tramo> tramos,
+    List<MomentoFoto> fotosFaltantes) {
 
   public record Instalacion(Long id, String codigo, String nombre) {}
 
