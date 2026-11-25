@@ -152,6 +152,10 @@ public enum EstadoOT {
    */
   public static final List<EstadoOT> EN_CURSO = List.of(PENDIENTE, ASIGNADA, EN_PROCESO, EN_PAUSA);
 
+  /** Las que ya no están en curso: el historial de la instalación (HU-10, CU-8). */
+  public static final List<EstadoOT> ESTADOS_HISTORIAL =
+      List.of(CERRADA_TECNICA, VALIDADA, ANULADA);
+
   /** Si la OT sigue pendiente de resolución: solo una OT abierta puede vencer. */
   public boolean estaAbierta() {
     return true;
