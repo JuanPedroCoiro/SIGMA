@@ -67,12 +67,27 @@ function incidenteDe(orden: OrdenSimulada): IncidenteDeOT | null {
   }
 }
 
+const CERRADAS = ['CERRADA_TECNICA', 'VALIDADA', 'ANULADA']
+
+/**
+ * Como OrdenTrabajo.estaVencida: tiene fecha límite, sigue abierta y ya la pasó. En pausa por un
+ * tercero no vence. La usan el detalle y la ficha de la instalación (HU-10).
+ */
+export function estaVencida(orden: OrdenSimulada, ahora: number = Date.now()) {
+  const abierta = orden.pausas.find((p) => p.fin === null)
+  return (
+    !CERRADAS.includes(orden.estado) &&
+    abierta?.motivo !== 'TERCERO' &&
+    orden.fechaLimite !== null &&
+    new Date(orden.fechaLimite).getTime() < ahora
+  )
+}
+
 /** La OT como la devuelve OrdenTrabajoDetalle, con lo que se calcula al consultarla (#57). */
 function respuesta(orden: OrdenSimulada): OrdenTrabajoDetalle {
   const ahora = Date.now()
   const abierta = orden.pausas.find((p) => p.fin === null) ?? null
-  const enPausaPorTercero = abierta?.motivo === 'TERCERO'
-  const cerrada = ['CERRADA_TECNICA', 'VALIDADA', 'ANULADA'].includes(orden.estado)
+  const cerrada = CERRADAS.includes(orden.estado)
   const enPausaMinutos: Partial<Record<MotivoPausa, number>> = {}
   for (const pausa of orden.pausas) {
     const duracion = minutos(pausa.inicio, pausa.fin ? new Date(pausa.fin).getTime() : ahora)
@@ -98,11 +113,7 @@ function respuesta(orden: OrdenSimulada): OrdenTrabajoDetalle {
     inicioSla: orden.inicioSla,
     fechaLimite: orden.fechaLimite,
     slaDefinido: orden.fechaLimite !== null,
-    vencida:
-      !cerrada &&
-      !enPausaPorTercero &&
-      orden.fechaLimite !== null &&
-      new Date(orden.fechaLimite).getTime() < ahora,
+    vencida: estaVencida(orden, ahora),
     pausaAbierta: abierta && conNombres(abierta),
     tiempos: cerrada
       ? null

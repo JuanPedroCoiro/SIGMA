@@ -43,6 +43,11 @@ export type InstalacionSimulada = {
   longitud: number
   /** La instalación es de un organismo sin reglas de SLA: su OT queda «SLA sin definir» (8a). */
   sinReglaSla?: boolean
+  /** Se completan después de la importación (HU-10, 2b): sin cargar, la ficha dice «Sin datos». */
+  tipo?: string | null
+  direccion?: string | null
+  /** Sin el campo, activa. */
+  activa?: boolean
 }
 
 /** Se guardan solo los ids: los nombres se buscan al responder, como hace el backend. */
@@ -112,8 +117,9 @@ type Base = {
 // Con versión: cuando cambia la forma de los datos se sube, y la base vieja guardada en la
 // pestaña se descarta en lugar de mezclarse con la nueva (#61). v3: fechaEjecucion (#41). v4:
 // categorías de falla e instalación sin regla de SLA (#40). v5: detalle de OT con instalación,
-// cuadrilla e incidente (#57). v6: fotos del incidente (#71).
-const CLAVE_ALMACEN = 'sigma.apiSimulada.v6'
+// cuadrilla e incidente (#57). v6: fotos del incidente (#71). v7: la usa #110. v8: tipo,
+// dirección y activa de la instalación (HU-10, #92).
+const CLAVE_ALMACEN = 'sigma.apiSimulada.v8'
 
 const NOMBRES = ['Ana', 'Bruno', 'Carla', 'Diego', 'Elena', 'Fabián', 'Gabriela', 'Hernán']
 const APELLIDOS = ['Acosta', 'Benítez', 'Cabrera', 'Duarte']
@@ -157,6 +163,8 @@ function crearInstalaciones(): InstalacionSimulada[] {
       latitud: Number((-34.9 + i * 0.012345).toFixed(6)),
       longitud: Number((-56.2 + i * 0.023456).toFixed(6)),
       ...(sinReglaSla && { sinReglaSla }),
+      // Solo la primera tiene tipo y dirección: las demás muestran «Sin datos» en la ficha.
+      ...(numero === 1 && { tipo: 'Semáforo vehicular', direccion: 'Av. Ficticia 1234' }),
     }
   })
 }

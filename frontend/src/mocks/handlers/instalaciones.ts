@@ -1,10 +1,12 @@
 import { http, HttpResponse } from 'msw/http'
 import { TIPOS_PROBLEMA } from '../../shared/api/problemDetail'
-import { base, guardarBase, type InstalacionSimulada } from '../datos'
+import type { FichaInstalacion, OrdenEnCursoFicha } from '../../features/activos/types'
+import { base, guardarBase, type InstalacionSimulada, type OrdenSimulada } from '../datos'
 import { problema, sinPermiso, sinSesion, usuarioEnSesion } from '../problemas'
+import { estaVencida } from './ordenes'
 
 // Endpoints de instalaciones acordados con el backend (HU-02): el listado es para JEFATURA y
-// OPERADOR; la importación, solo para JEFATURA.
+// OPERADOR; la importación, solo para JEFATURA. La ficha (HU-10), para todos los roles.
 
 const TAMANIO_POR_DEFECTO = 20
 const TAMANIO_MAXIMO = 100
@@ -98,15 +100,93 @@ async function textoDelArchivo(request: Request) {
   return parte.slice(parte.indexOf('\r\n\r\n') + 4).replace(/\r\n$/, '')
 }
 
+/** Como EstadoOT.EN_CURSO. */
+const EN_CURSO = ['PENDIENTE', 'ASIGNADA', 'EN_PROCESO', 'EN_PAUSA']
+
+/** La simulada sin reglas de SLA es de otro organismo; las demás, de MTOP. */
+function organismoDe(instalacion: InstalacionSimulada) {
+  return instalacion.sinReglaSla
+    ? { id: 2, nombre: 'Organismo de prueba sin SLA' }
+    : { id: 1, nombre: 'MTOP' }
+}
+
+/** Primero la que vence antes; sin SLA, al final; a igual fecha, la más vieja (FichaInstalacionService). */
+function porVencimiento(a: OrdenSimulada, b: OrdenSimulada) {
+  const limite = (o: OrdenSimulada) =>
+    o.fechaLimite === null ? Number.POSITIVE_INFINITY : new Date(o.fechaLimite).getTime()
+  return (
+    limite(a) - limite(b) ||
+    new Date(a.creadaEn).getTime() - new Date(b.creadaEn).getTime() ||
+    a.id - b.id
+  )
+}
+
+function enCurso(orden: OrdenSimulada, puedeVerDetalle: boolean): OrdenEnCursoFicha {
+  const cuadrilla = base.cuadrillas.find((c) => c.id === orden.idCuadrilla)
+  const incidente = base.incidentes.find((i) => i.id === orden.idIncidente)
+  return {
+    id: orden.id,
+    numero: orden.numero,
+    tipo: orden.idIncidente === null ? 'PREVENTIVA' : 'CORRECTIVA',
+    estado: orden.estado,
+    prioridad: orden.prioridad,
+    fechaLimite: orden.fechaLimite,
+    slaDefinido: orden.fechaLimite !== null,
+    vencida: estaVencida(orden),
+    cuadrilla: cuadrilla ? { id: cuadrilla.id, nombre: cuadrilla.nombre } : null,
+    numeroIncidente: incidente?.numero ?? null,
+    creadoEn: orden.creadaEn,
+    puedeVerDetalle,
+  }
+}
+
 export const handlersInstalaciones = [
+  // Ficha (HU-10): todos los roles, también las inactivas. Un técnico solo puede abrir las OTs de
+  // su cuadrilla, como AccesoOt.
+  http.get('/api/v1/instalaciones/:id/ficha', ({ params }) => {
+    const usuario = usuarioEnSesion()
+    if (!usuario) return sinSesion()
+    if (!['JEFATURA', 'OPERADOR', 'TECNICO'].includes(usuario.rol)) return sinPermiso()
+    const instalacion = base.instalaciones.find((i) => i.id === Number(params.id))
+    if (!instalacion) {
+      return problema(
+        404,
+        'no-encontrado',
+        'Recurso no encontrado',
+        `No existe la instalación ${String(params.id)}.`,
+      )
+    }
+    const puedeVer = (o: OrdenSimulada) =>
+      usuario.rol !== 'TECNICO' || (o.idCuadrilla !== null && o.idCuadrilla === usuario.idCuadrilla)
+    const ficha: FichaInstalacion = {
+      id: instalacion.id,
+      codigo: instalacion.codigo,
+      nombre: instalacion.nombre,
+      rutaZona: instalacion.rutaZona,
+      latitud: instalacion.latitud,
+      longitud: instalacion.longitud,
+      tipo: instalacion.tipo ?? null,
+      direccion: instalacion.direccion ?? null,
+      activa: instalacion.activa ?? true,
+      organismo: organismoDe(instalacion),
+      ordenesEnCurso: base.ordenes
+        .filter((o) => o.idInstalacion === instalacion.id && EN_CURSO.includes(o.estado))
+        .sort(porVencimiento)
+        .map((o) => enCurso(o, puedeVer(o))),
+    }
+    return HttpResponse.json(ficha)
+  }),
+
   // Antes del listado: las activas con coordenadas, sin paginar, para el mapa (#70). Las
-  // simuladas están todas activas y tienen coordenadas ficticias alrededor de Montevideo.
+  // simuladas tienen coordenadas ficticias alrededor de Montevideo.
   http.get('/api/v1/instalaciones/mapa', () => {
     const usuario = usuarioEnSesion()
     if (!usuario) return sinSesion()
     if (usuario.rol !== 'JEFATURA' && usuario.rol !== 'OPERADOR') return sinPermiso()
     return HttpResponse.json(
-      [...base.instalaciones].sort((a, b) => a.codigo.localeCompare(b.codigo)),
+      base.instalaciones
+        .filter((i) => i.activa !== false)
+        .sort((a, b) => a.codigo.localeCompare(b.codigo)),
     )
   }),
 
@@ -120,11 +200,14 @@ export const handlersInstalaciones = [
       TAMANIO_MAXIMO,
       Number(url.searchParams.get('size') ?? TAMANIO_POR_DEFECTO) || TAMANIO_POR_DEFECTO,
     )
-    // Con `buscar`, por código o nombre sin distinguir mayúsculas ni tildes (#40). Las simuladas
-    // están todas activas.
+    // Con `buscar`, solo las activas, por código o nombre sin distinguir mayúsculas ni tildes
+    // (#40).
     const buscar = sinTildes(url.searchParams.get('buscar')?.trim() ?? '')
     const ordenadas = base.instalaciones
-      .filter((i) => !buscar || sinTildes(`${i.codigo} ${i.nombre}`).includes(buscar))
+      .filter(
+        (i) =>
+          !buscar || (i.activa !== false && sinTildes(`${i.codigo} ${i.nombre}`).includes(buscar)),
+      )
       .sort((a, b) => a.codigo.localeCompare(b.codigo))
     return HttpResponse.json({
       contenido: ordenadas.slice(pagina * tamanio, (pagina + 1) * tamanio),
