@@ -20,6 +20,10 @@ const ID_JEFATURA = 1
 async function limpiar() {
   cleanup()
   await descartarQueryClients()
+  // React Query avisa a los componentes con un setTimeout (notifyManager). Si queda un aviso en
+  // cola al terminar el último test del archivo, corre después de que Vitest desarma jsdom y React
+  // falla con «window is not defined» fuera de cualquier test. Se deja correr acá, con jsdom vivo.
+  await new Promise((resolver) => setTimeout(resolver, 0))
   servidor.resetHandlers()
   reiniciarBaseSimulada()
   Object.values(mapaSimulado).forEach((funcion) => funcion.mockClear())

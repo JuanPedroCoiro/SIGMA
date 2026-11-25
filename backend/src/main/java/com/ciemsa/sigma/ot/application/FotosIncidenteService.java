@@ -81,11 +81,12 @@ public class FotosIncidenteService {
   }
 
   /**
-   * 403 si es un técnico y la OT del incidente no es de su cuadrilla (#85); 404 si la foto no
-   * existe o es de otro incidente.
+   * 404 si el incidente no existe; 403 si es un técnico y la OT no es de su cuadrilla (#85); 404 si
+   * la foto no existe o es de otro incidente. Mismo orden que {@link #listar}.
    */
   @Transactional(readOnly = true)
   public ArchivoFoto leer(Long idIncidente, Long idFoto) {
+    exigirIncidente(idIncidente);
     accesoOt.verificarIncidente(idIncidente);
     Adjunto adjunto =
         adjuntoRepository
