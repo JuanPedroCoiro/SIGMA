@@ -1,4 +1,5 @@
 import type {
+  CierreTecnico,
   EstadoIncidente,
   EstadoOT,
   MomentoFoto,
@@ -39,13 +40,17 @@ export type InstalacionSimulada = {
   codigo: string
   nombre: string
   rutaZona: string
+  /**
+   * Ficticia, para «Mis OTs» (HU-07) y la ficha (HU-10). Las importadas de una planilla no la
+   * traen: sin cargar, la ficha dice «Sin datos» (2b).
+   */
+  direccion?: string | null
   latitud: number
   longitud: number
   /** La instalación es de un organismo sin reglas de SLA: su OT queda «SLA sin definir» (8a). */
   sinReglaSla?: boolean
-  /** Se completan después de la importación (HU-10, 2b): sin cargar, la ficha dice «Sin datos». */
+  /** Se completa después de la importación (HU-10, 2b): sin cargar, la ficha dice «Sin datos». */
   tipo?: string | null
-  direccion?: string | null
   /** Sin el campo, activa. */
   activa?: boolean
 }
@@ -69,7 +74,13 @@ export type OrdenSimulada = {
   idInstalacion: number
   /** El incidente que la originó; null si es preventiva. */
   idIncidente: number | null
+  /** Cuándo la inició el técnico (HU-07); null si no empezó. */
+  iniciadaEn: string | null
+  /** El cierre técnico con su identificador de operación (R8); null si no se cerró. */
+  cierre: CierreSimulado | null
 }
+
+export type CierreSimulado = CierreTecnico & { idOperacion: string }
 
 export type IncidenteSimulado = {
   id: number
@@ -117,8 +128,8 @@ type Base = {
 // Con versión: cuando cambia la forma de los datos se sube, y la base vieja guardada en la
 // pestaña se descarta en lugar de mezclarse con la nueva (#61). v3: fechaEjecucion (#41). v4:
 // categorías de falla e instalación sin regla de SLA (#40). v5: detalle de OT con instalación,
-// cuadrilla e incidente (#57). v6: fotos del incidente (#71). v7: la usa #110. v8: tipo,
-// dirección y activa de la instalación (HU-10, #92).
+// cuadrilla e incidente (#57). v6: fotos del incidente (#71). v7: inicio y cierre técnico, y
+// dirección de la instalación (HU-07). v8: tipo y activa de la instalación (HU-10, #92).
 const CLAVE_ALMACEN = 'sigma.apiSimulada.v8'
 
 const NOMBRES = ['Ana', 'Bruno', 'Carla', 'Diego', 'Elena', 'Fabián', 'Gabriela', 'Hernán']
@@ -160,11 +171,13 @@ function crearInstalaciones(): InstalacionSimulada[] {
       codigo: `INST-${String(numero).padStart(3, '0')}`,
       nombre: sinReglaSla ? 'Cruce Peñarol (sin regla de SLA)' : `Cruce Ficticio ${numero}`,
       rutaZona: RUTAS[i % RUTAS.length],
+      // INST-002 sin dirección: la ficha muestra «Sin datos» (HU-10, 2b).
+      direccion: numero === 2 ? null : `Calle Ficticia ${numero * 100} esq. Avenida de Prueba`,
       latitud: Number((-34.9 + i * 0.012345).toFixed(6)),
       longitud: Number((-56.2 + i * 0.023456).toFixed(6)),
       ...(sinReglaSla && { sinReglaSla }),
-      // Solo la primera tiene tipo y dirección: las demás muestran «Sin datos» en la ficha.
-      ...(numero === 1 && { tipo: 'Semáforo vehicular', direccion: 'Av. Ficticia 1234' }),
+      // Solo la primera tiene tipo: las demás muestran «Sin datos» en la ficha.
+      ...(numero === 1 && { tipo: 'Semáforo vehicular' }),
     }
   })
 }
@@ -232,6 +245,8 @@ function crearOrdenes(): OrdenSimulada[] {
       prioridad: 'MEDIA',
       idInstalacion: 1,
       idIncidente: 1,
+      iniciadaEn: null,
+      cierre: null,
     },
     {
       id: 2,
@@ -247,6 +262,8 @@ function crearOrdenes(): OrdenSimulada[] {
       prioridad: 'ALTA',
       idInstalacion: 2,
       idIncidente: 2,
+      iniciadaEn: null,
+      cierre: null,
     },
     {
       id: 3,
@@ -262,6 +279,8 @@ function crearOrdenes(): OrdenSimulada[] {
       prioridad: 'MEDIA',
       idInstalacion: 3,
       idIncidente: 3,
+      iniciadaEn: null,
+      cierre: null,
     },
   ]
 }

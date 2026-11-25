@@ -147,3 +147,35 @@ export function crearEsquemaIncidente(categorias: readonly CategoriaFalla[]) {
 type EsquemaIncidente = ReturnType<typeof crearEsquemaIncidente>
 export type CamposIncidente = z.input<EsquemaIncidente>
 export type ValoresIncidente = z.output<EsquemaIncidente>
+
+const MAXIMO_TEXTO_CIERRE = 2000
+
+/**
+ * Cierre técnico (CU-3 pasos 6 a 10): las mismas reglas y mensajes que CerrarOtRequest. Las fotos
+ * las controla el formulario (al menos una), fuera de este esquema.
+ */
+export const esquemaCierre = z
+  .object({
+    diagnostico: z
+      .string()
+      .trim()
+      .min(1, 'Indicá el diagnóstico.')
+      .max(MAXIMO_TEXTO_CIERRE, 'El diagnóstico admite hasta 2000 caracteres.'),
+    solucion: z
+      .string()
+      .trim()
+      .min(1, 'Indicá la solución.')
+      .max(MAXIMO_TEXTO_CIERRE, 'La solución admite hasta 2000 caracteres.'),
+    observaciones: z
+      .string()
+      .trim()
+      .max(MAXIMO_TEXTO_CIERRE, 'Las observaciones admiten hasta 2000 caracteres.'),
+  })
+  .transform((datos) => ({
+    diagnostico: datos.diagnostico,
+    solucion: datos.solucion,
+    observaciones: datos.observaciones || undefined,
+  }))
+
+export type CamposCierre = z.input<typeof esquemaCierre>
+export type ValoresCierre = z.output<typeof esquemaCierre>

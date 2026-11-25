@@ -1,7 +1,7 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { base } from '../../mocks/datos'
-import { hoyEnMontevideo } from '../../shared/lib/fechas'
+import { formatearFechaMontevideo, hoyEnMontevideo } from '../../shared/lib/fechas'
 import { renderizarRuta } from '../../test/renderizarRuta'
 
 // Datos de la API simulada (src/mocks/datos.ts): OT-0001 asignada a Cuadrilla Norte para hoy,
@@ -16,17 +16,28 @@ async function fila(numero: string) {
   return (await screen.findByRole('link', { name: numero })).closest('tr')!
 }
 
-/** Marca las OTs, abre el diálogo de asignación y espera a que carguen las cuadrillas. */
-async function abrirDialogo(numeros: string[]) {
+/**
+ * Marca las OTs, abre el diálogo de asignación y espera a que carguen las cuadrillas. El título
+ * por defecto es el de asignar; al reasignar (todas ya asignadas, #87) se pasa el esperado.
+ */
+async function abrirDialogo(numeros: string[], titulo = tituloAsignar(numeros)) {
   for (const numero of numeros) {
     fireEvent.click(within(await fila(numero)).getByRole('checkbox'))
   }
   fireEvent.click(screen.getByRole('button', { name: `Asignar (${numeros.length})` }))
-  const titulo = numeros.length === 1 ? `Asignar ${numeros[0]}` : `Asignar ${numeros.length} OTs`
   const dialogo = await screen.findByRole('dialog', { name: titulo })
   // Sin esto, elegir una cuadrilla antes de que lleguen las opciones no tiene efecto.
   await within(dialogo).findByRole('option', { name: /Cuadrilla Sur/ })
   return dialogo
+}
+
+function tituloAsignar(numeros: string[]) {
+  return numeros.length === 1 ? `Asignar ${numeros[0]}` : `Asignar ${numeros.length} OTs`
+}
+
+/** Hoy en dd/mm/aaaa, como lo muestra el diálogo. */
+function hoyMostrado() {
+  return formatearFechaMontevideo(hoyEnMontevideo())
 }
 
 describe('asignar OTs desde el tablero (#41)', () => {
@@ -36,7 +47,15 @@ describe('asignar OTs desde el tablero (#41)', () => {
 
   it('variasOts_lasAsignaALaCuadrillaYElTableroLoMuestra', async () => {
     renderizarRuta('/pendientes')
+    // Mixta (una asignada y una pendiente): se titula «Asignar», pero muestra la asignación actual
+    // de la que ya tiene cuadrilla (#87).
     const dialogo = await abrirDialogo(['OT-0001', 'OT-0003'])
+    const actual = within(dialogo).getByRole('region', { name: 'Asignación actual' })
+    expect(
+      within(actual)
+        .getAllByRole('listitem')
+        .map((li) => li.textContent),
+    ).toEqual([`OT-0001: Cuadrilla Norte, ${hoyMostrado()}`])
 
     fireEvent.change(within(dialogo).getByLabelText('Cuadrilla'), { target: { value: '2' } })
     fireEvent.click(within(dialogo).getByRole('button', { name: 'Asignar' }))
@@ -51,6 +70,53 @@ describe('asignar OTs desde el tablero (#41)', () => {
     }
     // Se limpia la selección.
     expect(screen.getByRole('button', { name: 'Asignar' })).toBeDisabled()
+  })
+
+  it('soloPendientes_seTitulaAsignarSinAsignacionActual', async () => {
+    renderizarRuta('/pendientes')
+    const dialogo = await abrirDialogo(['OT-0003'])
+
+    expect(within(dialogo).getByRole('button', { name: 'Asignar' })).toBeVisible()
+    expect(within(dialogo).queryByRole('region', { name: 'Asignación actual' })).toBeNull()
+  })
+
+  it('unaAsignada_seTitulaReasignarYMuestraCuadrillaYFecha', async () => {
+    renderizarRuta('/pendientes')
+    const dialogo = await abrirDialogo(['OT-0001'], 'Reasignar OT-0001')
+
+    expect(within(dialogo).getByRole('button', { name: 'Reasignar' })).toBeVisible()
+    expect(
+      within(within(dialogo).getByRole('region', { name: 'Asignación actual' })).getByText(
+        `OT-0001: Cuadrilla Norte, ${hoyMostrado()}`,
+      ),
+    ).toBeVisible()
+  })
+
+  it('todasAsignadas_seTitulaReasignarVarias', async () => {
+    // En los datos simulados solo OT-0001 está asignada (OT-0002 está en pausa): se asigna también
+    // la OT-0003 a Cuadrilla Sur para mañana.
+    const manana = hoyEnMontevideo(new Date(Date.now() + DIA))
+    Object.assign(
+      base.ordenes.find((o) => o.id === 3)!,
+      {
+        estado: 'ASIGNADA',
+        idCuadrilla: 2,
+        fechaEjecucion: manana,
+      },
+    )
+    renderizarRuta('/pendientes')
+    const dialogo = await abrirDialogo(['OT-0001', 'OT-0003'], 'Reasignar 2 OTs')
+
+    expect(within(dialogo).getByRole('button', { name: 'Reasignar' })).toBeVisible()
+    const actual = within(dialogo).getByRole('region', { name: 'Asignación actual' })
+    expect(
+      within(actual)
+        .getAllByRole('listitem')
+        .map((li) => li.textContent),
+    ).toEqual([
+      `OT-0001: Cuadrilla Norte, ${hoyMostrado()}`,
+      `OT-0003: Cuadrilla Sur, ${formatearFechaMontevideo(manana)}`,
+    ])
   })
 
   it('dialogo_muestraLaCargaDeCadaCuadrillaParaLaFechaElegida', async () => {

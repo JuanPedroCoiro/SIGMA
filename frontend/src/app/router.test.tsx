@@ -36,10 +36,11 @@ describe('router', () => {
     expect(screen.getByRole('link', { name: 'Estado del sistema' })).toBeInTheDocument()
   })
 
-  it('menu_tecnico_soloVeInicio', () => {
+  it('menu_tecnico_soloVeInicioYMisOts', () => {
     renderizarRuta('/', sesionDe('TECNICO'))
 
     expect(screen.getByRole('link', { name: 'Inicio' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Mis OTs' })).toHaveAttribute('href', '/mis-ots')
     expect(screen.queryByRole('link', { name: 'Instalaciones' })).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Usuarios' })).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Cuadrillas' })).not.toBeInTheDocument()
@@ -52,6 +53,13 @@ describe('router', () => {
     expect(screen.getByRole('link', { name: 'Instalaciones' })).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Usuarios' })).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Cuadrillas' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Mis OTs' })).not.toBeInTheDocument()
+  })
+
+  it('rutaDeMisOts_operador_loRedirigeAlInicio', () => {
+    const { router } = renderizarRuta('/mis-ots/1', sesionDe('OPERADOR'))
+
+    expect(router.state.location.pathname).toBe('/')
   })
 
   it('menu_registrarIncidente_loVenOperadorYJefaturaPeroNoElTecnico', () => {

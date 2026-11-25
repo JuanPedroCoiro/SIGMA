@@ -7,7 +7,7 @@ type Tarjeta = {
   clave: keyof ResumenInicio
   singular: string
   plural: string
-  /** Adónde lleva; sin enlace si todavía no hay pantalla (por ejemplo, «Mis OT»). */
+  /** Adónde lleva; sin enlace si no hay una pantalla donde resolverlo. */
   enlace?: string
   /** En rojo si es más que cero. */
   alerta?: boolean
@@ -55,6 +55,7 @@ const TARJETAS: Tarjeta[] = [
     clave: 'otsDeHoy',
     singular: 'OT de tu cuadrilla para hoy',
     plural: 'OTs de tu cuadrilla para hoy',
+    enlace: '/mis-ots',
   },
 ]
 

@@ -49,7 +49,7 @@ describe('ficha de la instalación (HU-10)', () => {
     renderizarRuta('/instalaciones/1')
 
     expect(await screen.findByText('Semáforo vehicular')).toBeInTheDocument()
-    expect(screen.getByText('Av. Ficticia 1234')).toBeInTheDocument()
+    expect(screen.getByText('Calle Ficticia 100 esq. Avenida de Prueba')).toBeInTheDocument()
   })
 
   it('mapa_marcaLaInstalacion', async () => {

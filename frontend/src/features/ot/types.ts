@@ -68,7 +68,10 @@ export type IncidenteDeOT = {
   causa: string | null
 }
 
-/** GET /api/v1/ordenes/{id}, y la respuesta de pausar, reanudar, anular y asignar (#57). */
+/**
+ * GET /api/v1/ordenes/{id}, y la respuesta de pausar, reanudar, anular y asignar (#57), iniciar y
+ * cerrar (HU-07).
+ */
 export type OrdenTrabajoDetalle = {
   id: number
   numero: string
@@ -90,6 +93,18 @@ export type OrdenTrabajoDetalle = {
   /** null si la OT ya no está abierta. */
   tiempos: TiemposOT | null
   pausas: PausaOT[]
+  /** Cuándo empezó la intervención (HU-07); null si todavía no empezó. */
+  iniciadaEn: string | null
+  /** El último cierre técnico (HU-07); null si nunca se cerró. */
+  cierre: CierreTecnico | null
+}
+
+/** El cierre técnico de la OT, como lo devuelve OrdenTrabajoDetalle.Cierre. */
+export type CierreTecnico = {
+  diagnostico: string
+  solucion: string
+  observaciones: string | null
+  cerradaEn: string
 }
 
 /** POST /api/v1/ordenes/{id}/pausar. */

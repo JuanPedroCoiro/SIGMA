@@ -5,11 +5,13 @@ import com.ciemsa.sigma.ot.domain.MotivoPausa;
 import com.ciemsa.sigma.ot.domain.Prioridad;
 import com.ciemsa.sigma.ot.domain.TipoOT;
 import java.time.Instant;
+import java.time.LocalDate;
 
 /**
  * Una OT del tablero de pendientes (CU-9). {@code prioridad} y {@code numeroIncidente} son null en
- * las preventivas; {@code cuadrilla}, si no está asignada; {@code pausa}, si no está en pausa.
- * {@code estadoAnteriorPausa} solo en EN_PAUSA: decide si se puede anular (CU-19).
+ * las preventivas; {@code cuadrilla} y {@code fechaEjecucion}, si no está asignada; {@code pausa},
+ * si no está en pausa. {@code estadoAnteriorPausa} solo en EN_PAUSA: decide si se puede anular
+ * (CU-19).
  */
 public record OrdenPendiente(
     Long id,
@@ -24,6 +26,7 @@ public record OrdenPendiente(
     String codigoInstalacion,
     String nombreInstalacion,
     String cuadrilla,
+    LocalDate fechaEjecucion,
     String numeroIncidente,
     Pausa pausa,
     Instant creadoEn) {
@@ -46,6 +49,7 @@ public record OrdenPendiente(
         fila.codigoInstalacion(),
         fila.nombreInstalacion(),
         fila.cuadrilla(),
+        fila.fechaEjecucion(),
         fila.numeroIncidente(),
         pausa,
         fila.creadoEn());

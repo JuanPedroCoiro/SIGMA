@@ -18,7 +18,7 @@ const MARCADOR = `<svg xmlns="http://www.w3.org/2000/svg" width="160" height="16
 </svg>`
 
 /** El tipo por los primeros bytes (TipoImagen.detectar en el backend), o null. */
-function detectarTipo(bytes: Uint8Array): string | null {
+export function detectarTipo(bytes: Uint8Array): string | null {
   const empieza = (...valores: number[]) => valores.every((v, i) => bytes[i] === v)
   if (empieza(0xff, 0xd8, 0xff)) return 'image/jpeg'
   if (empieza(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a)) return 'image/png'
@@ -48,10 +48,21 @@ function respuesta(foto: FotoSimulada): FotoIncidente {
 type Parte = { nombre: string; bytes: Uint8Array<ArrayBuffer> }
 
 /**
- * Los archivos del campo `campo` del multipart. Se lee el cuerpo a mano, byte a byte, porque en
- * los tests `request.formData()` de Node rechaza el File de jsdom (como en instalaciones.ts).
+ * Una parte del multipart: `nombreArchivo` es undefined en los campos de texto (como «momentos»).
+ * Un Blob sin nombre, como «datos» en el cierre, llega con nombreArchivo «blob».
  */
-async function archivosDelMultipart(request: Request, campo: string): Promise<Parte[]> {
+export type ParteMultipart = {
+  campo: string
+  nombreArchivo: string | undefined
+  bytes: Uint8Array<ArrayBuffer>
+}
+
+/**
+ * Todas las partes del multipart. Se lee el cuerpo a mano, byte a byte, porque en los tests
+ * `request.formData()` de Node rechaza el File de jsdom (como en instalaciones.ts). El cuerpo se
+ * puede leer una sola vez: quien necesita varios campos llama a esta función y filtra.
+ */
+export async function partesDelMultipart(request: Request): Promise<ParteMultipart[]> {
   const limite = /boundary=(.+)$/.exec(request.headers.get('Content-Type') ?? '')?.[1]
   if (!limite) return []
   const bytes = new Uint8Array(await request.arrayBuffer())
@@ -60,7 +71,7 @@ async function archivosDelMultipart(request: Request, campo: string): Promise<Pa
   for (let i = 0; i < bytes.length; i += 8192) {
     texto += String.fromCharCode(...bytes.subarray(i, i + 8192))
   }
-  const partes: Parte[] = []
+  const partes: ParteMultipart[] = []
   let desde = texto.indexOf(`--${limite}`)
   while (desde !== -1) {
     // Después de «--límite» viene un salto de línea y los encabezados de la parte.
@@ -72,13 +83,37 @@ async function archivosDelMultipart(request: Request, campo: string): Promise<Pa
     const encabezado = new TextDecoder().decode(
       bytes.subarray(inicio, inicio + Math.max(finEncabezado, 0)),
     )
-    const nombre = /filename="([^"]*)"/.exec(encabezado)?.[1]
-    if (finEncabezado !== -1 && nombre !== undefined && encabezado.includes(`name="${campo}"`)) {
-      partes.push({ nombre, bytes: bytes.slice(inicio + finEncabezado + 4, hasta) })
+    const campo = /name="([^"]*)"/.exec(encabezado)?.[1]
+    if (finEncabezado !== -1 && campo !== undefined) {
+      partes.push({
+        campo,
+        nombreArchivo: /filename="([^"]*)"/.exec(encabezado)?.[1],
+        bytes: bytes.slice(inicio + finEncabezado + 4, hasta),
+      })
     }
     desde = hasta + 2
   }
   return partes
+}
+
+/** Los archivos del campo `campo` de las partes ya leídas. */
+export function archivosDe(partes: readonly ParteMultipart[], campo: string): Parte[] {
+  return partes
+    .filter((p) => p.campo === campo && p.nombreArchivo !== undefined)
+    .map((p) => ({ nombre: p.nombreArchivo ?? '', bytes: p.bytes }))
+}
+
+/** Los valores de texto del campo `campo` (sin archivo), en orden, como @RequestParam List. */
+export function camposDeTexto(partes: readonly ParteMultipart[], campo: string): string[] {
+  const decodificador = new TextDecoder()
+  return partes
+    .filter((p) => p.campo === campo && p.nombreArchivo === undefined)
+    .map((p) => decodificador.decode(p.bytes))
+}
+
+/** Los archivos del campo `campo` del multipart. Lee el cuerpo: no se puede leer otra vez. */
+export async function archivosDelMultipart(request: Request, campo: string): Promise<Parte[]> {
+  return archivosDe(await partesDelMultipart(request), campo)
 }
 
 function fotosDe(idIncidente: number) {
