@@ -1,0 +1,45 @@
+/* Cambiar de cuadrilla (HU-20): una fila por cuadrilla, alta para tocar con el dedo. */
+.cambiar-cuadrilla-opciones {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+
+.cambiar-cuadrilla-opciones legend {
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+}
+
+.cambiar-cuadrilla-opcion {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 3rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--borde);
+  border-radius: 0.5rem;
+  cursor: pointer;
+}
+
+.cambiar-cuadrilla-opcion:has(input:checked) {
+  border-color: var(--acento);
+  background: var(--acento-fondo);
+}
+
+.cambiar-cuadrilla-opcion input {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex-shrink: 0;
+}
+
+.cambiar-cuadrilla-opcion span {
+  display: grid;
+}
+
+.cambiar-cuadrilla-opcion small {
+  color: var(--texto-suave);
+}

@@ -1,20 +1,60 @@
+import { useState } from 'react'
 import { Paginacion } from '../../../shared/components/Paginacion'
 import { usePaginado } from '../../../shared/hooks/usePaginado'
+import { CambiarCuadrillaDialogo } from '../components/CambiarCuadrillaDialogo'
 import { TarjetaMiOt } from '../components/TarjetaMiOt'
+import { useMiCuadrilla } from '../hooks/useMiCuadrilla'
 import { useMisOts } from '../hooks/useMisOts'
 import './MisOtsPage.css'
 
 /**
  * Bandeja «Mis OTs» del técnico (CU-3, HU-07), pensada para el celular: las OTs Asignada, En
- * proceso y En pausa de su cuadrilla, por fecha de ejecución y vencimiento.
+ * proceso y En pausa de su cuadrilla, por fecha de ejecución y vencimiento. Desde acá se cambia de
+ * cuadrilla (HU-20).
  */
 export function MisOtsPage() {
   const { pagina, irAPagina } = usePaginado()
   const misOts = useMisOts(pagina)
+  const miCuadrilla = useMiCuadrilla()
+  const [cambiando, setCambiando] = useState(false)
+  const [mensaje, setMensaje] = useState<string | null>(null)
 
   return (
     <section className="mis-ots">
       <h1>Mis OTs</h1>
+      {miCuadrilla.data && (
+        <div className="mis-ots-cuadrilla">
+          <p>
+            Cuadrilla: <strong>{miCuadrilla.data.actual?.nombre ?? 'sin cuadrilla'}</strong>
+          </p>
+          <button
+            type="button"
+            className="boton boton-secundario"
+            onClick={() => {
+              setMensaje(null)
+              setCambiando(true)
+            }}
+          >
+            Cambiar de cuadrilla
+          </button>
+        </div>
+      )}
+      {mensaje && (
+        <p className="alerta alerta-exito" role="status">
+          {mensaje}
+        </p>
+      )}
+      {cambiando && miCuadrilla.data && (
+        <CambiarCuadrillaDialogo
+          miCuadrilla={miCuadrilla.data}
+          onCerrar={() => setCambiando(false)}
+          onCambiada={(nombre) => {
+            setCambiando(false)
+            irAPagina(0)
+            setMensaje(`Ahora estás en ${nombre}.`)
+          }}
+        />
+      )}
       {misOts.isPending ? (
         <p>Cargando...</p>
       ) : misOts.isError ? (
