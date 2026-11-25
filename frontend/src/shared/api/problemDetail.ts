@@ -33,6 +33,8 @@ export const TIPOS_PROBLEMA = {
   planillaInvalida: 'planilla-invalida',
   transicionInvalida: 'transicion-invalida',
   fechaAnterior: 'fecha-anterior',
+  operacionRepetida: 'operacion-repetida',
+  fotoInvalida: 'foto-invalida',
 } as const
 
 /** Devuelve el ProblemDetail de un error de axios, o null si la respuesta no trae uno. */

@@ -59,6 +59,47 @@ export type IncidenteEnEspera = {
   creadoEn: string
 }
 
+/**
+ * Un elemento de GET /api/v1/mis-ots (HU-07): las OTs Asignada, En proceso y En pausa de la
+ * cuadrilla del técnico. La dirección, la ruta y las coordenadas son para llegar desde el celular.
+ */
+export type OrdenDeMiCuadrilla = {
+  id: number
+  numero: string
+  tipo: TipoOT
+  estado: EstadoOT
+  /** Solo en EN_PAUSA. */
+  estadoAnteriorPausa: EstadoOT | null
+  /** null en las preventivas. */
+  prioridad: Prioridad | null
+  /** Nombre de la categoría de falla; null en las preventivas. */
+  categoria: string | null
+  /** null en las preventivas. */
+  numeroIncidente: string | null
+  /** «2026-11-12»; null si no tiene. */
+  fechaEjecucion: string | null
+  /** null = «SLA sin definir» (o preventiva). */
+  fechaLimite: string | null
+  slaDefinido: boolean
+  vencida: boolean
+  /** null si todavía no empezó. */
+  iniciadaEn: string | null
+  instalacion: InstalacionDeMiOt
+  /** null si no está en pausa. */
+  pausa: { motivo: MotivoPausa; detalle: string | null; inicio: string } | null
+}
+
+export type InstalacionDeMiOt = {
+  id: number
+  codigo: string
+  nombre: string
+  direccion: string | null
+  rutaZona: string | null
+  /** null si la instalación no tiene coordenadas cargadas. */
+  latitud: number | null
+  longitud: number | null
+}
+
 /** GET /api/v1/inicio/resumen (#72): null en lo que no corresponde al rol. */
 export type ResumenInicio = {
   pendientesDeAsignar: number | null

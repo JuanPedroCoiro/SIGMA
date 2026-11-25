@@ -5,7 +5,7 @@ import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-do
 import { formatearFechaHoraMontevideo } from '../../../shared/lib/fechas'
 import { aplicarErroresDelServidor } from '../../../shared/lib/erroresFormulario'
 import type { Instalacion } from '../../activos/types'
-import { IndicadorPasos } from '../components/registro-incidente/IndicadorPasos'
+import { IndicadorPasos } from '../../../shared/components/IndicadorPasos'
 import { PasoDonde } from '../components/registro-incidente/PasoDonde'
 import { PasoQuePaso } from '../components/registro-incidente/PasoQuePaso'
 import {
@@ -14,6 +14,7 @@ import {
   leerPaso,
   pasoDeCampo,
   TITULO_PASO,
+  TITULOS_PASOS,
   type Campo,
   type NumeroPaso,
   type PasoConCampos,
@@ -356,7 +357,7 @@ function AsistenteIncidente({
 
   return (
     <FormProvider {...formulario}>
-      <IndicadorPasos paso={paso} pasoMaximo={pasoMaximo} />
+      <IndicadorPasos paso={paso} pasoMaximo={pasoMaximo} titulos={TITULOS_PASOS} />
       <form className="registrar-incidente-form" noValidate onSubmit={alEnviar}>
         <h2 ref={titulo} tabIndex={-1} className="registrar-incidente-titulo-paso">
           {TITULO_PASO[paso]}

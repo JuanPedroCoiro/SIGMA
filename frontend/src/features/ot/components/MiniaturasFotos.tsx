@@ -1,16 +1,22 @@
-import type { FotoElegida } from '../../fotos'
+import type { FotoElegida } from '../fotos'
+import './MiniaturasFotos.css'
 
 type Props = {
   fotos: readonly FotoElegida[]
+  /** Nombre accesible de la lista; por defecto, «Fotos elegidas». */
+  etiqueta?: string
   /** Sin esto, solo se muestran (en el resumen). */
   onQuitar?: (foto: FotoElegida) => void
 }
 
-/** Las fotos elegidas en el registro (#71), con su vista previa. */
-export function MiniaturasFotos({ fotos, onQuitar }: Props) {
+/**
+ * Las fotos elegidas, con su vista previa: en el registro de incidentes (#71) y en el resumen del
+ * cierre técnico (HU-07).
+ */
+export function MiniaturasFotos({ fotos, etiqueta = 'Fotos elegidas', onQuitar }: Props) {
   if (fotos.length === 0) return null
   return (
-    <ul className="fotos-miniaturas" aria-label="Fotos elegidas">
+    <ul className="fotos-miniaturas" aria-label={etiqueta}>
       {fotos.map((foto) => (
         <li key={foto.vistaPrevia}>
           <img src={foto.vistaPrevia} alt={foto.archivo.name} />

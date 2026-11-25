@@ -14,6 +14,9 @@ export const TITULO_PASO: Record<NumeroPaso, string> = {
   3: 'Resumen',
 }
 
+/** Los títulos en orden, para IndicadorPasos. */
+export const TITULOS_PASOS: readonly string[] = NUMEROS_PASO.map((numero) => TITULO_PASO[numero])
+
 /** Los campos que se validan al pasar al siguiente paso. El resumen no tiene campos propios. */
 export const CAMPOS_POR_PASO = {
   1: ['idInstalacion', 'origen'],

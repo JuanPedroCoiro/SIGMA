@@ -24,6 +24,12 @@ export async function reanudarOrden(id: number): Promise<OrdenTrabajoDetalle> {
   return res.data
 }
 
+/** CU-3 paso 2, solo un técnico de la cuadrilla de la OT: Asignada → En proceso. */
+export async function iniciarOrden(id: number): Promise<OrdenTrabajoDetalle> {
+  const res = await cliente.post<OrdenTrabajoDetalle>(`/ordenes/${id}/iniciar`)
+  return res.data
+}
+
 /** CU-19, solo la Jefatura. Responde el detalle de la OT ya anulada. */
 export async function anularOrden(id: number, motivo: string): Promise<OrdenTrabajoDetalle> {
   const res = await cliente.post<OrdenTrabajoDetalle>(`/ordenes/${id}/anular`, { motivo })

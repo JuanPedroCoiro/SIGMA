@@ -1,0 +1,73 @@
+/* Indicador de pasos de los asistentes (registro de incidentes, cierre técnico). */
+.indicador-pasos {
+  margin-bottom: 1.25rem;
+}
+
+.indicador-pasos-actual {
+  margin: 0 0 0.5rem;
+  color: var(--texto-suave);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.indicador-pasos-lista {
+  display: flex;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.indicador-pasos-lista li {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding-top: 0.5rem;
+  color: var(--texto-suave);
+  border-top: 3px solid var(--borde);
+}
+
+.indicador-paso-numero {
+  display: inline-grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+}
+
+.indicador-pasos-lista .indicador-paso-actual {
+  color: var(--acento);
+  font-weight: 600;
+  border-top-color: var(--acento);
+}
+
+.indicador-paso-actual .indicador-paso-numero {
+  color: var(--superficie);
+  background: var(--acento);
+  border-color: var(--acento);
+}
+
+.indicador-pasos-lista .indicador-paso-completo {
+  color: var(--texto-fuerte);
+  border-top-color: var(--acento);
+}
+
+/* En la fila de pasos ya se ve el nombre del paso actual. */
+.indicador-pasos-titulo {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  /* Un paso por pantalla: el indicador se reduce a «Paso 2 de 3 · Qué pasó». */
+  .indicador-pasos-lista {
+    display: none;
+  }
+
+  .indicador-pasos-titulo {
+    display: inline;
+  }
+}

@@ -59,6 +59,8 @@ function crearOrden(incidente: IncidenteSimulado): OrdenSimulada {
     prioridad: incidente.prioridad,
     idInstalacion: incidente.idInstalacion,
     idIncidente: incidente.id,
+    iniciadaEn: null,
+    cierre: null,
   }
   base.ordenes.push(orden)
   incidente.estado = 'CON_OT'
