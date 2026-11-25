@@ -133,6 +133,12 @@ public enum EstadoOT {
       return false;
     }
   },
+  /**
+   * Estado final: no admite ninguna operación, así que nada vuelve a modificar la fila y su {@code
+   * modificado_en} es la fecha de anulación (historial de la instalación, HU-10; lo verifica
+   * AnulacionFechaTest). Si alguna operación llegara a tocar una anulada, hace falta {@code
+   * anulada_en} con su migración.
+   */
   ANULADA {
     @Override
     public boolean estaAbierta() {
