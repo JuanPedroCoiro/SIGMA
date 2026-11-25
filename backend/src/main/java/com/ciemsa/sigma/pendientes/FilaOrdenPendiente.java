@@ -5,6 +5,7 @@ import com.ciemsa.sigma.ot.domain.MotivoPausa;
 import com.ciemsa.sigma.ot.domain.Prioridad;
 import com.ciemsa.sigma.ot.domain.TipoOT;
 import java.time.Instant;
+import java.time.LocalDate;
 
 /**
  * Fila plana de la consulta del tablero: JPQL no arma records anidados. Instalación, cuadrilla e
@@ -21,6 +22,7 @@ public record FilaOrdenPendiente(
     String codigoInstalacion,
     String nombreInstalacion,
     String cuadrilla,
+    LocalDate fechaEjecucion,
     String numeroIncidente,
     MotivoPausa motivoPausa,
     String detallePausa,
