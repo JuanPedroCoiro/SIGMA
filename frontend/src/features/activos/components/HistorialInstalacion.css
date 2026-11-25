@@ -1,0 +1,79 @@
+/* Línea de tiempo: una tarjeta por entrada, con una línea a la izquierda que las une. */
+.historial-entradas {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0 0 0 1rem;
+  list-style: none;
+  border-left: 2px solid var(--borde);
+}
+
+.historial-entrada {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: 0.5rem;
+}
+
+.historial-encabezado {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.historial-numero {
+  font-weight: 600;
+}
+
+.historial-fecha {
+  margin: 0;
+  color: var(--texto-suave);
+  font-size: 0.875rem;
+}
+
+.historial-datos {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 0.375rem 1rem;
+  margin: 0;
+}
+
+.historial-datos dt {
+  color: var(--texto-suave);
+}
+
+.historial-datos dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.historial-marca-exito {
+  color: var(--exito);
+  background: color-mix(in srgb, var(--exito) 15%, transparent);
+}
+
+.historial-marca-aviso {
+  color: var(--acento);
+  background: var(--acento-fondo);
+}
+
+.historial-marca-neutra {
+  color: var(--texto-suave);
+  background: color-mix(in srgb, var(--texto-suave) 15%, transparent);
+}
+
+/* En el celular, cada dato debajo de su etiqueta: los textos largos no quedan en una columna
+   angosta. */
+@media (max-width: 480px) {
+  .historial-datos {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.125rem;
+  }
+
+  .historial-datos dd + dt {
+    margin-top: 0.375rem;
+  }
+}
