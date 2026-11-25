@@ -2,6 +2,7 @@ package com.ciemsa.sigma.pendientes;
 
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
+import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -280,6 +281,9 @@ class PendientesControllerTest {
         .andExpect(jsonPath(campo(baja, "nombreInstalacion"), contains("Cruce de pendientes")))
         .andExpect(jsonPath(campo(baja, "cuadrilla"), contains("Cuadrilla Pendientes")))
         .andExpect(jsonPath(campo(baja, "estado"), contains("ASIGNADA")))
+        .andExpect(
+            jsonPath(campo(baja, "fechaEjecucion"), contains(baja.getFechaEjecucion().toString())))
+        .andExpect(jsonPath(campo(media, "fechaEjecucion"), contains(nullValue())))
         .andExpect(
             jsonPath(campo(baja, "numeroIncidente"), contains(baja.getIncidente().getNumero())))
         .andExpect(jsonPath(campo(preventiva, "tipo"), contains("PREVENTIVA")));

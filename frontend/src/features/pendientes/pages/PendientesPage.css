@@ -34,19 +34,21 @@
   font-weight: 600;
 }
 
+/*
+ * break-word y no anywhere (#87, D-12): anywhere cuenta los cortes dentro de las palabras para el
+ * ancho mínimo, y la tabla achicaba las columnas hasta partir «Pendiente» o «Anular». Con
+ * break-word cada columna mide al menos su palabra más larga; solo se parte un texto sin espacios
+ * que no entre. Si la tabla no entra, se desplaza (.pendientes-tabla).
+ */
 .tabla-pendientes td {
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
-/*
- * Números y marcas enteros (#64): el texto largo (instalación, detalle) sí se parte. Hace falta
- * también overflow-wrap: normal; con el anywhere del td, la columna podría achicarse por debajo
- * del número.
- */
+/* Números, marcas y botones enteros (#64, #87): «OT-0001» se podría cortar en el guion. */
 .tabla-pendientes .marca,
+.tabla-pendientes .boton,
 .pendientes-numero {
   white-space: nowrap;
-  overflow-wrap: normal;
 }
 
 /* Si la tabla no entra (pantallas medianas con el menú abierto), se desplaza dentro de su caja. */

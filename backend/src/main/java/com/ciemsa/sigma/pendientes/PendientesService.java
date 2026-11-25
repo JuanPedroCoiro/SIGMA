@@ -31,7 +31,7 @@ public class PendientesService {
       """
     select new com.ciemsa.sigma.pendientes.FilaOrdenPendiente(
         o.id, o.numero, o.tipo, o.estado, o.estadoAnteriorPausa, inc.prioridad, o.fechaLimite,
-        ins.codigo, ins.nombre, c.nombre, inc.numero,
+        ins.codigo, ins.nombre, c.nombre, o.fechaEjecucion, inc.numero,
         p.motivo, p.detalle, p.inicio, o.creadoEn)
     from OrdenTrabajo o
         join Instalacion ins on ins.id = o.idInstalacion

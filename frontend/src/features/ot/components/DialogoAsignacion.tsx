@@ -3,12 +3,21 @@ import { useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { Modal } from '../../../shared/components/Modal'
 import { aplicarErroresDelServidor } from '../../../shared/lib/erroresFormulario'
-import { hoyEnMontevideo } from '../../../shared/lib/fechas'
+import { formatearFechaMontevideo, hoyEnMontevideo } from '../../../shared/lib/fechas'
 import { useCuadrillas } from '../../administracion/hooks/useCuadrillas'
 import { esquemaAsignacion, type CamposAsignacion, type ValoresAsignacion } from '../esquemas'
 import { useAsignarOrdenes, useCargaPorCuadrilla } from '../hooks/useOrden'
+import type { EstadoOT } from '../types'
 
-type Orden = { id: number; numero: string }
+type Orden = {
+  id: number
+  numero: string
+  estado: EstadoOT
+  /** Nombre de la cuadrilla actual; null si no está asignada. */
+  cuadrilla: string | null
+  /** aaaa-mm-dd; null si no está asignada. */
+  fechaEjecucion: string | null
+}
 
 type Props = {
   ordenes: Orden[]
@@ -19,7 +28,8 @@ type Props = {
 
 /**
  * Asignar o reasignar una o más OTs a una cuadrilla con fecha de ejecución (HU-05, CU-2). Todas o
- * ninguna. Muestra cuántas OTs ya tiene cada cuadrilla ese día (3).
+ * ninguna. Muestra cuántas OTs ya tiene cada cuadrilla ese día (3). Si todas las OTs ya están
+ * asignadas se titula «Reasignar» (CU-2 5a); si alguna lo está, muestra su asignación actual (#87).
  */
 export function DialogoAsignacion({ ordenes, onCerrar, onAsignadas }: Props) {
   const asignar = useAsignarOrdenes()
@@ -50,13 +60,28 @@ export function DialogoAsignacion({ ordenes, onCerrar, onAsignadas }: Props) {
     }
   }
 
+  const asignadas = ordenes.filter((o) => o.estado === 'ASIGNADA')
+  const reasigna = asignadas.length === ordenes.length
+  const verbo = reasigna ? 'Reasignar' : 'Asignar'
   const titulo =
-    ordenes.length === 1 ? `Asignar ${ordenes[0].numero}` : `Asignar ${ordenes.length} OTs`
+    ordenes.length === 1 ? `${verbo} ${ordenes[0].numero}` : `${verbo} ${ordenes.length} OTs`
 
   return (
     <Modal titulo={titulo} onCerrar={onCerrar}>
       <form noValidate onSubmit={handleSubmit(enviar)}>
         {ordenes.length > 1 && <p>{ordenes.map((o) => o.numero).join(', ')}</p>}
+        {asignadas.length > 0 && (
+          <section aria-labelledby="asignacion-actual">
+            <h3 id="asignacion-actual" className="campo-ayuda">
+              Asignación actual
+            </h3>
+            <ul>
+              {asignadas.map((o) => (
+                <li key={o.id}>{textoAsignacionActual(o)}</li>
+              ))}
+            </ul>
+          </section>
+        )}
         {errorGeneral && (
           <p className="alerta alerta-error" role="alert">
             {errorGeneral}
@@ -117,12 +142,17 @@ export function DialogoAsignacion({ ordenes, onCerrar, onAsignadas }: Props) {
             Cancelar
           </button>
           <button type="submit" className="boton" disabled={isSubmitting}>
-            {isSubmitting ? 'Asignando...' : 'Asignar'}
+            {isSubmitting ? (reasigna ? 'Reasignando...' : 'Asignando...') : verbo}
           </button>
         </div>
       </form>
     </Modal>
   )
+}
+
+function textoAsignacionActual(orden: Orden) {
+  const fecha = orden.fechaEjecucion ? formatearFechaMontevideo(orden.fechaEjecucion) : 'sin fecha'
+  return `${orden.numero}: ${orden.cuadrilla ?? 'sin cuadrilla'}, ${fecha}`
 }
 
 function textoCarga(ordenes: number) {

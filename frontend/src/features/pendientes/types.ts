@@ -39,6 +39,8 @@ export type OrdenPendiente = {
   nombreInstalacion: string
   /** null si no está asignada. */
   cuadrilla: string | null
+  /** Fecha (aaaa-mm-dd) de la asignación; null si no está asignada (#87). */
+  fechaEjecucion: string | null
   /** null en las preventivas. */
   numeroIncidente: string | null
   /** null si no está en pausa. */
