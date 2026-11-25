@@ -92,7 +92,7 @@ describe('tablero de pendientes (#43)', () => {
     fireEvent.click(within(dialogo).getByRole('button', { name: 'Generar OT' }))
 
     expect(await screen.findByText('No hay incidentes en espera de tercero.')).toBeVisible()
-    expect(await screen.findByRole('link', { name: 'OT-0004' })).toBeVisible()
+    expect(await screen.findByRole('link', { name: 'OT-0007' })).toBeVisible()
   })
 
   it('cerrarSinOt_quitaElIncidenteSinGenerarOt', async () => {
@@ -105,7 +105,7 @@ describe('tablero de pendientes (#43)', () => {
 
     expect(await screen.findByText('No hay incidentes en espera de tercero.')).toBeVisible()
     expect(base.incidentes.find((i) => i.numero === 'INC-0004')!.estado).toBe('CERRADO_SIN_OT')
-    expect(base.ordenes).toHaveLength(3)
+    expect(base.ordenes).toHaveLength(6) // las tres en curso y las tres del historial de INST-001
   })
 
   it('jefatura_veLaOpcionEnElMenu', async () => {

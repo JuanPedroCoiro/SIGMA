@@ -78,6 +78,9 @@ export type OrdenSimulada = {
   iniciadaEn: string | null
   /** El cierre técnico con su identificador de operación (R8); null si no se cerró. */
   cierre: CierreSimulado | null
+  /** Anulación, para el historial (HU-10). En el backend la fecha es modificado_en. */
+  motivoAnulacion?: string
+  anuladaEn?: string
 }
 
 export type CierreSimulado = CierreTecnico & { idOperacion: string }
@@ -129,8 +132,9 @@ type Base = {
 // pestaña se descarta en lugar de mezclarse con la nueva (#61). v3: fechaEjecucion (#41). v4:
 // categorías de falla e instalación sin regla de SLA (#40). v5: detalle de OT con instalación,
 // cuadrilla e incidente (#57). v6: fotos del incidente (#71). v7: inicio y cierre técnico, y
-// dirección de la instalación (HU-07). v8: tipo y activa de la instalación (HU-10, #92).
-const CLAVE_ALMACEN = 'sigma.apiSimulada.v8'
+// dirección de la instalación (HU-07). v8: tipo y activa de la instalación (HU-10, #92). v9: OTs
+// terminadas e incidente cerrado sin OT para el historial de la instalación (HU-10, #92).
+const CLAVE_ALMACEN = 'sigma.apiSimulada.v9'
 
 const NOMBRES = ['Ana', 'Bruno', 'Carla', 'Diego', 'Elena', 'Fabián', 'Gabriela', 'Hernán']
 const APELLIDOS = ['Acosta', 'Benítez', 'Cabrera', 'Duarte']
@@ -282,7 +286,61 @@ function crearOrdenes(): OrdenSimulada[] {
       iniciadaEn: null,
       cierre: null,
     },
+    // Historial de INST-001 (HU-10): una cerrada técnicamente, una validada y una preventiva
+    // anulada, de días anteriores.
+    terminada(4, 'CERRADA_TECNICA', 5, 72, {
+      iniciadaEn: haceHoras(71),
+      cierre: {
+        cerradaEn: haceHoras(70),
+        diagnostico: 'Cable de alimentación cortado',
+        solucion: 'Se reemplazó el tramo de cable',
+        observaciones: null,
+        idOperacion: 'historial-ot-4',
+      },
+    }),
+    terminada(5, 'VALIDADA', 6, 240, {
+      iniciadaEn: haceHoras(238),
+      cierre: {
+        cerradaEn: haceHoras(236),
+        diagnostico: 'Lámpara verde quemada',
+        solucion: 'Cambio de lámpara',
+        observaciones: 'Quedó funcionando',
+        idOperacion: 'historial-ot-5',
+      },
+    }),
+    terminada(6, 'ANULADA', null, 120, {
+      motivoAnulacion: 'Duplicada: misma falla que OT-0004',
+      anuladaEn: haceHoras(119),
+    }),
   ]
+}
+
+/** Una OT terminada de INST-001, de la cuadrilla Norte, generada hace `horas` horas. */
+function terminada(
+  id: number,
+  estado: EstadoOT,
+  idIncidente: number | null,
+  horas: number,
+  datos: Partial<OrdenSimulada>,
+): OrdenSimulada {
+  return {
+    id,
+    numero: `OT-${String(id).padStart(4, '0')}`,
+    estado,
+    idCuadrilla: 1,
+    fechaEjecucion: null,
+    inicioSla: idIncidente === null ? null : haceHoras(horas),
+    fechaLimite: null,
+    creadaEn: haceHoras(horas),
+    estadoAnteriorPausa: null,
+    pausas: [],
+    prioridad: idIncidente === null ? null : 'MEDIA',
+    idInstalacion: 1,
+    idIncidente,
+    iniciadaEn: null,
+    cierre: null,
+    ...datos,
+  }
 }
 
 /** Los incidentes de OT-0001 a OT-0003 (con OT) y uno en espera de un tercero (#38). */
@@ -339,6 +397,46 @@ function crearIncidentes(): IncidenteSimulado[] {
       tercero: 'UTE',
       causa: 'Corte de energía en la zona',
       creadoEn: haceHoras(3),
+    },
+    // Los de las OTs terminadas OT-0004 y OT-0005, y uno de INST-004 cerrado sin OT (HU-10).
+    {
+      id: 5,
+      numero: 'INC-0005',
+      estado: 'CON_OT',
+      origen: 'MONITOREO',
+      idCategoriaFalla: 5,
+      prioridad: 'MEDIA',
+      idInstalacion: 1,
+      descripcion: 'El cruce quedó sin energía',
+      tercero: null,
+      causa: null,
+      creadoEn: haceHoras(72),
+    },
+    {
+      id: 6,
+      numero: 'INC-0006',
+      estado: 'CON_OT',
+      origen: 'RECLAMO_ORGANISMO',
+      idCategoriaFalla: 2,
+      prioridad: 'MEDIA',
+      idInstalacion: 1,
+      descripcion: 'Lámpara verde quemada en el semáforo peatonal',
+      tercero: null,
+      causa: null,
+      creadoEn: haceHoras(240),
+    },
+    {
+      id: 7,
+      numero: 'INC-0007',
+      estado: 'CERRADO_SIN_OT',
+      origen: 'MONITOREO',
+      idCategoriaFalla: 1,
+      prioridad: 'ALTA',
+      idInstalacion: 4,
+      descripcion: 'Semáforo apagado',
+      tercero: 'UTE',
+      causa: 'Corte programado',
+      creadoEn: haceHoras(96),
     },
   ]
 }

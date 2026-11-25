@@ -533,6 +533,8 @@ export const handlersOrdenes = [
     }
     orden.estado = 'ANULADA'
     orden.estadoAnteriorPausa = null
+    orden.motivoAnulacion = motivo.trim()
+    orden.anuladaEn = new Date().toISOString()
     guardarBase()
     return HttpResponse.json(respuesta(orden))
   }),

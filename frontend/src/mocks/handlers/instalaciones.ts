@@ -1,12 +1,24 @@
 import { http, HttpResponse } from 'msw/http'
 import { TIPOS_PROBLEMA } from '../../shared/api/problemDetail'
-import type { FichaInstalacion, OrdenEnCursoFicha } from '../../features/activos/types'
-import { base, guardarBase, type InstalacionSimulada, type OrdenSimulada } from '../datos'
+import type {
+  EntradaHistorial,
+  FichaInstalacion,
+  OrdenEnCursoFicha,
+} from '../../features/activos/types'
+import {
+  base,
+  guardarBase,
+  type IncidenteSimulado,
+  type InstalacionSimulada,
+  type OrdenSimulada,
+  type UsuarioSimulado,
+} from '../datos'
 import { problema, sinPermiso, sinSesion, usuarioEnSesion } from '../problemas'
 import { estaVencida, puedeVerOrden } from './ordenes'
 
 // Endpoints de instalaciones acordados con el backend (HU-02): el listado es para JEFATURA y
-// OPERADOR; la importación, solo para JEFATURA. La ficha (HU-10), para todos los roles.
+// OPERADOR; la importación, solo para JEFATURA. La ficha y el historial (HU-10), para todos los
+// roles.
 
 const TAMANIO_POR_DEFECTO = 20
 const TAMANIO_MAXIMO = 100
@@ -140,7 +152,118 @@ function enCurso(orden: OrdenSimulada, puedeVerDetalle: boolean): OrdenEnCursoFi
   }
 }
 
+/** Como EstadoOT.ESTADOS_HISTORIAL y EstadoIncidente.SIN_OT_EN_HISTORIAL. */
+const OTS_EN_HISTORIAL = ['CERRADA_TECNICA', 'VALIDADA', 'ANULADA']
+const INCIDENTES_EN_HISTORIAL = ['EN_ESPERA_TERCERO', 'CERRADO_SIN_OT']
+
+function datosDelIncidente(incidente: IncidenteSimulado | undefined) {
+  if (!incidente) return null
+  return {
+    id: incidente.id,
+    numero: incidente.numero,
+    categoria: base.categorias.find((c) => c.id === incidente.idCategoriaFalla)?.nombre ?? '',
+    prioridad: incidente.prioridad,
+    descripcion: incidente.descripcion,
+  }
+}
+
+const SIN_DATOS_DE_OT = {
+  estadoOt: null,
+  tipoOt: null,
+  iniciadaEn: null,
+  cerradaEn: null,
+  cuadrilla: null,
+  diagnostico: null,
+  solucion: null,
+  observaciones: null,
+  motivoAnulacion: null,
+}
+
+/** Las entradas del historial de la instalación, de lo más nuevo a lo más viejo (HU-10). */
+function historialDe(idInstalacion: number, usuario: UsuarioSimulado): EntradaHistorial[] {
+  const ordenes: EntradaHistorial[] = base.ordenes
+    .filter((o) => o.idInstalacion === idInstalacion && OTS_EN_HISTORIAL.includes(o.estado))
+    .map((o) => {
+      const incidente = base.incidentes.find((i) => i.id === o.idIncidente)
+      const cuadrilla = base.cuadrillas.find((c) => c.id === o.idCuadrilla)
+      return {
+        clase: 'OT',
+        id: o.id,
+        numero: o.numero,
+        estadoOt: o.estado,
+        estadoIncidente: null,
+        tipoOt: o.idIncidente === null ? 'PREVENTIVA' : 'CORRECTIVA',
+        // La anulada, por su fecha de anulación (en el backend, modificado_en).
+        fecha: (o.estado === 'ANULADA' ? o.anuladaEn : o.cierre?.cerradaEn) ?? o.creadaEn,
+        reportadoEn: incidente?.creadoEn ?? o.creadaEn,
+        iniciadaEn: o.iniciadaEn,
+        cerradaEn: o.cierre?.cerradaEn ?? null,
+        cuadrilla: cuadrilla ? { id: cuadrilla.id, nombre: cuadrilla.nombre } : null,
+        incidente: datosDelIncidente(incidente),
+        diagnostico: o.cierre?.diagnostico ?? null,
+        solucion: o.cierre?.solucion ?? null,
+        observaciones: o.cierre?.observaciones ?? null,
+        motivoAnulacion: o.motivoAnulacion ?? null,
+        tercero: null,
+        causa: null,
+        puedeVerDetalle: puedeVerOrden(usuario, o),
+      }
+    })
+  const incidentes: EntradaHistorial[] = base.incidentes
+    .filter((i) => i.idInstalacion === idInstalacion && INCIDENTES_EN_HISTORIAL.includes(i.estado))
+    .map((i) => ({
+      ...SIN_DATOS_DE_OT,
+      clase: 'INCIDENTE',
+      id: i.id,
+      numero: i.numero,
+      estadoIncidente: i.estado,
+      fecha: i.creadoEn,
+      reportadoEn: i.creadoEn,
+      incidente: datosDelIncidente(i),
+      tercero: i.tercero,
+      causa: i.causa,
+      puedeVerDetalle: false,
+    }))
+  // A igual fecha, las OTs antes que los incidentes y la más nueva primero, como el backend.
+  return [...ordenes, ...incidentes].sort(
+    (a, b) =>
+      new Date(b.fecha).getTime() - new Date(a.fecha).getTime() ||
+      b.clase.localeCompare(a.clase) ||
+      b.id - a.id,
+  )
+}
+
 export const handlersInstalaciones = [
+  // Historial (HU-10, CU-8): todos los roles, también las inactivas. Paginado, en orden fijo.
+  http.get('/api/v1/instalaciones/:id/historial', ({ params, request }) => {
+    const usuario = usuarioEnSesion()
+    if (!usuario) return sinSesion()
+    if (!['JEFATURA', 'OPERADOR', 'TECNICO'].includes(usuario.rol)) return sinPermiso()
+    const instalacion = base.instalaciones.find((i) => i.id === Number(params.id))
+    if (!instalacion) {
+      return problema(
+        404,
+        'no-encontrado',
+        'Recurso no encontrado',
+        `No existe la instalación ${String(params.id)}.`,
+      )
+    }
+    const url = new URL(request.url)
+    const pagina = Math.max(0, Number(url.searchParams.get('page') ?? 0))
+    const tamanio = Math.min(
+      TAMANIO_MAXIMO,
+      Number(url.searchParams.get('size') ?? TAMANIO_POR_DEFECTO) || TAMANIO_POR_DEFECTO,
+    )
+    const entradas = historialDe(instalacion.id, usuario)
+    return HttpResponse.json({
+      contenido: entradas.slice(pagina * tamanio, (pagina + 1) * tamanio),
+      pagina,
+      tamanio,
+      totalElementos: entradas.length,
+      totalPaginas: Math.ceil(entradas.length / tamanio),
+    })
+  }),
+
   // Ficha (HU-10): todos los roles, también las inactivas. Un técnico solo puede abrir las OTs en
   // curso de su cuadrilla, como AccesoOt.
   http.get('/api/v1/instalaciones/:id/ficha', ({ params }) => {
