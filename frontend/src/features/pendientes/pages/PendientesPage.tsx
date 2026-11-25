@@ -40,9 +40,9 @@ export function PendientesPage() {
   // Anular y asignar son solo de la Jefatura (CU-19, HU-05): el Operador no ve esas columnas.
   const esJefatura = sesion.estado === 'autenticado' && sesion.usuario.rol === 'JEFATURA'
 
-  // OTs marcadas para asignar (id → número). Se conservan al cambiar de página, para poder juntar
-  // OTs de varias; se limpian al asignar.
-  const [seleccion, setSeleccion] = useState<Map<number, string>>(new Map())
+  // OTs marcadas para asignar, por id. Se conservan al cambiar de página, para poder juntar OTs de
+  // varias; se limpian al asignar. Guardan la asignación actual para el diálogo (#87).
+  const [seleccion, setSeleccion] = useState<Map<number, OrdenMarcada>>(new Map())
   const [asignando, setAsignando] = useState(false)
 
   /** Al cambiar el orden o el filtro se vuelve a la primera página. */
@@ -64,7 +64,13 @@ export function PendientesPage() {
     setSeleccion((actual) => {
       const nueva = new Map(actual)
       if (nueva.has(ot.id)) nueva.delete(ot.id)
-      else nueva.set(ot.id, ot.numero)
+      else
+        nueva.set(ot.id, {
+          numero: ot.numero,
+          estado: ot.estado,
+          cuadrilla: ot.cuadrilla,
+          fechaEjecucion: ot.fechaEjecucion,
+        })
       return nueva
     })
   }
@@ -220,7 +226,7 @@ export function PendientesPage() {
 
       {asignando && (
         <DialogoAsignacion
-          ordenes={[...seleccion].map(([id, numero]) => ({ id, numero }))}
+          ordenes={[...seleccion].map(([id, marcada]) => ({ id, ...marcada }))}
           onCerrar={() => setAsignando(false)}
           onAsignadas={() => {
             setAsignando(false)
@@ -233,6 +239,8 @@ export function PendientesPage() {
     </section>
   )
 }
+
+type OrdenMarcada = Pick<OrdenPendiente, 'numero' | 'estado' | 'cuadrilla' | 'fechaEjecucion'>
 
 /** Fecha límite con sus marcas: vencida, detenida por un tercero o sin SLA. */
 function Vencimiento({ orden }: { orden: OrdenPendiente }) {
