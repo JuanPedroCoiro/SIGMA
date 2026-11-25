@@ -68,7 +68,10 @@ export function OrdenDetallePage() {
         <dd>{datos.tipo === 'CORRECTIVA' ? 'Correctiva' : 'Preventiva'}</dd>
         <dt>Instalación</dt>
         <dd>
-          {datos.instalacion.codigo} — {datos.instalacion.nombre}
+          {/* La ficha la ven todos los roles (HU-10): el técnico la consulta antes de intervenir. */}
+          <Link to={`/instalaciones/${datos.instalacion.id}`}>
+            {datos.instalacion.codigo} — {datos.instalacion.nombre}
+          </Link>
         </dd>
         <dt>Cuadrilla</dt>
         <dd>{datos.cuadrilla?.nombre ?? 'Sin asignar'}</dd>

@@ -8,6 +8,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Lock;
@@ -27,6 +28,11 @@ public interface OrdenTrabajoRepository
 
   /** La OT correctiva de un incidente: a lo sumo una (CU-1). */
   Optional<OrdenTrabajo> findByIncidenteId(Long idIncidente);
+
+  /** Las OTs de la instalación en alguno de esos estados (ficha, HU-10), con su incidente. */
+  @EntityGraph(attributePaths = "incidente")
+  List<OrdenTrabajo> findByIdInstalacionAndEstadoIn(
+      Long idInstalacion, Collection<EstadoOT> estados);
 
   /** Cuántas OTs de la cuadrilla están en alguno de esos estados. */
   long countByIdCuadrillaAndEstadoIn(Long idCuadrilla, Collection<EstadoOT> estados);

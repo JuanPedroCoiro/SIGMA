@@ -2,6 +2,7 @@ package com.ciemsa.sigma.ot.domain;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -138,6 +139,12 @@ public enum EstadoOT {
       return false;
     }
   };
+
+  /**
+   * Las abiertas, que todavía requieren acción: el tablero de pendientes (CU-9) y las OTs en curso
+   * de la ficha de la instalación (HU-10). Son las que {@link #estaAbierta()} da por abiertas.
+   */
+  public static final List<EstadoOT> EN_CURSO = List.of(PENDIENTE, ASIGNADA, EN_PROCESO, EN_PAUSA);
 
   /** Si la OT sigue pendiente de resolución: solo una OT abierta puede vencer. */
   public boolean estaAbierta() {

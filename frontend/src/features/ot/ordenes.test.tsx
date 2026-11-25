@@ -215,12 +215,22 @@ describe('detalle de OT con instalación, cuadrilla e incidente (#57)', () => {
     renderizarRuta('/ordenes/1')
 
     expect(
-      await screen.findByText('INST-001 — Cruce Ficticio 1', { selector: 'dd' }),
+      await screen.findByRole('link', { name: 'INST-001 — Cruce Ficticio 1' }),
     ).toBeInTheDocument()
     expect(screen.getByText('Cuadrilla Norte', { selector: 'dd' })).toBeInTheDocument()
     expect(
       screen.getByText(formatearFechaMontevideo(hoyEnMontevideo()), { selector: 'dd' }),
     ).toBeInTheDocument()
+  })
+
+  it('detalle_instalacion_tecnico_llevaALaFicha', async () => {
+    base.idSesion = ID_TECNICO_NORTE
+    const { router } = renderizarRuta('/ordenes/1')
+
+    fireEvent.click(await screen.findByRole('link', { name: 'INST-001 — Cruce Ficticio 1' }))
+
+    expect(await screen.findByRole('heading', { name: 'OTs en curso' })).toBeInTheDocument()
+    expect(router.state.location.pathname).toBe('/instalaciones/1')
   })
 
   it('detalle_sinCuadrilla_muestraSinAsignar', async () => {

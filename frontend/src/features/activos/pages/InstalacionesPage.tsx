@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useSesion } from '../../../app/sesion/useSesion'
 import { Paginacion } from '../../../shared/components/Paginacion'
 import { usePaginado } from '../../../shared/hooks/usePaginado'
@@ -7,7 +8,10 @@ import { formatearCoordenada } from '../coordenadas'
 import { useInstalaciones } from '../hooks/useInstalaciones'
 import './InstalacionesPage.css'
 
-/** HU-02: listado paginado de instalaciones; la Jefatura además importa la planilla. */
+/**
+ * HU-02: listado paginado de instalaciones; la Jefatura además importa la planilla. El código lleva
+ * a la ficha (HU-10).
+ */
 export function InstalacionesPage() {
   const { pagina, irAPagina } = usePaginado()
   const instalaciones = useInstalaciones(pagina)
@@ -61,7 +65,9 @@ export function InstalacionesPage() {
             <tbody>
               {instalaciones.data.contenido.map((instalacion) => (
                 <tr key={instalacion.id}>
-                  <td data-etiqueta="Código">{instalacion.codigo}</td>
+                  <td data-etiqueta="Código">
+                    <Link to={`/instalaciones/${instalacion.id}`}>{instalacion.codigo}</Link>
+                  </td>
                   <td data-etiqueta="Nombre">{instalacion.nombre}</td>
                   <td data-etiqueta="Ruta o zona">{instalacion.rutaZona}</td>
                   <td data-etiqueta="Latitud" className="numero">

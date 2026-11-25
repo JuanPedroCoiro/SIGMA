@@ -50,6 +50,18 @@ describe('instalaciones (HU-02)', () => {
     expect(router.state.location.search).toBe('?pagina=2')
   })
 
+  it('listado_codigo_llevaALaFicha', async () => {
+    base.idSesion = ID_OPERADOR
+    const { router } = renderizarRuta('/instalaciones')
+
+    fireEvent.click(await screen.findByRole('link', { name: 'INST-002' }))
+
+    expect(
+      await screen.findByRole('heading', { name: 'INST-002 — Cruce Ficticio 2' }),
+    ).toBeInTheDocument()
+    expect(router.state.location.pathname).toBe('/instalaciones/2')
+  })
+
   it('listado_sinInstalaciones_muestraElMensajeDeListaVacia', async () => {
     base.instalaciones = []
     renderizarRuta('/instalaciones')

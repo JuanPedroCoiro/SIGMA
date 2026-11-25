@@ -23,8 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class PendientesService {
 
   /** Las OTs que todavía requieren acción. */
-  private static final List<EstadoOT> ESTADOS_PENDIENTES =
-      List.of(EstadoOT.PENDIENTE, EstadoOT.ASIGNADA, EstadoOT.EN_PROCESO, EstadoOT.EN_PAUSA);
+  private static final List<EstadoOT> ESTADOS_PENDIENTES = EstadoOT.EN_CURSO;
 
   // La pausa abierta es a lo sumo una (uq_pausa_ot_abierta): el join no duplica filas.
   private static final String CONSULTA_ORDENES =

@@ -1,0 +1,114 @@
+/* Primero el celular: una columna; desde 768 px, el mapa al costado de los datos. */
+.ficha-instalacion {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+  max-width: 60rem;
+}
+
+.ficha-instalacion > *,
+.ficha-instalacion h2 {
+  margin: 0;
+}
+
+.ficha-instalacion h1 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  overflow-wrap: anywhere;
+}
+
+.ficha-instalacion h2 {
+  margin-bottom: 0.5rem;
+  font-size: 1.125rem;
+}
+
+.ficha-datos,
+.ficha-orden-datos {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 0.5rem 1rem;
+  margin: 0;
+}
+
+.ficha-datos {
+  padding: 1rem;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: 0.5rem;
+}
+
+.ficha-datos dt,
+.ficha-orden-datos dt {
+  color: var(--texto-suave);
+}
+
+.ficha-datos dd,
+.ficha-orden-datos dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* En la ficha el mapa solo ubica la instalación: más bajo y sin quedar fijo al bajar. */
+.ficha-instalacion .mapa-instalaciones {
+  position: static;
+  height: 13rem;
+}
+
+.ficha-ordenes {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ficha-orden {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: 0.5rem;
+}
+
+.ficha-orden-encabezado {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ficha-orden-numero {
+  font-weight: 600;
+}
+
+.ficha-orden-estado {
+  color: var(--acento);
+  background: var(--acento-fondo);
+}
+
+.ficha-orden-vencida {
+  color: var(--error);
+  background: color-mix(in srgb, var(--error) 15%, transparent);
+}
+
+@media (min-width: 768px) {
+  .ficha-instalacion {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .ficha-instalacion > h1,
+  .ficha-instalacion > section {
+    grid-column: 1 / -1;
+  }
+
+  /* Estirado al alto de los datos (un ítem de grilla estirado tiene alto definido). */
+  .ficha-instalacion .mapa-instalaciones {
+    align-self: stretch;
+    height: auto;
+    min-height: 16rem;
+  }
+}

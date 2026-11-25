@@ -4,6 +4,7 @@ import {
   importarInstalaciones,
   listarInstalaciones,
   listarInstalacionesMapa,
+  obtenerFichaInstalacion,
 } from '../api/instalacionesApi'
 
 const CLAVE = 'instalaciones'
@@ -38,6 +39,14 @@ export function useInstalacionesMapa() {
     queryKey: [CLAVE, 'mapa'],
     queryFn: listarInstalacionesMapa,
     staleTime: 5 * 60 * 1000,
+  })
+}
+
+/** Ficha de la instalación (HU-10): las OTs en curso cambian, así que no se reusa como el mapa. */
+export function useFichaInstalacion(id: number) {
+  return useQuery({
+    queryKey: [CLAVE, 'ficha', id],
+    queryFn: () => obtenerFichaInstalacion(id),
   })
 }
 
