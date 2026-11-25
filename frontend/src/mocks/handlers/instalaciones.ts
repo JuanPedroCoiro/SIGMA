@@ -3,7 +3,7 @@ import { TIPOS_PROBLEMA } from '../../shared/api/problemDetail'
 import type { FichaInstalacion, OrdenEnCursoFicha } from '../../features/activos/types'
 import { base, guardarBase, type InstalacionSimulada, type OrdenSimulada } from '../datos'
 import { problema, sinPermiso, sinSesion, usuarioEnSesion } from '../problemas'
-import { estaVencida } from './ordenes'
+import { estaVencida, puedeVerOrden } from './ordenes'
 
 // Endpoints de instalaciones acordados con el backend (HU-02): el listado es para JEFATURA y
 // OPERADOR; la importación, solo para JEFATURA. La ficha (HU-10), para todos los roles.
@@ -141,8 +141,8 @@ function enCurso(orden: OrdenSimulada, puedeVerDetalle: boolean): OrdenEnCursoFi
 }
 
 export const handlersInstalaciones = [
-  // Ficha (HU-10): todos los roles, también las inactivas. Un técnico solo puede abrir las OTs de
-  // su cuadrilla, como AccesoOt.
+  // Ficha (HU-10): todos los roles, también las inactivas. Un técnico solo puede abrir las OTs en
+  // curso de su cuadrilla, como AccesoOt.
   http.get('/api/v1/instalaciones/:id/ficha', ({ params }) => {
     const usuario = usuarioEnSesion()
     if (!usuario) return sinSesion()
@@ -156,8 +156,7 @@ export const handlersInstalaciones = [
         `No existe la instalación ${String(params.id)}.`,
       )
     }
-    const puedeVer = (o: OrdenSimulada) =>
-      usuario.rol !== 'TECNICO' || (o.idCuadrilla !== null && o.idCuadrilla === usuario.idCuadrilla)
+    const puedeVer = (o: OrdenSimulada) => puedeVerOrden(usuario, o)
     const ficha: FichaInstalacion = {
       id: instalacion.id,
       codigo: instalacion.codigo,

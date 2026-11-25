@@ -199,6 +199,17 @@ describe('detalle de OT y pausas (#39)', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('no está asignada a tu cuadrilla')
   })
 
+  it('tecnicoDeOtraCuadrilla_otTerminada_veElDetalleSinPausar', async () => {
+    // Revisa el historial del cruce antes de intervenir (HU-10): ve, pero no opera.
+    base.idSesion = ID_TECNICO_SUR
+    orden(1).estado = 'ANULADA'
+    renderizarRuta('/ordenes/1')
+
+    expect(await screen.findByRole('heading', { name: 'Orden OT-0001' })).toBeInTheDocument()
+    expect(screen.getByText('Anulada', { selector: 'dd' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Pausar' })).not.toBeInTheDocument()
+  })
+
   it('formatearDuracion_horasMinutosYDias', () => {
     expect(formatearDuracion(45)).toBe('45 min')
     expect(formatearDuracion(125)).toBe('2 h 05 min')

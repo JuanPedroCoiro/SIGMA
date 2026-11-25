@@ -11,7 +11,13 @@ import { TIPOS_PROBLEMA, type ErrorCampo } from '../../shared/api/problemDetail'
 import { MAXIMO_FOTOS_CIERRE } from '../../features/ot/fotosCierre'
 import { MOMENTOS_FOTO, type DatosCierre, type MomentoFoto } from '../../features/ot/types'
 import { hoyEnMontevideo } from '../../shared/lib/fechas'
-import { base, guardarBase, type OrdenSimulada, type PausaSimulada } from '../datos'
+import {
+  base,
+  guardarBase,
+  type OrdenSimulada,
+  type PausaSimulada,
+  type UsuarioSimulado,
+} from '../datos'
 import {
   exigirJefatura,
   problema,
@@ -133,8 +139,25 @@ function respuesta(orden: OrdenSimulada): OrdenTrabajoDetalle {
   }
 }
 
-/** 401, 403 o 404 como el backend; si puede seguir, la OT. */
-function buscarAccesible(id: string | readonly string[] | undefined) {
+/**
+ * Como AccesoOt: Operador y Jefatura ven y operan cualquier OT. Un técnico opera solo las de su
+ * cuadrilla; para ver, además, cualquier OT terminada (historial del cruce, HU-10).
+ */
+export function puedeVerOrden(usuario: UsuarioSimulado, orden: OrdenSimulada) {
+  return (
+    usuario.rol !== 'TECNICO' || CERRADAS.includes(orden.estado) || esDeSuCuadrilla(usuario, orden)
+  )
+}
+
+function esDeSuCuadrilla(usuario: UsuarioSimulado, orden: OrdenSimulada) {
+  return orden.idCuadrilla !== null && orden.idCuadrilla === usuario.idCuadrilla
+}
+
+/**
+ * 401, 403 o 404 como el backend; si puede seguir, la OT. `para` es «ver» (detalle y fotos) u
+ * «operar» (pausar y reanudar: solo su cuadrilla, aunque esté terminada).
+ */
+function buscarAccesible(id: string | readonly string[] | undefined, para: 'ver' | 'operar') {
   const usuario = usuarioEnSesion()
   if (!usuario) return { rechazo: sinSesion() }
   if (!ROLES.includes(usuario.rol)) return { rechazo: sinPermiso() }
@@ -144,9 +167,11 @@ function buscarAccesible(id: string | readonly string[] | undefined) {
       rechazo: problema(404, 'no-encontrado', 'Recurso no encontrado', 'No existe la OT.'),
     }
   }
-  if (usuario.rol === 'TECNICO' && orden.idCuadrilla !== usuario.idCuadrilla) {
-    return { rechazo: sinPermiso() }
-  }
+  const permitido =
+    para === 'ver'
+      ? puedeVerOrden(usuario, orden)
+      : usuario.rol !== 'TECNICO' || esDeSuCuadrilla(usuario, orden)
+  if (!permitido) return { rechazo: sinPermiso() }
   return { orden, usuario }
 }
 
@@ -303,14 +328,14 @@ export const handlersOrdenes = [
   }),
 
   http.get('/api/v1/ordenes/:id', ({ params }) => {
-    const { rechazo, orden } = buscarAccesible(params.id)
+    const { rechazo, orden } = buscarAccesible(params.id, 'ver')
     if (rechazo) return rechazo
     return HttpResponse.json(respuesta(orden))
   }),
 
   // Fotos del cierre técnico (#90), como FotosOtController: quien puede ver la OT.
   http.get('/api/v1/ordenes/:id/fotos', ({ params }) => {
-    const { rechazo, orden } = buscarAccesible(params.id)
+    const { rechazo, orden } = buscarAccesible(params.id, 'ver')
     if (rechazo) return rechazo
     return HttpResponse.json(
       base.fotosCierre
@@ -323,7 +348,7 @@ export const handlersOrdenes = [
   }),
 
   http.get('/api/v1/ordenes/:id/fotos/:idFoto', ({ params }) => {
-    const { rechazo, orden } = buscarAccesible(params.id)
+    const { rechazo, orden } = buscarAccesible(params.id, 'ver')
     if (rechazo) return rechazo
     const existe = base.fotosCierre.some(
       (foto) => foto.id === Number(params.idFoto) && foto.idOrdenTrabajo === orden.id,
@@ -338,7 +363,7 @@ export const handlersOrdenes = [
   }),
 
   http.post('/api/v1/ordenes/:id/pausar', async ({ params, request }) => {
-    const { rechazo, orden, usuario } = buscarAccesible(params.id)
+    const { rechazo, orden, usuario } = buscarAccesible(params.id, 'operar')
     if (rechazo) return rechazo
     const datos = (await request.json()) as DatosPausa
     if (!datos.motivo) {
@@ -371,7 +396,7 @@ export const handlersOrdenes = [
   }),
 
   http.post('/api/v1/ordenes/:id/reanudar', ({ params }) => {
-    const { rechazo, orden, usuario } = buscarAccesible(params.id)
+    const { rechazo, orden, usuario } = buscarAccesible(params.id, 'operar')
     if (rechazo) return rechazo
     const pausa = orden.pausas.find((p) => p.fin === null)
     if (orden.estado !== 'EN_PAUSA' || !pausa) return transicionInvalida('reanudar', orden)
