@@ -20,8 +20,7 @@ class MisOtsController {
 
   /**
    * Las OTs Asignada, En proceso y En pausa de la cuadrilla del técnico, por fecha de ejecución y
-   * vencimiento, paginadas. También es la fila de las pendientes sin asignar (HU-20): sin cuadrilla
-   * ni fecha de ejecución
+   * vencimiento, paginadas.
    */
   @GetMapping
   PageResponse<OrdenDeMiCuadrilla> misOts(@PageableDefault(size = 20) Pageable pageable) {

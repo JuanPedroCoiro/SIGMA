@@ -264,6 +264,12 @@ class FotosIncidenteControllerTest {
   }
 
   @Test
+  void leerFoto_tecnicoConIncidenteInexistente_404AntesQue403() throws Exception {
+    mvc.perform(get("/api/v1/incidentes/999999/fotos/1").with(user(tecnico)))
+        .andExpect(status().isNotFound());
+  }
+
+  @Test
   void fotoDeOtroIncidente_404() throws Exception {
     String respuesta =
         subir(operador, incidente.getId(), foto("frente.jpg", JPEG))

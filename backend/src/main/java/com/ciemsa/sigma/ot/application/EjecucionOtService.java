@@ -61,8 +61,8 @@ public class EjecucionOtService {
       throw new ConflictoException(
           "operacion-repetida", "Ese identificador de operación ya se usó para cerrar otra OT.");
     }
-    ot.cerrarTecnicamente(cierre, idOperacion, ahora);
     List<TipoImagen> tipos = fotosCierreService.validar(fotos);
+    ot.cerrarTecnicamente(cierre, idOperacion, ahora);
     fotosCierreService.guardar(ot.getId(), fotos, tipos);
     return guardarYPublicar(ot, ahora);
   }

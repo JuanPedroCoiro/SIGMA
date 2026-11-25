@@ -12,7 +12,8 @@ import java.time.LocalDate;
  * Una OT de la bandeja «Mis OTs» del técnico (CU-3, HU-07). {@code prioridad}, {@code categoria} y
  * {@code numeroIncidente} son null en las preventivas; {@code iniciadaEn}, si todavía no empezó;
  * {@code pausa}, si no está en pausa. {@code estadoAnteriorPausa} solo en EN_PAUSA. La dirección,
- * la ruta y las coordenadas de la instalación son para abrir el mapa desde el celular.
+ * la ruta y las coordenadas de la instalación son para abrir el mapa desde el celular. * También es
+ * la fila de las pendientes sin asignar (HU-20): sin cuadrilla ni fecha de ejecución.
  */
 public record OrdenDeMiCuadrilla(
     Long id,

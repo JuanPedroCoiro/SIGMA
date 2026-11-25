@@ -121,12 +121,16 @@ function fotosDe(idIncidente: number) {
 }
 
 /**
- * Ver las fotos (#85), como AccesoOt.verificarIncidente: Operador y Jefatura, todas; el técnico,
- * solo las del incidente cuya OT es de su cuadrilla (sin OT, ninguna).
+ * Ver las fotos (#85), en el orden del backend: sin sesión, 401; incidente inexistente, 404;
+ * después, como AccesoOt.verificarIncidente: Operador y Jefatura, todas; el técnico, solo las del
+ * incidente cuya OT es de su cuadrilla (sin OT, ninguna).
  */
 function rechazoVerFotos(idIncidente: number) {
   const usuario = usuarioEnSesion()
   if (!usuario) return sinSesion()
+  if (!base.incidentes.some((i) => i.id === idIncidente)) {
+    return noEncontrado(`No existe el incidente ${idIncidente}.`)
+  }
   if (usuario.rol === 'JEFATURA' || usuario.rol === 'OPERADOR') return null
   if (usuario.rol !== 'TECNICO') return sinPermiso()
   const orden = base.ordenes.find((o) => o.idIncidente === idIncidente)
@@ -187,9 +191,6 @@ export const handlersFotos = [
     const idIncidente = Number(params.id)
     const rechazo = rechazoVerFotos(idIncidente)
     if (rechazo) return rechazo
-    if (!base.incidentes.some((i) => i.id === idIncidente)) {
-      return noEncontrado(`No existe el incidente ${idIncidente}.`)
-    }
     return HttpResponse.json(fotosDe(idIncidente).map(respuesta))
   }),
 

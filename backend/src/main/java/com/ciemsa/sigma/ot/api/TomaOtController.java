@@ -9,9 +9,11 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Tomar y liberar una OT (HU-20, CU-2 1a): solo el Técnico, para su cuadrilla actual. Una
- * transición inválida (tomar una OT que ya no está pendiente, liberar una que no está asignada ni
- * en proceso) es 400 /errores/transicion-invalida con {@code estadoActual}.
+ * Tomar y liberar una OT (HU-20, CU-2 1a): solo el Técnico, para su cuadrilla actual. Tomar una OT
+ * que ya no está pendiente es 400 /errores/transicion-invalida con {@code estadoActual}. Liberar
+ * una OT que no es de su cuadrilla, incluida una pendiente (que no es de ninguna), es 403: {@code
+ * AccesoOt} lo verifica antes que el estado. Liberar una de su cuadrilla que no está asignada ni en
+ * proceso (en pausa, por ejemplo) es 400 con {@code estadoActual}.
  */
 @RestController
 @RequestMapping("/api/v1/ordenes")

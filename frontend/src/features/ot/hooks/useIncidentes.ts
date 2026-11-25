@@ -16,7 +16,6 @@ const CLAVE_FOTOS = 'fotos-incidente'
  * Las fotos de un incidente (#71). Las ven Operador, Jefatura y el técnico de la cuadrilla de la OT
  * (#85); el backend controla la cuadrilla. Sin sesión, no se piden.
  */
-
 export function useFotosIncidente(idIncidente: number, habilitado: boolean) {
   return useQuery({
     queryKey: [CLAVE_FOTOS, idIncidente],
