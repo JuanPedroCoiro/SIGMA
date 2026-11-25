@@ -1,6 +1,6 @@
 import { cliente } from '../../../shared/api/cliente'
 import type { PageResponse, ParametrosPagina } from '../../../shared/api/paginacion'
-import type { Instalacion, ResultadoImportacion } from '../types'
+import type { FichaInstalacion, Instalacion, ResultadoImportacion } from '../types'
 
 export async function listarInstalaciones(
   parametros: ParametrosPagina,
@@ -28,5 +28,11 @@ export async function buscarInstalaciones(texto: string): Promise<PageResponse<I
 /** Instalaciones activas con sus coordenadas, sin paginar, para el mapa (HU-11, #70). */
 export async function listarInstalacionesMapa(): Promise<Instalacion[]> {
   const res = await cliente.get<Instalacion[]>('/instalaciones/mapa')
+  return res.data
+}
+
+/** Ficha de una instalación con sus OTs en curso (HU-10, CU-7), para todos los roles. */
+export async function obtenerFichaInstalacion(id: number): Promise<FichaInstalacion> {
+  const res = await cliente.get<FichaInstalacion>(`/instalaciones/${id}/ficha`)
   return res.data
 }

@@ -88,6 +88,13 @@ describe('router', () => {
     expect(router.state.location.pathname).toBe('/')
   })
 
+  it('rutaDeFichaDeInstalacion_tecnico_puedeAbrirla', () => {
+    // El listado de instalaciones no, pero la ficha sí: la consulta antes de intervenir (HU-10).
+    const { router } = renderizarRuta('/instalaciones/1', sesionDe('TECNICO'))
+
+    expect(router.state.location.pathname).toBe('/instalaciones/1')
+  })
+
   it('rutaDeJefatura_tecnico_loRedirigeAlInicio', () => {
     const { router } = renderizarRuta('/usuarios', sesionDe('TECNICO'))
 

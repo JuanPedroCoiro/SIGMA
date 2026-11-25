@@ -1,4 +1,5 @@
 import { createBrowserRouter, type RouteObject } from 'react-router-dom'
+import { FichaInstalacionPage } from '../features/activos/pages/FichaInstalacionPage'
 import { InstalacionesPage } from '../features/activos/pages/InstalacionesPage'
 import { CuadrillasPage } from '../features/administracion/pages/CuadrillasPage'
 import { EditarCuadrillaPage } from '../features/administracion/pages/EditarCuadrillaPage'
@@ -35,9 +36,13 @@ export const rutas: RouteObject[] = [
             ],
           },
           {
-            // El técnico solo ve las OTs de su cuadrilla: lo verifica el backend.
+            // El técnico solo ve las OTs de su cuadrilla: lo verifica el backend. La ficha de la
+            // instalación es para todos (HU-10); el listado de instalaciones, no.
             element: <RutaProtegida roles={['JEFATURA', 'OPERADOR', 'TECNICO']} />,
-            children: [{ path: 'ordenes/:id', element: <OrdenDetallePage /> }],
+            children: [
+              { path: 'ordenes/:id', element: <OrdenDetallePage /> },
+              { path: 'instalaciones/:id', element: <FichaInstalacionPage /> },
+            ],
           },
           {
             element: <RutaProtegida roles={['JEFATURA']} />,
