@@ -43,7 +43,7 @@ class EstadoOTTest {
     REANUDAR(ot -> ot.reanudar(USUARIO, AHORA)),
     CERRAR(ot -> ot.cerrarTecnicamente(CIERRE, UUID.randomUUID(), AHORA)),
     VALIDAR(ot -> ot.validar(AHORA)),
-    OBSERVAR(ot -> ot.observar(AHORA)),
+    OBSERVAR(ot -> ot.observar("Falta la foto del después", AHORA)),
     TOMAR(ot -> ot.tomar(OTRA_CUADRILLA, FECHA, AHORA)),
     ANULAR(ot -> ot.anular("Duplicada", USUARIO, AHORA));
 
@@ -162,13 +162,35 @@ class EstadoOTTest {
   }
 
   @Test
-  void observar_cerradaTecnica_vuelveAsignadaALaMismaCuadrilla() {
+  void observar_cerradaTecnica_vuelveAsignadaALaMismaCuadrillaConElMotivo() {
     OrdenTrabajo ot = otEn(CERRADA_TECNICA);
 
-    ot.observar(AHORA);
+    ot.observar("  Falta la foto del después  ", AHORA);
 
     assertThat(ot.getEstado()).isEqualTo(ASIGNADA);
     assertThat(ot.getIdCuadrilla()).isEqualTo(CUADRILLA);
+    assertThat(ot.getMotivoObservacion()).isEqualTo("Falta la foto del después");
+    assertThat(ot.getObservadaEn()).isEqualTo(AHORA);
+  }
+
+  @Test
+  void observar_sinMotivo_lanzaReglaNegocioYNoCambiaElEstado() {
+    OrdenTrabajo ot = otEn(CERRADA_TECNICA);
+
+    assertThatThrownBy(() -> ot.observar("   ", AHORA)).isInstanceOf(ReglaNegocioException.class);
+
+    assertThat(ot.getEstado()).isEqualTo(CERRADA_TECNICA);
+    assertThat(ot.getMotivoObservacion()).isNull();
+  }
+
+  @Test
+  void validar_cerradaTecnica_guardaLaFechaDeValidacion() {
+    OrdenTrabajo ot = otEn(CERRADA_TECNICA);
+
+    ot.validar(AHORA);
+
+    assertThat(ot.getEstado()).isEqualTo(VALIDADA);
+    assertThat(ot.getValidadaEn()).isEqualTo(AHORA);
   }
 
   @ParameterizedTest

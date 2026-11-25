@@ -23,10 +23,12 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumMap;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -42,6 +44,13 @@ import org.hibernate.annotations.Generated;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class OrdenTrabajo extends BaseEntity {
+
+  /** Largo máximo del motivo de una observación (motivo_observacion). */
+  public static final int LARGO_MAXIMO_OBSERVACION = 500;
+
+  /** Las fotos que el cierre tiene que tener para validarlo sin advertencia (CU-5 3a). */
+  private static final Set<MomentoFoto> MOMENTOS_OBLIGATORIOS =
+      EnumSet.of(MomentoFoto.ANTES, MomentoFoto.DESPUES);
 
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -111,6 +120,16 @@ public class OrdenTrabajo extends BaseEntity {
   /** El envío que cerró la OT: un reintento con el mismo no la cierra de nuevo (R8). */
   @Column(name = "id_operacion_cierre")
   private UUID idOperacionCierre;
+
+  /** La última observación de la Jefatura (HU-09, CU-5 4a): la cuadrilla la ve en «Mis OTs». */
+  @Column(name = "motivo_observacion", length = LARGO_MAXIMO_OBSERVACION)
+  private String motivoObservacion;
+
+  /** Cuándo se hizo la última observación; null si nunca se observó. */
+  private Instant observadaEn;
+
+  /** La aprobación de la Jefatura (HU-09): la fecha del historial de la instalación (CU-8). */
+  private Instant validadaEn;
 
   /** Historial de pausas; a lo sumo una abierta (uq_pausa_ot_abierta). */
   @OneToMany(mappedBy = "ordenTrabajo", cascade = CascadeType.ALL, orphanRemoval = true)
@@ -281,12 +300,49 @@ public class OrdenTrabajo extends BaseEntity {
     return cerradaEn == null ? null : new CierreTecnico(diagnostico, solucion, observacionesCierre);
   }
 
+  /** Solo desde Cerrada técnica (HU-09, CU-5). */
   public void validar(Instant ahora) {
     estado.validar(this, ahora);
   }
 
-  public void observar(Instant ahora) {
-    estado.observar(this, ahora);
+  /** Vuelve a Asignada, a la misma cuadrilla, con el motivo (HU-09, CU-5 4a). */
+  public void observar(String motivo, Instant ahora) {
+    estado.observar(this, motivo, ahora);
+    pendientes.add(new ObservacionPendiente(motivoObservacion, ahora));
+  }
+
+  /**
+   * Si el último cierre técnico fue dentro de la fecha límite (CU-5). Se mide con la fecha del
+   * cierre, no con la de validación. Null si nunca se cerró o no tiene SLA.
+   */
+  public Boolean cerradaEnPlazo() {
+    return cumplePlazo(cerradaEn, fechaLimite);
+  }
+
+  /**
+   * La regla de {@link #cerradaEnPlazo()} con los datos sueltos, para las consultas que no cargan
+   * la entidad (la lista de OTs por validar): cerrar justo en el límite cumple.
+   */
+  public static Boolean cumplePlazo(Instant cerradaEn, Instant fechaLimite) {
+    if (cerradaEn == null || fechaLimite == null) {
+      return null;
+    }
+    return !cerradaEn.isAfter(fechaLimite);
+  }
+
+  /**
+   * Los momentos obligatorios (Antes y Después; Durante es opcional) sin foto en el último cierre
+   * (HU-09, CU-5 3a), en ese orden. {@code fotos} son las del cierre de esta OT: las anteriores a
+   * la última observación no cuentan, porque ese cierre se rechazó.
+   */
+  public List<MomentoFoto> momentosFaltantes(List<Adjunto> fotos) {
+    Set<MomentoFoto> presentes = EnumSet.noneOf(MomentoFoto.class);
+    for (Adjunto foto : fotos) {
+      if (observadaEn == null || foto.getCreadoEn().isAfter(observadaEn)) {
+        presentes.add(foto.getMomento());
+      }
+    }
+    return MOMENTOS_OBLIGATORIOS.stream().filter(m -> !presentes.contains(m)).toList();
   }
 
   /** Si estaba en pausa, la cierra con quien anula. */
@@ -298,10 +354,10 @@ public class OrdenTrabajo extends BaseEntity {
   /**
    * Devuelve los eventos de dominio pendientes ({@link OrdenGenerada}, {@link EstadoOrdenCambiado},
    * {@link OrdenAsignada}, {@link OrdenPausada}, {@link OrdenReanudada}, {@link OrdenLiberada},
-   * {@link OrdenAnulada}) en el orden en que ocurrieron y los descarta. Se llama después de
-   * guardar, porque los eventos llevan el id de la OT. {@code idUsuario} es quien hizo la acción:
-   * lo pasa el servicio, que conoce al usuario actual, y queda en los eventos que no lo traen de la
-   * operación (para la bitácora).
+   * {@link OrdenObservada}, {@link OrdenAnulada}) en el orden en que ocurrieron y los descarta. Se
+   * llama después de guardar, porque los eventos llevan el id de la OT. {@code idUsuario} es quien
+   * hizo la acción: lo pasa el servicio, que conoce al usuario actual, y queda en los eventos que
+   * no lo traen de la operación (para la bitácora).
    */
   public List<Object> extraerEventos(Long idUsuario) {
     if (id == null) {
@@ -334,6 +390,7 @@ public class OrdenTrabajo extends BaseEntity {
           new OrdenReanudada(id, r.motivo(), r.idUsuario(), r.ocurridoEn(), r.fechaLimite());
       case LiberacionPendiente l ->
           new OrdenLiberada(id, l.idCuadrilla(), idUsuario, l.ocurridoEn());
+      case ObservacionPendiente o -> new OrdenObservada(id, o.motivo(), idUsuario, o.ocurridoEn());
       case AnulacionPendiente a -> new OrdenAnulada(id, a.motivo(), a.idUsuario(), a.ocurridoEn());
     };
   }
@@ -400,6 +457,24 @@ public class OrdenTrabajo extends BaseEntity {
     this.cerradaEn = Objects.requireNonNull(ahora);
   }
 
+  void registrarValidacion(Instant ahora) {
+    this.validadaEn = Objects.requireNonNull(ahora);
+  }
+
+  /** Valida el motivo antes de que EstadoOT cambie el estado: sin motivo no hay observación. */
+  void registrarObservacion(String motivo, Instant ahora) {
+    if (motivo == null || motivo.isBlank()) {
+      throw new ReglaNegocioException("El motivo de la observación es obligatorio.");
+    }
+    String limpio = motivo.trim();
+    if (limpio.length() > LARGO_MAXIMO_OBSERVACION) {
+      throw new ReglaNegocioException(
+          "El motivo de la observación admite hasta " + LARGO_MAXIMO_OBSERVACION + " caracteres.");
+    }
+    this.motivoObservacion = limpio;
+    this.observadaEn = Objects.requireNonNull(ahora);
+  }
+
   void registrarAnulacion(String motivo, Instant ahora) {
     if (motivo == null || motivo.isBlank()) {
       throw new ReglaNegocioException("El motivo de anulación es obligatorio.");
@@ -424,7 +499,8 @@ public class OrdenTrabajo extends BaseEntity {
           PausaPendiente,
           ReanudacionPendiente,
           AnulacionPendiente,
-          LiberacionPendiente {}
+          LiberacionPendiente,
+          ObservacionPendiente {}
 
   /** Cambio de estado; anterior null = la OT recién generada. */
   private record CambioPendiente(EstadoOT anterior, EstadoOT nuevo, Instant ocurridoEn)
@@ -452,4 +528,7 @@ public class OrdenTrabajo extends BaseEntity {
 
   /** {@code idCuadrilla} es la que tenía la OT antes de liberarla. */
   private record LiberacionPendiente(Long idCuadrilla, Instant ocurridoEn) implements Pendiente {}
+
+  /** {@code motivo} ya viene sin espacios de más. */
+  private record ObservacionPendiente(String motivo, Instant ocurridoEn) implements Pendiente {}
 }
