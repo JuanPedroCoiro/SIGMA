@@ -1,8 +1,10 @@
 package com.ciemsa.sigma.activos;
 
+import com.ciemsa.sigma.activos.dto.InstalacionFicha;
 import com.ciemsa.sigma.activos.dto.InstalacionResponse;
 import com.ciemsa.sigma.activos.dto.InstalacionResumen;
 import com.ciemsa.sigma.activos.dto.NuevaInstalacion;
+import com.ciemsa.sigma.shared.domain.NoEncontradoException;
 import java.text.Normalizer;
 import java.util.Collection;
 import java.util.List;
@@ -70,6 +72,19 @@ public class InstalacionService {
         .findById(id)
         .filter(Instalacion::isActiva)
         .map(InstalacionResumen::de);
+  }
+
+  /**
+   * Datos de la ficha (HU-10, CU-7). También las inactivas: su historial se sigue consultando.
+   *
+   * @throws NoEncontradoException si no existe
+   */
+  @Transactional(readOnly = true)
+  public InstalacionFicha obtenerFicha(Long id) {
+    return instalacionRepository
+        .findById(id)
+        .map(InstalacionFicha::de)
+        .orElseThrow(() -> new NoEncontradoException("No existe la instalación " + id + "."));
   }
 
   /** De los códigos recibidos, los que ya tienen una instalación. */

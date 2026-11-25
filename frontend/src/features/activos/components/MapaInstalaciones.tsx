@@ -21,7 +21,8 @@ type Props = {
   /** Las que tienen coordenadas: las demás no se pueden ubicar, pero sí buscar. */
   instalaciones: Instalacion[]
   elegida: Instalacion | null
-  onElegir: (instalacion: Instalacion) => void
+  /** Sin él, el mapa solo muestra (ficha de la instalación, HU-10). */
+  onElegir?: (instalacion: Instalacion) => void
 }
 
 function coordenadas(instalacion: Instalacion): LatLngTuple {
@@ -92,7 +93,7 @@ export function MapaInstalaciones({ instalaciones, elegida, onElegir }: Props) {
               pathOptions={{
                 className: esElegida ? 'mapa-marcador mapa-marcador-elegido' : 'mapa-marcador',
               }}
-              eventHandlers={{ click: () => onElegir(instalacion) }}
+              eventHandlers={{ click: () => onElegir?.(instalacion) }}
             >
               <Tooltip>{etiquetaInstalacion(instalacion)}</Tooltip>
             </CircleMarker>

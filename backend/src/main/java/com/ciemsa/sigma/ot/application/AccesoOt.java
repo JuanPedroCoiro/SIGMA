@@ -7,6 +7,7 @@ import com.ciemsa.sigma.shared.domain.NoEncontradoException;
 import com.ciemsa.sigma.shared.seguridad.Rol;
 import com.ciemsa.sigma.shared.seguridad.UsuarioActual;
 import java.util.Optional;
+import java.util.function.Predicate;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Component;
@@ -14,7 +15,8 @@ import org.springframework.stereotype.Component;
 /**
  * Qué OTs puede ver y operar el usuario actual: un técnico, solo las asignadas a su cuadrilla
  * actual (leída de la base, no de la sesión); Operador y Jefatura, cualquiera. Es el único lugar
- * con esta regla: la usan el detalle, las pausas, el inicio, el cierre y las fotos del incidente.
+ * con esta regla: la usan el detalle, las pausas, el inicio, el cierre, las fotos del incidente y
+ * la ficha de la instalación.
  */
 @Component
 @RequiredArgsConstructor
@@ -56,6 +58,18 @@ class AccesoOt {
     }
   }
 
+  /**
+   * La misma regla que {@link #buscar}, para marcar en una lista qué OTs puede abrir el usuario
+   * (ficha de la instalación, HU-10). La cuadrilla del técnico se lee una sola vez.
+   */
+  Predicate<OrdenTrabajo> puedeVer() {
+    if (usuarioActual.rol() != Rol.TECNICO) {
+      return ot -> true;
+    }
+    Optional<Long> suCuadrilla = usuarioService.idCuadrillaDe(usuarioActual.id());
+    return ot -> esDeLaCuadrilla(ot, suCuadrilla);
+  }
+
   private OrdenTrabajo verificar(Optional<OrdenTrabajo> encontrada, Long idOrdenTrabajo) {
     OrdenTrabajo ot =
         encontrada.orElseThrow(
@@ -69,9 +83,11 @@ class AccesoOt {
 
   private boolean esDeSuCuadrilla(OrdenTrabajo ot) {
     return ot.getIdCuadrilla() != null
-        && usuarioService
-            .idCuadrillaDe(usuarioActual.id())
-            .map(ot.getIdCuadrilla()::equals)
-            .orElse(false);
+        && esDeLaCuadrilla(ot, usuarioService.idCuadrillaDe(usuarioActual.id()));
+  }
+
+  private static boolean esDeLaCuadrilla(OrdenTrabajo ot, Optional<Long> idCuadrilla) {
+    return ot.getIdCuadrilla() != null
+        && idCuadrilla.map(ot.getIdCuadrilla()::equals).orElse(false);
   }
 }
