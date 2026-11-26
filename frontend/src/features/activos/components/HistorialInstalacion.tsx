@@ -1,7 +1,11 @@
+import { useId, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Paginacion } from '../../../shared/components/Paginacion'
 import { usePaginado } from '../../../shared/hooks/usePaginado'
 import { formatearFechaHoraMontevideo } from '../../../shared/lib/fechas'
+import { FotosDelIncidente } from '../../ot/components/FotosIncidente'
+import { FotosDeLaIntervencion } from '../../ot/components/FotosIntervencion'
+import { textoCantidadFotos } from '../../ot/fotos'
 import { ETIQUETA_PRIORIDAD } from '../../ot/types'
 import { useHistorialInstalacion } from '../hooks/useInstalaciones'
 import type { EntradaHistorial } from '../types'
@@ -121,7 +125,55 @@ function Entrada({ entrada }: { entrada: EntradaHistorial }) {
         {entrada.tercero && <Dato termino="Tercero" valor={entrada.tercero} />}
         {entrada.causa && <Dato termino="Causa" valor={entrada.causa} />}
       </dl>
+      <FotosDeLaEntrada entrada={entrada} />
     </li>
+  )
+}
+
+/**
+ * Cuántas fotos tiene la entrada (del incidente y del cierre) y un botón para verlas. Se piden
+ * recién al abrirlas: la página del historial no hace un pedido por entrada. Quien ve la entrada
+ * puede verlas (el backend lo controla); en el historial no se agregan.
+ */
+function FotosDeLaEntrada({ entrada }: { entrada: EntradaHistorial }) {
+  const [abiertas, setAbiertas] = useState(false)
+  const idFotos = useId()
+  const { fotosIncidente, fotosCierre, incidente } = entrada
+  if (fotosIncidente === 0 && fotosCierre === 0) return null
+
+  const partes = [
+    fotosIncidente > 0 && `${textoCantidadFotos(fotosIncidente)} del incidente`,
+    fotosCierre > 0 && `${textoCantidadFotos(fotosCierre)} del cierre`,
+  ].filter(Boolean)
+  return (
+    <div className="historial-fotos">
+      <p className="historial-fotos-cantidad">Fotos: {partes.join(' · ')}</p>
+      <button
+        type="button"
+        className="boton boton-secundario"
+        aria-expanded={abiertas}
+        aria-controls={idFotos}
+        // El número distingue los botones de cada entrada para los lectores de pantalla.
+        aria-label={`${abiertas ? 'Ocultar' : 'Ver'} fotos de ${entrada.numero}`}
+        onClick={() => setAbiertas((antes) => !antes)}
+      >
+        {abiertas ? 'Ocultar fotos' : 'Ver fotos'}
+      </button>
+      {abiertas && (
+        <div id={idFotos}>
+          {incidente && fotosIncidente > 0 && (
+            <FotosDelIncidente
+              idIncidente={incidente.id}
+              titulo="Fotos del incidente"
+              permitirAgregar={false}
+            />
+          )}
+          {entrada.clase === 'OT' && fotosCierre > 0 && (
+            <FotosDeLaIntervencion idOrden={entrada.id} nivelTitulo={3} />
+          )}
+        </div>
+      )}
+    </div>
   )
 }
 
