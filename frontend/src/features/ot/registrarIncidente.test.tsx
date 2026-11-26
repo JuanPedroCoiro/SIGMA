@@ -95,6 +95,12 @@ function seRegistro() {
   return base.incidentes.some((i) => i.numero === 'INC-0008')
 }
 
+/** Las fotos del incidente nuevo: la semilla tiene las de otros (historial, HU-10). */
+function fotosDelNuevoIncidente() {
+  const incidente = base.incidentes.find((i) => i.numero === 'INC-0008')
+  return base.fotos.filter((f) => f.idIncidente === incidente?.id)
+}
+
 describe('registrar incidente (#40, en pasos #69)', () => {
   beforeEach(() => {
     base.idSesion = ID_OPERADOR
@@ -525,7 +531,7 @@ describe('registrar incidente (#40, en pasos #69)', () => {
       confirmar()
 
       expect(await screen.findByRole('status')).not.toHaveTextContent('Se adjuntaron')
-      expect(base.fotos).toHaveLength(0)
+      expect(fotosDelNuevoIncidente()).toHaveLength(0)
     })
 
     it('quitar_sacaLaFotoYLiberaLaVistaPrevia', async () => {
@@ -589,7 +595,7 @@ describe('registrar incidente (#40, en pasos #69)', () => {
         'El incidente quedó registrado, pero no se pudieron subir las fotos. «falsa.png» no es una imagen JPG, PNG ni WEBP.',
       )
       expect(seRegistro()).toBe(true)
-      expect(base.fotos).toHaveLength(0)
+      expect(fotosDelNuevoIncidente()).toHaveLength(0)
     })
 
     it('falloAlSubir_sePuedeReintentar', async () => {
@@ -614,7 +620,7 @@ describe('registrar incidente (#40, en pasos #69)', () => {
 
       await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument())
       expect(screen.getByRole('status')).toHaveTextContent('Se adjuntaron 1 foto.')
-      expect(base.fotos).toHaveLength(1)
+      expect(fotosDelNuevoIncidente()).toHaveLength(1)
     })
 
     it('detalleDeLaOt_muestraLasFotosDelIncidente', async () => {

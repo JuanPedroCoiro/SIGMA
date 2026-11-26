@@ -19,6 +19,11 @@ function orden(id: number) {
   return base.ordenes.find((o) => o.id === id)!
 }
 
+/** Las fotos del cierre de OT-0001: la semilla tiene las de OT-0005 (historial, HU-10). */
+function fotosCierreDeLaOt1() {
+  return base.fotosCierre.filter((f) => f.idOrdenTrabajo === 1)
+}
+
 function jpg(nombre: string) {
   return new File([new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 1, 2])], nombre, {
     type: 'image/jpeg',
@@ -303,7 +308,7 @@ describe('intervención del técnico (HU-07)', () => {
         solucion: SOLUCION,
         observaciones: 'Quedó funcionando',
       })
-      expect(base.fotosCierre.map((f) => [f.nombreOriginal, f.momento])).toEqual([
+      expect(fotosCierreDeLaOt1().map((f) => [f.nombreOriginal, f.momento])).toEqual([
         ['poste.jpg', 'DESPUES'],
         ['lampara.jpg', 'DESPUES'],
       ])
@@ -336,7 +341,7 @@ describe('intervención del técnico (HU-07)', () => {
       expect(await screen.findByText('Enviada, pendiente de validación.')).toBeVisible()
       expect(ids).toHaveLength(2)
       expect(ids[1]).toBe(ids[0])
-      expect(base.fotosCierre).toHaveLength(2)
+      expect(fotosCierreDeLaOt1()).toHaveLength(2)
     })
 
     it('respuestaPerdida_elReintentoNoCierraDosVecesNiDuplicaFotos', async () => {
@@ -376,7 +381,7 @@ describe('intervención del técnico (HU-07)', () => {
 
       expect(await screen.findByText('Enviada, pendiente de validación.')).toBeVisible()
       expect(intentos).toBe(2)
-      expect(base.fotosCierre).toHaveLength(1)
+      expect(fotosCierreDeLaOt1()).toHaveLength(1)
     })
 
     it('errorDeValidacionDelServidor_llevaAlPasoDelCampo', async () => {
@@ -445,7 +450,7 @@ describe('intervención del técnico (HU-07)', () => {
       confirmar()
 
       expect(await screen.findByRole('alert')).toHaveTextContent('Esta OT ya estaba cerrada')
-      expect(base.fotosCierre).toHaveLength(0)
+      expect(fotosCierreDeLaOt1()).toHaveLength(0)
     })
 
     it('anulada_loAvisa', async () => {
