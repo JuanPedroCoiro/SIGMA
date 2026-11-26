@@ -133,6 +133,12 @@ public enum EstadoOT {
       return false;
     }
   },
+  /**
+   * Estado final: no admite ninguna operación, así que nada vuelve a modificar la fila y su {@code
+   * modificado_en} es la fecha de anulación (historial de la instalación, HU-10; lo verifica
+   * AnulacionFechaTest). Si alguna operación llegara a tocar una anulada, hace falta {@code
+   * anulada_en} con su migración.
+   */
   ANULADA {
     @Override
     public boolean estaAbierta() {
@@ -145,6 +151,10 @@ public enum EstadoOT {
    * de la ficha de la instalación (HU-10). Son las que {@link #estaAbierta()} da por abiertas.
    */
   public static final List<EstadoOT> EN_CURSO = List.of(PENDIENTE, ASIGNADA, EN_PROCESO, EN_PAUSA);
+
+  /** Las que ya no están en curso: el historial de la instalación (HU-10, CU-8). */
+  public static final List<EstadoOT> ESTADOS_HISTORIAL =
+      List.of(CERRADA_TECNICA, VALIDADA, ANULADA);
 
   /** Si la OT sigue pendiente de resolución: solo una OT abierta puede vencer. */
   public boolean estaAbierta() {

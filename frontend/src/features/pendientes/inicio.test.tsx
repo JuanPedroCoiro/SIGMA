@@ -54,9 +54,10 @@ describe('inicio con resumen por rol (#72)', () => {
   it('operador_vencidasEnRojoEIncidentesDeHoy', async () => {
     base.idSesion = ID_OPERADOR
     base.ordenes.find((o) => o.id === 1)!.fechaLimite = new Date(Date.now() - HORA).toISOString()
-    // Tres de hoy y uno de hace 30 h.
+    // Tres de hoy (los tres primeros salvo el segundo) y los demás de hace 30 h.
     base.incidentes.forEach((incidente, i) => {
-      incidente.creadoEn = new Date(Date.now() - (i === 1 ? 30 * HORA : 0)).toISOString()
+      const deHoy = i === 0 || i === 2 || i === 3
+      incidente.creadoEn = new Date(Date.now() - (deHoy ? 0 : 30 * HORA)).toISOString()
     })
     renderizarRuta('/')
     const lista = await resumen()

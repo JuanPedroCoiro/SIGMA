@@ -29,14 +29,14 @@ public class PausaOtService {
   private final ArmadorDetalleOt armadorDetalleOt;
 
   public DetalleOt pausar(Long idOrdenTrabajo, MotivoPausa motivo, String detalle) {
-    OrdenTrabajo ot = accesoOt.buscar(idOrdenTrabajo);
+    OrdenTrabajo ot = accesoOt.buscarParaOperar(idOrdenTrabajo);
     Instant ahora = Instant.now(clock);
     ot.pausar(motivo, detalle, usuarioActual.id(), ahora);
     return guardarYPublicar(ot, ahora);
   }
 
   public DetalleOt reanudar(Long idOrdenTrabajo) {
-    OrdenTrabajo ot = accesoOt.buscar(idOrdenTrabajo);
+    OrdenTrabajo ot = accesoOt.buscarParaOperar(idOrdenTrabajo);
     Instant ahora = Instant.now(clock);
     ot.reanudar(usuarioActual.id(), ahora);
     return guardarYPublicar(ot, ahora);

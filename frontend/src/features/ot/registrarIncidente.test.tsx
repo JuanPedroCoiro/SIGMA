@@ -10,7 +10,7 @@ import { renderizarRuta } from '../../test/renderizarRuta'
 
 // Datos de la API simulada (src/mocks/datos.ts): INST-001..025, la 25 («Cruce Peñarol») sin regla
 // de SLA; categorías de db/datos-prueba (Semáforo apagado → ALTA, Lámpara quemada → MEDIA, Otra
-// → MEDIA); OT-0001..0003 e INC-0004, así que lo nuevo es OT-0004 e INC-0005.
+// → MEDIA); OT-0001..0006 e INC-0001..0007, así que lo nuevo es OT-0007 e INC-0008.
 const ID_OPERADOR = 3
 const ID_JEFATURA = 1
 const ID_SEMAFORO_APAGADO = '1'
@@ -92,7 +92,7 @@ function filaDelResumen(etiqueta: string) {
 }
 
 function seRegistro() {
-  return base.incidentes.some((i) => i.numero === 'INC-0005')
+  return base.incidentes.some((i) => i.numero === 'INC-0008')
 }
 
 describe('registrar incidente (#40, en pasos #69)', () => {
@@ -106,12 +106,12 @@ describe('registrar incidente (#40, en pasos #69)', () => {
     confirmar()
 
     const estado = await screen.findByRole('status')
-    const orden = base.ordenes.find((o) => o.numero === 'OT-0004')!
-    expect(estado).toHaveTextContent('Se generó la OT-0004 (incidente INC-0005)')
+    const orden = base.ordenes.find((o) => o.numero === 'OT-0007')!
+    expect(estado).toHaveTextContent('Se generó la OT-0007 (incidente INC-0008)')
     expect(estado).toHaveTextContent(
       `vence a las ${formatearFechaHoraMontevideo(orden.fechaLimite!)}`,
     )
-    expect(screen.getByRole('link', { name: 'Ver OT-0004' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Ver OT-0007' })).toHaveAttribute(
       'href',
       `/ordenes/${orden.id}`,
     )
@@ -126,8 +126,8 @@ describe('registrar incidente (#40, en pasos #69)', () => {
     confirmar()
 
     const estado = await screen.findByRole('status')
-    expect(estado).toHaveTextContent('Se generó la OT-0004 (incidente INC-0005), SLA sin definir.')
-    expect(base.ordenes.find((o) => o.numero === 'OT-0004')!.fechaLimite).toBeNull()
+    expect(estado).toHaveTextContent('Se generó la OT-0007 (incidente INC-0008), SLA sin definir.')
+    expect(base.ordenes.find((o) => o.numero === 'OT-0007')!.fechaLimite).toBeNull()
   })
 
   it('falladeTercero_quedaEnEsperaYApareceEnPendientes', async () => {
@@ -144,15 +144,15 @@ describe('registrar incidente (#40, en pasos #69)', () => {
 
     const estado = await screen.findByRole('status')
     expect(estado).toHaveTextContent(
-      'El incidente INC-0005 quedó en espera de tercero; aparece en Pendientes.',
+      'El incidente INC-0008 quedó en espera de tercero; aparece en Pendientes.',
     )
     expect(screen.queryByRole('link', { name: /Ver OT/ })).not.toBeInTheDocument()
-    const incidente = base.incidentes.find((i) => i.numero === 'INC-0005')!
+    const incidente = base.incidentes.find((i) => i.numero === 'INC-0008')!
     expect(incidente.estado).toBe('EN_ESPERA_TERCERO')
     expect(incidente.causa).toBeNull()
 
     fireEvent.click(within(estado).getByRole('link', { name: 'Pendientes' }))
-    expect(await screen.findByText('INC-0005')).toBeInTheDocument()
+    expect(await screen.findByText('INC-0008')).toBeInTheDocument()
   })
 
   it('categoria_sugiereLaPrioridadYSePuedeCambiar', async () => {
@@ -182,7 +182,7 @@ describe('registrar incidente (#40, en pasos #69)', () => {
     confirmar()
 
     await screen.findByRole('status')
-    expect(base.incidentes.find((i) => i.numero === 'INC-0005')!.prioridad).toBe('BAJA')
+    expect(base.incidentes.find((i) => i.numero === 'INC-0008')!.prioridad).toBe('BAJA')
   })
 
   it('pasoDonde_sinCompletar_noAvanzaYMarcaLosCampos', async () => {
@@ -307,7 +307,7 @@ describe('registrar incidente (#40, en pasos #69)', () => {
 
     confirmar()
     await screen.findByRole('status')
-    const incidente = base.incidentes.find((i) => i.numero === 'INC-0005')!
+    const incidente = base.incidentes.find((i) => i.numero === 'INC-0008')!
     expect(incidente.descripcion).toBe('El semáforo quedó en amarillo intermitente.')
   })
 
@@ -390,7 +390,7 @@ describe('registrar incidente (#40, en pasos #69)', () => {
 
     await enPaso('Dónde')
     expect(screen.getByLabelText('Instalación')).toHaveValue('')
-    expect(base.incidentes.filter((i) => i.numero === 'INC-0006')).toHaveLength(0)
+    expect(base.incidentes.filter((i) => i.numero === 'INC-0009')).toHaveLength(0)
   })
 
   describe('mapa al costado (#70)', () => {
@@ -508,10 +508,10 @@ describe('registrar incidente (#40, en pasos #69)', () => {
       confirmar()
 
       expect(await screen.findByRole('status')).toHaveTextContent(
-        'Se generó la OT-0004 (incidente INC-0005)',
+        'Se generó la OT-0007 (incidente INC-0008)',
       )
       expect(screen.getByRole('status')).toHaveTextContent('Se adjuntaron 2 fotos.')
-      const incidente = base.incidentes.find((i) => i.numero === 'INC-0005')!
+      const incidente = base.incidentes.find((i) => i.numero === 'INC-0008')!
       expect(base.fotos.filter((f) => f.idIncidente === incidente.id)).toMatchObject([
         { nombreOriginal: 'reclamo.png', tipo: 'image/png' },
         { nombreOriginal: 'cruce.jpg', tipo: 'image/jpeg' },
@@ -584,7 +584,7 @@ describe('registrar incidente (#40, en pasos #69)', () => {
       await irAlResumen()
       confirmar()
 
-      expect(await screen.findByRole('status')).toHaveTextContent('Se generó la OT-0004')
+      expect(await screen.findByRole('status')).toHaveTextContent('Se generó la OT-0007')
       expect(screen.getByRole('alert')).toHaveTextContent(
         'El incidente quedó registrado, pero no se pudieron subir las fotos. «falsa.png» no es una imagen JPG, PNG ni WEBP.',
       )

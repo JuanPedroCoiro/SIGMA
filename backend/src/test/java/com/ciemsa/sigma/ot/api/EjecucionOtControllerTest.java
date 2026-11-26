@@ -654,14 +654,59 @@ class EjecucionOtControllerTest {
     assertThat(fotosEnLaBase()).isEqualTo(1);
   }
 
+  // --- Un técnico de otra cuadrilla ve las OTs terminadas (historial, HU-10) ---
+
   @Test
-  void fotosDeLaOt_tecnicoDeOtraCuadrilla_403() throws Exception {
+  void fotosDeLaOt_cerradaPorOtraCuadrilla_elTecnicoLasVe() throws Exception {
     iniciar(tecnicoNorte, ot).andExpect(status().isOk());
     cerrar(tecnicoNorte, ot, UUID.randomUUID(), "Diagnóstico", "Solución", null)
         .andExpect(status().isOk());
 
+    String fotos = ORDENES + "/" + ot.getId() + "/fotos";
+    mvc.perform(get(fotos).with(user(tecnicoSur)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.length()").value(1));
+    Long idFoto =
+        jdbc.queryForObject(
+            "SELECT id_adjunto FROM adjunto WHERE id_orden_trabajo = ?", Long.class, ot.getId());
+    mvc.perform(get(fotos + "/" + idFoto).with(user(tecnicoSur))).andExpect(status().isOk());
+  }
+
+  @Test
+  void fotosDeLaOt_enCursoDeOtraCuadrilla_403() throws Exception {
+    iniciar(tecnicoNorte, ot).andExpect(status().isOk());
+
     mvc.perform(get(ORDENES + "/" + ot.getId() + "/fotos").with(user(tecnicoSur)))
         .andExpect(status().isForbidden());
+  }
+
+  @Test
+  void detalle_cerradaPorOtraCuadrilla_elTecnicoLaVePeroNoLaOpera() throws Exception {
+    iniciar(tecnicoNorte, ot).andExpect(status().isOk());
+    cerrar(tecnicoNorte, ot, UUID.randomUUID(), "Diagnóstico", "Solución", null)
+        .andExpect(status().isOk());
+
+    mvc.perform(get(ORDENES + "/" + ot.getId()).with(user(tecnicoSur)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.estado").value("CERRADA_TECNICA"));
+    mvc.perform(
+            post(ORDENES + "/" + ot.getId() + "/pausar")
+                .with(user(tecnicoSur))
+                .with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"motivo\": \"CLIMA\"}"))
+        .andExpect(status().isForbidden());
+    cerrar(tecnicoSur, ot, UUID.randomUUID(), "Diagnóstico", "Solución", null)
+        .andExpect(status().isForbidden());
+  }
+
+  @Test
+  void detalle_anulada_elTecnicoDeOtraCuadrillaLaVe() throws Exception {
+    anular(ot);
+
+    mvc.perform(get(ORDENES + "/" + ot.getId()).with(user(tecnicoSur)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.estado").value("ANULADA"));
   }
 
   private static byte[] bytes(int... valores) {

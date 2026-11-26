@@ -3,6 +3,7 @@ import {
   buscarInstalaciones,
   importarInstalaciones,
   listarInstalaciones,
+  listarHistorialInstalacion,
   listarInstalacionesMapa,
   obtenerFichaInstalacion,
 } from '../api/instalacionesApi'
@@ -47,6 +48,15 @@ export function useFichaInstalacion(id: number) {
   return useQuery({
     queryKey: [CLAVE, 'ficha', id],
     queryFn: () => obtenerFichaInstalacion(id),
+  })
+}
+
+/** Historial paginado (HU-10, CU-8). Mantiene la página anterior a la vista mientras carga. */
+export function useHistorialInstalacion(id: number, pagina: number) {
+  return useQuery({
+    queryKey: [CLAVE, 'historial', id, pagina],
+    queryFn: () => listarHistorialInstalacion(id, { page: pagina }),
+    placeholderData: keepPreviousData,
   })
 }
 

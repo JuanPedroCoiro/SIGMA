@@ -1,6 +1,11 @@
 import { cliente } from '../../../shared/api/cliente'
 import type { PageResponse, ParametrosPagina } from '../../../shared/api/paginacion'
-import type { FichaInstalacion, Instalacion, ResultadoImportacion } from '../types'
+import type {
+  EntradaHistorial,
+  FichaInstalacion,
+  Instalacion,
+  ResultadoImportacion,
+} from '../types'
 
 export async function listarInstalaciones(
   parametros: ParametrosPagina,
@@ -34,5 +39,16 @@ export async function listarInstalacionesMapa(): Promise<Instalacion[]> {
 /** Ficha de una instalación con sus OTs en curso (HU-10, CU-7), para todos los roles. */
 export async function obtenerFichaInstalacion(id: number): Promise<FichaInstalacion> {
   const res = await cliente.get<FichaInstalacion>(`/instalaciones/${id}/ficha`)
+  return res.data
+}
+
+/** Historial de la instalación (HU-10, CU-8), de lo más nuevo a lo más viejo; el orden es fijo. */
+export async function listarHistorialInstalacion(
+  id: number,
+  parametros: ParametrosPagina,
+): Promise<PageResponse<EntradaHistorial>> {
+  const res = await cliente.get<PageResponse<EntradaHistorial>>(`/instalaciones/${id}/historial`, {
+    params: parametros,
+  })
   return res.data
 }

@@ -2,6 +2,7 @@ import { Link, useParams } from 'react-router-dom'
 import { obtenerProblemDetail } from '../../../shared/api/problemDetail'
 import { formatearFechaHoraMontevideo } from '../../../shared/lib/fechas'
 import { ETIQUETA_ESTADO_OT, ETIQUETA_PRIORIDAD } from '../../ot/types'
+import { HistorialInstalacion } from '../components/HistorialInstalacion'
 import { MapaInstalaciones } from '../components/MapaInstalaciones'
 import { formatearCoordenada } from '../coordenadas'
 import { etiquetaInstalacion } from '../etiquetas'
@@ -17,8 +18,8 @@ function mensajeDeError(error: unknown) {
 }
 
 /**
- * Ficha de la instalación (HU-10, CU-7) para todos los roles: datos, ubicación en el mapa y OTs en
- * curso. Lo que no está cargado se muestra como «Sin datos» (2b).
+ * Ficha de la instalación (HU-10, CU-7) para todos los roles: datos, ubicación en el mapa, OTs en
+ * curso e historial (CU-8). Lo que no está cargado se muestra como «Sin datos» (2b).
  */
 export function FichaInstalacionPage() {
   const id = Number(useParams().id)
@@ -74,6 +75,8 @@ export function FichaInstalacionPage() {
           </ul>
         )}
       </section>
+
+      <HistorialInstalacion idInstalacion={datos.id} />
     </section>
   )
 }
