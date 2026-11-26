@@ -20,5 +20,7 @@ public enum AccionAuditada {
   MODIFICACION,
   RESTABLECIMIENTO_CONTRASENA,
   DESACTIVACION,
-  ACTIVACION
+  ACTIVACION,
+  // Usuario: el técnico se cambia de cuadrilla (HU-20)
+  CAMBIO_CUADRILLA
 }

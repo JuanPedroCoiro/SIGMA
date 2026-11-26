@@ -3,8 +3,9 @@ package com.ciemsa.sigma.administracion.eventos;
 import java.time.Instant;
 
 /**
- * Eventos de la gestión de usuarios (CU-13, HU-01). En todos, {@code idCuenta} es la cuenta sobre
- * la que se actúa e {@code idUsuario} es quien hizo la acción (la Jefatura).
+ * Eventos de la gestión de usuarios (CU-13, HU-01, HU-20). En todos, {@code idCuenta} es la cuenta
+ * sobre la que se actúa e {@code idUsuario} es quien hizo la acción (la Jefatura, o el técnico al
+ * cambiarse de cuadrilla).
  */
 public final class EventosUsuario {
 
@@ -29,4 +30,15 @@ public final class EventosUsuario {
   public record UsuarioDesactivado(Long idCuenta, Long idUsuario, Instant ocurridoEn) {}
 
   public record UsuarioActivado(Long idCuenta, Long idUsuario, Instant ocurridoEn) {}
+
+  /**
+   * HU-20: el técnico se cambió de cuadrilla él mismo, así que {@code idUsuario} es la misma
+   * cuenta. El cambio que hace la Jefatura en la edición es un {@link UsuarioModificado}.
+   */
+  public record CuadrillaCambiada(
+      Long idCuenta,
+      Long idCuadrillaAnterior,
+      Long idCuadrillaNueva,
+      Long idUsuario,
+      Instant ocurridoEn) {}
 }

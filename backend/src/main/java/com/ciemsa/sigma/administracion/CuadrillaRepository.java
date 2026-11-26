@@ -12,6 +12,9 @@ public interface CuadrillaRepository extends JpaRepository<Cuadrilla, Long> {
 
   boolean existsByNombreIgnoreCaseAndIdNot(String nombre, Long id);
 
+  /** Las activas por nombre: a las que se puede sumar un técnico (HU-20). */
+  List<Cuadrilla> findByActivaTrueOrderByNombreAsc();
+
   /** Todas las cuadrillas por nombre, con sus técnicos activos contados en la misma consulta. */
   @Query(
       """

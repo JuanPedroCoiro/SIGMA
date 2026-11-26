@@ -15,6 +15,7 @@ import com.ciemsa.sigma.ot.application.OrdenTrabajoConsultaService;
 import com.ciemsa.sigma.shared.domain.ConflictoException;
 import com.ciemsa.sigma.shared.domain.NoEncontradoException;
 import com.ciemsa.sigma.shared.domain.ReglaNegocioException;
+import com.ciemsa.sigma.shared.seguridad.CuadrillaDelUsuario;
 import com.ciemsa.sigma.shared.seguridad.Rol;
 import com.ciemsa.sigma.shared.seguridad.UsuarioActual;
 import java.time.Clock;
@@ -34,7 +35,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 @Transactional
-public class UsuarioService {
+public class UsuarioService implements CuadrillaDelUsuario {
 
   private final UsuarioRepository usuarioRepository;
   private final CuadrillaRepository cuadrillaRepository;
@@ -117,6 +118,7 @@ public class UsuarioService {
    * La cuadrilla actual del usuario, leída de la base y no de la sesión (el técnico puede cambiar
    * de cuadrilla con la sesión abierta). Vacío si no existe o no tiene cuadrilla.
    */
+  @Override
   @Transactional(readOnly = true)
   public Optional<Long> idCuadrillaDe(Long idUsuario) {
     return usuarioRepository.findById(idUsuario).map(Usuario::getCuadrilla).map(Cuadrilla::getId);

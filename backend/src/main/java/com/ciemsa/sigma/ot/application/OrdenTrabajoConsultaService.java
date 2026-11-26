@@ -19,9 +19,14 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class OrdenTrabajoConsultaService {
 
-  /** Las que una cuadrilla tiene entre manos (CU-13d 3a y carga de HU-05). */
+  /**
+   * Las que una cuadrilla tiene entre manos (CU-13d 3a, carga de HU-05 y aviso de HU-20): las
+   * mismas que muestra «Mis OTs».
+   */
   private static final List<EstadoOT> EN_MANOS_DE_LA_CUADRILLA =
       List.of(EstadoOT.ASIGNADA, EstadoOT.EN_PROCESO, EstadoOT.EN_PAUSA);
+
+  private static final List<EstadoOT> EN_CURSO = List.of(EstadoOT.EN_PROCESO, EstadoOT.EN_PAUSA);
 
   private final OrdenTrabajoRepository ordenTrabajoRepository;
 
@@ -29,6 +34,14 @@ public class OrdenTrabajoConsultaService {
   public long contarAbiertasDeCuadrilla(Long idCuadrilla) {
     return ordenTrabajoRepository.countByIdCuadrillaAndEstadoIn(
         idCuadrilla, EN_MANOS_DE_LA_CUADRILLA);
+  }
+
+  /**
+   * De las abiertas, las que la cuadrilla ya empezó: en proceso o en pausa. Para avisarle al
+   * técnico que se cambia de cuadrilla (HU-20).
+   */
+  public long contarEnCursoDeCuadrilla(Long idCuadrilla) {
+    return ordenTrabajoRepository.countByIdCuadrillaAndEstadoIn(idCuadrilla, EN_CURSO);
   }
 
   /**

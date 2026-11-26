@@ -1,3 +1,17 @@
+/* La cuadrilla del técnico y el botón para cambiarla (HU-20). */
+.mis-ots-cuadrilla {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.mis-ots-cuadrilla p {
+  margin: 0;
+}
+
 /* Bandeja «Mis OTs» (HU-07): una tarjeta por fila en el celular, dos en pantallas anchas. */
 .mis-ots-lista {
   list-style: none;

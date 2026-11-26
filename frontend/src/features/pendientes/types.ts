@@ -112,3 +112,15 @@ export type ResumenInicio = {
   incidentesHoy: number | null
   otsDeHoy: number | null
 }
+
+/** GET /api/v1/mi-cuadrilla (HU-20): la cuadrilla del técnico y a cuáles se puede sumar. */
+export type MiCuadrilla = {
+  /** null si no tiene cuadrilla. */
+  actual: { id: number; nombre: string } | null
+  /** Las que deja de ver en «Mis OTs» si se cambia: asignadas, en proceso y en pausa. */
+  otsAbiertas: number
+  /** De esas, las que la cuadrilla ya empezó: en proceso o en pausa. */
+  otsEnCurso: number
+  /** Las cuadrillas activas, por nombre (incluye la actual). */
+  activas: { id: number; nombre: string; zona: string | null }[]
+}
