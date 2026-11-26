@@ -1,8 +1,11 @@
 package com.ciemsa.sigma.ot.application;
 
 import com.ciemsa.sigma.administracion.UsuarioService;
+import com.ciemsa.sigma.ot.domain.EstadoIncidente;
 import com.ciemsa.sigma.ot.domain.EstadoOT;
+import com.ciemsa.sigma.ot.domain.Incidente;
 import com.ciemsa.sigma.ot.domain.OrdenTrabajo;
+import com.ciemsa.sigma.ot.infrastructure.IncidenteRepository;
 import com.ciemsa.sigma.ot.infrastructure.OrdenTrabajoRepository;
 import com.ciemsa.sigma.shared.domain.NoEncontradoException;
 import com.ciemsa.sigma.shared.seguridad.Rol;
@@ -19,14 +22,17 @@ import org.springframework.stereotype.Component;
  * solo las asignadas a su cuadrilla actual (leída de la base, no de la sesión). Para ver, además,
  * cualquier OT terminada (Cerrada técnicamente, Validada o Anulada), aunque sea de otra cuadrilla:
  * revisa el historial del cruce antes de intervenir (HU-10). Las en curso de otra cuadrilla no las
- * ve. Es el único lugar con estas reglas: las usan el detalle, las pausas, el inicio, el cierre,
- * las fotos, y la ficha y el historial de la instalación.
+ * ve. Las fotos del incidente siguen a su OT; las de un incidente sin OT, las ve si está en el
+ * historial (en espera de un tercero o cerrado sin OT). Es el único lugar con estas reglas: las
+ * usan el detalle, las pausas, el inicio, el cierre, las fotos, y la ficha y el historial de la
+ * instalación.
  */
 @Component
 @RequiredArgsConstructor
 class AccesoOt {
 
   private final OrdenTrabajoRepository ordenTrabajoRepository;
+  private final IncidenteRepository incidenteRepository;
   private final UsuarioService usuarioService;
   private final UsuarioActual usuarioActual;
 
@@ -61,21 +67,22 @@ class AccesoOt {
   }
 
   /**
-   * Las fotos del incidente (#85): un técnico solo accede a las del incidente cuya OT está asignada
-   * a su cuadrilla actual; si el incidente no tiene OT (en espera de un tercero), a ninguna.
-   * Operador y Jefatura, a todas.
+   * Las fotos del incidente (#85, HU-10). Operador y Jefatura, todas. Un técnico, las del incidente
+   * cuya OT puede ver ({@link #buscar}: terminada, o en curso de su cuadrilla); si el incidente no
+   * tiene OT, las de los que entran al historial de la instalación (en espera de un tercero o
+   * cerrado sin OT), no las de uno abierto. Quien llama ya verificó que el incidente existe.
    */
   void verificarIncidente(Long idIncidente) {
     if (!esTecnico()) {
       return;
     }
-    boolean esDeSuCuadrilla =
+    boolean puede =
         ordenTrabajoRepository
             .findByIncidenteId(idIncidente)
-            .map(this::esDeSuCuadrilla)
-            .orElse(false);
-    if (!esDeSuCuadrilla) {
-      throw new AccessDeniedException("La OT del incidente no está asignada a tu cuadrilla.");
+            .map(ot -> puedeVer().test(ot))
+            .orElseGet(() -> sinOtEnHistorial(idIncidente));
+    if (!puede) {
+      throw new AccessDeniedException("No podés ver las fotos de este incidente.");
     }
   }
 
@@ -104,6 +111,14 @@ class AccesoOt {
   private static OrdenTrabajo existente(Optional<OrdenTrabajo> encontrada, Long idOrdenTrabajo) {
     return encontrada.orElseThrow(
         () -> new NoEncontradoException("No existe la orden de trabajo " + idOrdenTrabajo + "."));
+  }
+
+  private boolean sinOtEnHistorial(Long idIncidente) {
+    return incidenteRepository
+        .findById(idIncidente)
+        .map(Incidente::getEstado)
+        .map(EstadoIncidente.SIN_OT_EN_HISTORIAL::contains)
+        .orElse(false);
   }
 
   private OrdenTrabajo deSuCuadrilla(OrdenTrabajo ot) {

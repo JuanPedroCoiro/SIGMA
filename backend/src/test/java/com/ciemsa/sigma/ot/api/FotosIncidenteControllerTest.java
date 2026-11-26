@@ -17,6 +17,8 @@ import com.ciemsa.sigma.administracion.CuadrillaRepository;
 import com.ciemsa.sigma.administracion.Usuario;
 import com.ciemsa.sigma.administracion.UsuarioRepository;
 import com.ciemsa.sigma.ot.application.FotosIncidenteService;
+import com.ciemsa.sigma.ot.domain.CierreTecnico;
+import com.ciemsa.sigma.ot.domain.EstadoOT;
 import com.ciemsa.sigma.ot.domain.Incidente;
 import com.ciemsa.sigma.ot.domain.OrdenTrabajo;
 import com.ciemsa.sigma.ot.domain.OrigenIncidente;
@@ -34,9 +36,13 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
+import java.util.function.Consumer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
@@ -226,7 +232,7 @@ class FotosIncidenteControllerTest {
   }
 
   @Test
-  void tecnicoDeOtraCuadrilla_403AlListarYAlVer() throws Exception {
+  void tecnicoDeOtraCuadrilla_otAsignada_403AlListarYAlVer() throws Exception {
     String url = subirUnaFoto();
     asignarOt(cuadrilla);
 
@@ -237,12 +243,65 @@ class FotosIncidenteControllerTest {
   }
 
   @Test
-  void tecnico_incidenteSinOt_403() throws Exception {
+  void tecnicoDeOtraCuadrilla_otEnProceso_403() throws Exception {
+    String url = subirUnaFoto();
+    generarOt(ot -> iniciar(ot, cuadrilla));
+
+    mvc.perform(get(FOTOS, incidente.getId()).with(user(tecnicoDeOtraCuadrilla)))
+        .andExpect(status().isForbidden());
+    mvc.perform(get(url).with(user(tecnicoDeOtraCuadrilla))).andExpect(status().isForbidden());
+  }
+
+  /** HU-10: revisa el historial del cruce antes de intervenir, aunque lo haya atendido otra. */
+  @ParameterizedTest
+  @EnumSource(
+      value = EstadoOT.class,
+      names = {"CERRADA_TECNICA", "VALIDADA", "ANULADA"})
+  void tecnicoDeOtraCuadrilla_otTerminada_veLasFotosYLaImagen(EstadoOT estado) throws Exception {
+    String url = subirUnaFoto();
+    generarOt(ot -> terminar(ot, estado));
+
+    mvc.perform(get(FOTOS, incidente.getId()).with(user(tecnicoDeOtraCuadrilla)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.length()").value(1));
+    mvc.perform(get(url).with(user(tecnicoDeOtraCuadrilla)))
+        .andExpect(status().isOk())
+        .andExpect(content().bytes(JPEG));
+  }
+
+  @Test
+  void tecnico_incidenteAbiertoSinOt_403() throws Exception {
     String url = subirUnaFoto();
 
     mvc.perform(get(FOTOS, incidente.getId()).with(user(tecnico)))
         .andExpect(status().isForbidden());
     mvc.perform(get(url).with(user(tecnico))).andExpect(status().isForbidden());
+  }
+
+  /** Los incidentes sin OT que entran al historial de la instalación (HU-10). */
+  @Test
+  void tecnico_incidenteEnEsperaDeTercero_veLasFotos() throws Exception {
+    String url = subirUnaFoto();
+    incidente.ponerEnEsperaDeTercero("UTE", "Corte de energía");
+    incidenteRepository.save(incidente);
+
+    mvc.perform(get(FOTOS, incidente.getId()).with(user(tecnicoDeOtraCuadrilla)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.length()").value(1));
+    mvc.perform(get(url).with(user(tecnicoDeOtraCuadrilla))).andExpect(status().isOk());
+  }
+
+  @Test
+  void tecnico_incidenteCerradoSinOt_veLasFotos() throws Exception {
+    String url = subirUnaFoto();
+    incidente.ponerEnEsperaDeTercero("Antel", null);
+    incidente.cerrarSinOt();
+    incidenteRepository.save(incidente);
+
+    mvc.perform(get(FOTOS, incidente.getId()).with(user(tecnicoDeOtraCuadrilla)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.length()").value(1));
+    mvc.perform(get(url).with(user(tecnicoDeOtraCuadrilla))).andExpect(status().isOk());
   }
 
   @Test
@@ -261,6 +320,12 @@ class FotosIncidenteControllerTest {
     subir(operador, 999999L, foto("frente.jpg", JPEG))
         .andExpect(status().isNotFound())
         .andExpect(jsonPath("$.type").value("/errores/no-encontrado"));
+  }
+
+  @Test
+  void leerFoto_tecnicoConIncidenteInexistente_404AntesQue403() throws Exception {
+    mvc.perform(get("/api/v1/incidentes/999999/fotos/1").with(user(tecnico)))
+        .andExpect(status().isNotFound());
   }
 
   @Test
@@ -349,10 +414,35 @@ class FotosIncidenteControllerTest {
 
   /** Genera la OT del incidente (sin regla de SLA) y la asigna a la cuadrilla para hoy. */
   private void asignarOt(Cuadrilla aCuadrilla) {
-    Instant ahora = Instant.now();
-    OrdenTrabajo ot = incidente.generarOrdenCorrectiva(ahora, null);
-    ot.asignar(aCuadrilla.getId(), LocalDate.now(), ahora);
+    generarOt(ot -> ot.asignar(aCuadrilla.getId(), LocalDate.now(), Instant.now()));
+  }
+
+  /** Genera la OT del incidente (sin regla de SLA) y la lleva a su estado con {@code ajuste}. */
+  private void generarOt(Consumer<OrdenTrabajo> ajuste) {
+    OrdenTrabajo ot = incidente.generarOrdenCorrectiva(Instant.now(), null);
+    ajuste.accept(ot);
     incidenteRepository.save(incidente);
     ordenTrabajoRepository.save(ot);
+  }
+
+  private static void iniciar(OrdenTrabajo ot, Cuadrilla aCuadrilla) {
+    Instant ahora = Instant.now();
+    ot.asignar(aCuadrilla.getId(), LocalDate.now(), ahora);
+    ot.iniciar(ahora);
+  }
+
+  /** Cerrada técnicamente o validada por la cuadrilla del test; anulada, sin asignar. */
+  private void terminar(OrdenTrabajo ot, EstadoOT estado) {
+    Instant ahora = Instant.now();
+    if (estado == EstadoOT.ANULADA) {
+      ot.anular("Duplicada", operador.getId(), ahora);
+      return;
+    }
+    iniciar(ot, cuadrilla);
+    ot.cerrarTecnicamente(
+        new CierreTecnico("Lámpara quemada", "Cambio de lámpara", null), UUID.randomUUID(), ahora);
+    if (estado == EstadoOT.VALIDADA) {
+      ot.validar(ahora);
+    }
   }
 }
