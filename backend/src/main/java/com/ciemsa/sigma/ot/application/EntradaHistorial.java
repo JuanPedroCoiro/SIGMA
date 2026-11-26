@@ -9,7 +9,9 @@ import java.time.Instant;
 /**
  * Una entrada del historial de la instalación (HU-10, CU-8): una OT terminada o un incidente sin
  * OT. {@code fecha} es la de la línea de tiempo: el cierre técnico, la anulación o el reporte del
- * incidente. Los campos que no corresponden a la clase son null.
+ * incidente. Los campos que no corresponden a la clase son null. {@code fotosIncidente} y {@code
+ * fotosCierre} son cuántas tiene (las del cierre, de todos los cierres de la OT): quien ve la
+ * entrada puede verlas ({@link AccesoOt}).
  */
 public record EntradaHistorial(
     Clase clase,
@@ -30,6 +32,8 @@ public record EntradaHistorial(
     String motivoAnulacion,
     String tercero,
     String causa,
+    int fotosIncidente,
+    int fotosCierre,
     boolean puedeVerDetalle) {
 
   public enum Clase {

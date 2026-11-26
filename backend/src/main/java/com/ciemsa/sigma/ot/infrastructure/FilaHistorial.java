@@ -5,7 +5,8 @@ import java.time.Instant;
 /**
  * Una fila del historial de la instalación (HU-10): una OT terminada ({@code clase} «OT») o un
  * incidente sin OT («INCIDENTE»). Los enums llegan como texto, tal como están en la base; los
- * campos que no corresponden a la clase son null.
+ * campos que no corresponden a la clase son null. {@code fotosIncidente} y {@code fotosCierre} son
+ * cantidades: 0 si no hay o no corresponden.
  */
 public record FilaHistorial(
     String clase,
@@ -29,4 +30,6 @@ public record FilaHistorial(
     String observaciones,
     String motivoAnulacion,
     String tercero,
-    String causa) {}
+    String causa,
+    int fotosIncidente,
+    int fotosCierre) {}

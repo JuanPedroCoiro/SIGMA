@@ -22,6 +22,11 @@ import org.springframework.stereotype.Repository;
  * <p>La fecha de la línea de tiempo es el cierre técnico ({@code cerrada_en}) en las cerradas y
  * validadas, {@code modificado_en} en las anuladas (estado final: ver EstadoOT.ANULADA) y el
  * reporte ({@code creado_en}) en los incidentes.
+ *
+ * <p>Las cantidades de fotos (del incidente y de todos los cierres de la OT) se cuentan en la misma
+ * consulta, solo para las filas de la página: el UNION se ordena y se corta adentro, y afuera se
+ * cuentan los adjuntos por sus índices ({@code ix_adjunto_incidente}, {@code
+ * ix_adjunto_orden_trabajo}).
  */
 @Repository
 @RequiredArgsConstructor
@@ -59,12 +64,19 @@ public class HistorialInstalacionLectura {
       """;
 
   // A igual fecha, las OTs antes que los incidentes ('OT' > 'INCIDENTE') y la más nueva primero.
+  private static final String ORDEN = " ORDER BY h.fecha DESC, h.clase DESC, h.id DESC";
+
   private static final String PAGINA =
-      "SELECT * FROM ("
-          + ORDENES
-          + " UNION ALL "
-          + INCIDENTES
-          + ") h ORDER BY h.fecha DESC, h.clase DESC, h.id DESC LIMIT :limite OFFSET :desde";
+      """
+      SELECT h.*,
+             (SELECT count(*) FROM adjunto a WHERE a.id_incidente = h.id_incidente)
+                 AS fotos_incidente,
+             (SELECT count(*) FROM adjunto a
+              WHERE h.clase = 'OT' AND a.id_orden_trabajo = h.id) AS fotos_cierre
+      FROM (SELECT * FROM (%s UNION ALL %s) h%s LIMIT :limite OFFSET :desde) h
+      """
+              .formatted(ORDENES, INCIDENTES, ORDEN)
+          + ORDEN;
 
   private static final String TOTAL =
       """
@@ -125,7 +137,9 @@ public class HistorialInstalacionLectura {
         texto(t, "observaciones"),
         texto(t, "motivo_anulacion"),
         texto(t, "tercero"),
-        texto(t, "causa"));
+        texto(t, "causa"),
+        cantidad(t, "fotos_incidente"),
+        cantidad(t, "fotos_cierre"));
   }
 
   private static String texto(Tuple t, String columna) {
@@ -136,6 +150,10 @@ public class HistorialInstalacionLectura {
   private static Long numero(Tuple t, String columna) {
     Object valor = t.get(columna);
     return valor == null ? null : ((Number) valor).longValue();
+  }
+
+  private static int cantidad(Tuple t, String columna) {
+    return ((Number) t.get(columna)).intValue();
   }
 
   /** El driver devuelve TIMESTAMPTZ como Instant u OffsetDateTime según la versión de Hibernate. */

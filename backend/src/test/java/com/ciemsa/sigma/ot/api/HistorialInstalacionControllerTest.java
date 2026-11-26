@@ -14,11 +14,15 @@ import com.ciemsa.sigma.administracion.Cuadrilla;
 import com.ciemsa.sigma.administracion.CuadrillaRepository;
 import com.ciemsa.sigma.administracion.Usuario;
 import com.ciemsa.sigma.administracion.UsuarioRepository;
+import com.ciemsa.sigma.ot.domain.Adjunto;
 import com.ciemsa.sigma.ot.domain.CierreTecnico;
 import com.ciemsa.sigma.ot.domain.Incidente;
+import com.ciemsa.sigma.ot.domain.MomentoFoto;
 import com.ciemsa.sigma.ot.domain.OrdenTrabajo;
 import com.ciemsa.sigma.ot.domain.OrigenIncidente;
 import com.ciemsa.sigma.ot.domain.Prioridad;
+import com.ciemsa.sigma.ot.domain.TipoImagen;
+import com.ciemsa.sigma.ot.infrastructure.AdjuntoRepository;
 import com.ciemsa.sigma.ot.infrastructure.IncidenteRepository;
 import com.ciemsa.sigma.ot.infrastructure.OrdenTrabajoRepository;
 import com.ciemsa.sigma.ot.infrastructure.OrganismoRepository;
@@ -67,6 +71,7 @@ class HistorialInstalacionControllerTest {
   @Autowired private OrganismoRepository organismoRepository;
   @Autowired private IncidenteRepository incidenteRepository;
   @Autowired private OrdenTrabajoRepository ordenTrabajoRepository;
+  @Autowired private AdjuntoRepository adjuntoRepository;
 
   private MockMvc mvc;
   private final List<Long> usuarios = new ArrayList<>();
@@ -137,6 +142,9 @@ class HistorialInstalacionControllerTest {
   void tearDown() {
     for (Long id : instalaciones) {
       String ordenes = " (SELECT id_orden_trabajo FROM orden_trabajo WHERE id_instalacion = ?)";
+      String incidentes = " (SELECT id_incidente FROM incidente WHERE id_instalacion = ?)";
+      jdbc.update("DELETE FROM adjunto WHERE id_orden_trabajo IN" + ordenes, id);
+      jdbc.update("DELETE FROM adjunto WHERE id_incidente IN" + incidentes, id);
       jdbc.update("DELETE FROM pausa_ot WHERE id_orden_trabajo IN" + ordenes, id);
       jdbc.update("DELETE FROM tramo_cuadrilla_ot WHERE id_orden_trabajo IN" + ordenes, id);
       jdbc.update("DELETE FROM orden_trabajo WHERE id_instalacion = ?", id);
@@ -217,6 +225,47 @@ class HistorialInstalacionControllerTest {
         .andExpect(jsonPath("$.totalElementos").value(0));
   }
 
+  // --- Fotos ---
+
+  @Test
+  void listar_cantidadesDeFotos_delIncidenteYDeLosCierres() throws Exception {
+    fotosDelIncidente(validada.getIncidente().getId(), 2);
+    // Las del cierre cuentan todas, de uno o de varios cierres (si volvió observada).
+    fotosDelCierre(validada.getId(), MomentoFoto.ANTES, MomentoFoto.DESPUES, MomentoFoto.DESPUES);
+    fotosDelIncidente(enEspera.getId(), 1);
+
+    historial(jefatura)
+        .andExpect(jsonPath(campo(validada, "fotosIncidente"), contains(2)))
+        .andExpect(jsonPath(campo(validada, "fotosCierre"), contains(3)))
+        .andExpect(jsonPath(campo(enEspera, "fotosIncidente"), contains(1)))
+        .andExpect(jsonPath(campo(enEspera, "fotosCierre"), contains(0)))
+        .andExpect(jsonPath(campo(cerrada, "fotosIncidente"), contains(0)))
+        .andExpect(jsonPath(campo(cerrada, "fotosCierre"), contains(0)));
+  }
+
+  @Test
+  void listar_cantidadesDeFotos_soloDeCadaFilaDeLaPagina() throws Exception {
+    fotosDelIncidente(validada.getIncidente().getId(), 2);
+    fotosDelCierre(validada.getId(), MomentoFoto.DURANTE);
+    fotosDelIncidente(anulada.getIncidente().getId(), 3);
+
+    mvc.perform(url(idInstalacion).param("size", "2").param("page", "1").with(user(operador)))
+        .andExpect(
+            jsonPath("$.contenido[*].numero", contains(enEspera.getNumero(), validada.getNumero())))
+        .andExpect(jsonPath("$.contenido[*].fotosIncidente", contains(0, 2)))
+        .andExpect(jsonPath("$.contenido[*].fotosCierre", contains(0, 1)));
+  }
+
+  @Test
+  void listar_tecnicoDeOtraCuadrilla_recibeLasMismasCantidades() throws Exception {
+    fotosDelIncidente(validada.getIncidente().getId(), 1);
+    fotosDelCierre(validada.getId(), MomentoFoto.ANTES, MomentoFoto.DESPUES);
+
+    historial(tecnicoSur)
+        .andExpect(jsonPath(campo(validada, "fotosIncidente"), contains(1)))
+        .andExpect(jsonPath(campo(validada, "fotosCierre"), contains(2)));
+  }
+
   // --- Quién ve qué ---
 
   @Test
@@ -253,6 +302,33 @@ class HistorialInstalacionControllerTest {
 
   private static String campo(Incidente incidente, String campo) {
     return "$.contenido[?(@.numero == '" + incidente.getNumero() + "')]." + campo;
+  }
+
+  /** Solo las filas: para contar no hace falta el archivo. */
+  private void fotosDelIncidente(Long idIncidente, int cantidad) {
+    for (int i = 0; i < cantidad; i++) {
+      adjuntoRepository.save(
+          Adjunto.fotoDeIncidente(
+              idIncidente, "foto.jpg", TipoImagen.JPEG, 10, ubicacion(), operador.getId()));
+    }
+  }
+
+  private void fotosDelCierre(Long idOrdenTrabajo, MomentoFoto... momentos) {
+    for (MomentoFoto momento : momentos) {
+      adjuntoRepository.save(
+          Adjunto.fotoDeCierre(
+              idOrdenTrabajo,
+              momento,
+              "cierre.jpg",
+              TipoImagen.JPEG,
+              10,
+              ubicacion(),
+              operador.getId()));
+    }
+  }
+
+  private static String ubicacion() {
+    return "test-historial/" + UUID.randomUUID() + ".jpg";
   }
 
   private Instant horasAtras(int horas) {

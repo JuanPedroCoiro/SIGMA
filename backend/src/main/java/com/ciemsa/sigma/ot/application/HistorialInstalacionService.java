@@ -66,6 +66,8 @@ public class HistorialInstalacionService {
         f.motivoAnulacion(),
         f.tercero(),
         f.causa(),
+        f.fotosIncidente(),
+        f.fotosCierre(),
         esOt && puedeVer.test(f.idCuadrilla(), estadoOt));
   }
 }
