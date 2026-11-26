@@ -3,10 +3,12 @@ import { MAXIMO_FOTOS, TAMANIO_MAXIMO_FOTO } from '../../features/ot/fotos'
 import type { FotoIncidente } from '../../features/ot/types'
 import { base, guardarBase, type FotoSimulada } from '../datos'
 import { problema, sinPermiso, sinSesion, usuarioEnSesion } from '../problemas'
+import { INCIDENTES_EN_HISTORIAL } from './instalaciones'
+import { puedeVerOrden } from './ordenes'
 import { rechazoJefaturaUOperador } from './pendientes'
 
 // Fotos del incidente (#71), como FotosIncidenteController: suben Operador y Jefatura; las ven ellos
-// y el técnico de la cuadrilla de la OT (#85). El tipo se reconoce por el contenido. Los datos van
+// y el técnico que puede ver la OT, o, sin OT, si el incidente está en el historial (HU-10). El tipo se reconoce por el contenido. Los datos van
 // en la base simulada; el contenido, solo en memoria (no entra en sessionStorage): después de
 // recargar, la imagen es un marcador.
 
@@ -121,17 +123,25 @@ function fotosDe(idIncidente: number) {
 }
 
 /**
- * Ver las fotos (#85), como AccesoOt.verificarIncidente: Operador y Jefatura, todas; el técnico,
- * solo las del incidente cuya OT es de su cuadrilla (sin OT, ninguna).
+ * Ver las fotos (#85), en el orden del backend: sin sesión, 401; incidente inexistente, 404;
+ * después, como AccesoOt.verificarIncidente: Operador y Jefatura, todas; el técnico, las del
+ * incidente cuya OT puede ver (terminada o de su cuadrilla) y, sin OT, las de los que entran al
+ * historial de la instalación (HU-10).
  */
 function rechazoVerFotos(idIncidente: number) {
   const usuario = usuarioEnSesion()
   if (!usuario) return sinSesion()
+  const incidente = base.incidentes.find((i) => i.id === idIncidente)
+  if (!incidente) {
+    return noEncontrado(`No existe el incidente ${idIncidente}.`)
+  }
   if (usuario.rol === 'JEFATURA' || usuario.rol === 'OPERADOR') return null
   if (usuario.rol !== 'TECNICO') return sinPermiso()
   const orden = base.ordenes.find((o) => o.idIncidente === idIncidente)
-  if (!orden || orden.idCuadrilla !== usuario.idCuadrilla) return sinPermiso()
-  return null
+  const puede = orden
+    ? puedeVerOrden(usuario, orden)
+    : INCIDENTES_EN_HISTORIAL.includes(incidente.estado)
+  return puede ? null : sinPermiso()
 }
 
 export const handlersFotos = [
@@ -187,9 +197,6 @@ export const handlersFotos = [
     const idIncidente = Number(params.id)
     const rechazo = rechazoVerFotos(idIncidente)
     if (rechazo) return rechazo
-    if (!base.incidentes.some((i) => i.id === idIncidente)) {
-      return noEncontrado(`No existe el incidente ${idIncidente}.`)
-    }
     return HttpResponse.json(fotosDe(idIncidente).map(respuesta))
   }),
 

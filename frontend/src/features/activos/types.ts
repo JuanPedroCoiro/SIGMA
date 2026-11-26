@@ -86,6 +86,10 @@ export type EntradaHistorial = {
   motivoAnulacion: string | null
   tercero: string | null
   causa: string | null
+  /** Cuántas fotos tiene el incidente (de la OT o sin OT). Quien ve la entrada puede verlas. */
+  fotosIncidente: number
+  /** Cuántas fotos tienen los cierres de la OT; en los incidentes, 0. */
+  fotosCierre: number
   /** Un técnico ve el detalle de cualquier OT terminada; en los incidentes, false. */
   puedeVerDetalle: boolean
 }

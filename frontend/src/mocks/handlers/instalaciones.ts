@@ -154,7 +154,7 @@ function enCurso(orden: OrdenSimulada, puedeVerDetalle: boolean): OrdenEnCursoFi
 
 /** Como EstadoOT.ESTADOS_HISTORIAL y EstadoIncidente.SIN_OT_EN_HISTORIAL. */
 const OTS_EN_HISTORIAL = ['CERRADA_TECNICA', 'VALIDADA', 'ANULADA']
-const INCIDENTES_EN_HISTORIAL = ['EN_ESPERA_TERCERO', 'CERRADO_SIN_OT']
+export const INCIDENTES_EN_HISTORIAL = ['EN_ESPERA_TERCERO', 'CERRADO_SIN_OT']
 
 function datosDelIncidente(incidente: IncidenteSimulado | undefined) {
   if (!incidente) return null
@@ -177,6 +177,10 @@ const SIN_DATOS_DE_OT = {
   solucion: null,
   observaciones: null,
   motivoAnulacion: null,
+}
+
+function cantidadFotosIncidente(idIncidente: number | null) {
+  return idIncidente === null ? 0 : base.fotos.filter((f) => f.idIncidente === idIncidente).length
 }
 
 /** Las entradas del historial de la instalación, de lo más nuevo a lo más viejo (HU-10). */
@@ -206,6 +210,8 @@ function historialDe(idInstalacion: number, usuario: UsuarioSimulado): EntradaHi
         motivoAnulacion: o.motivoAnulacion ?? null,
         tercero: null,
         causa: null,
+        fotosIncidente: cantidadFotosIncidente(o.idIncidente),
+        fotosCierre: base.fotosCierre.filter((f) => f.idOrdenTrabajo === o.id).length,
         puedeVerDetalle: puedeVerOrden(usuario, o),
       }
     })
@@ -222,6 +228,8 @@ function historialDe(idInstalacion: number, usuario: UsuarioSimulado): EntradaHi
       incidente: datosDelIncidente(i),
       tercero: i.tercero,
       causa: i.causa,
+      fotosIncidente: cantidadFotosIncidente(i.id),
+      fotosCierre: 0,
       puedeVerDetalle: false,
     }))
   // A igual fecha, las OTs antes que los incidentes y la más nueva primero, como el backend.
