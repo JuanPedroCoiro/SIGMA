@@ -441,6 +441,41 @@ function crearIncidentes(): IncidenteSimulado[] {
   ]
 }
 
+// Fotos solo en entradas del historial (HU-10): las del incidente y del cierre de OT-0005 validada
+// y la de INC-0004 en espera de tercero. Sin contenido: la imagen es el marcador.
+function crearFotos(): FotoSimulada[] {
+  const foto = (id: number, idIncidente: number, nombreOriginal: string, horas: number) => ({
+    id,
+    idIncidente,
+    nombreOriginal,
+    tipo: 'image/jpeg',
+    tamanioBytes: 180_000,
+    subidaEn: haceHoras(horas),
+  })
+  return [
+    foto(1, 6, 'semaforo-peatonal.jpg', 240),
+    foto(2, 6, 'lampara-verde.jpg', 240),
+    foto(3, 4, 'cruce-sin-energia.jpg', 3),
+  ]
+}
+
+function crearFotosCierre(): FotoCierreSimulada[] {
+  const foto = (id: number, momento: MomentoFoto, nombreOriginal: string) => ({
+    id,
+    idOrdenTrabajo: 5,
+    momento,
+    nombreOriginal,
+    tipo: 'image/jpeg',
+    tamanioBytes: 150_000,
+    subidaEn: haceHoras(236),
+  })
+  return [
+    foto(1, 'ANTES', 'antes.jpg'),
+    foto(2, 'DURANTE', 'cambio-lampara.jpg'),
+    foto(3, 'DESPUES', 'despues.jpg'),
+  ]
+}
+
 function crearBaseInicial(): Base {
   const cuadrillas: CuadrillaSimulada[] = [
     { id: 1, nombre: 'Cuadrilla Norte', zona: 'Zona Norte', activa: true },
@@ -483,8 +518,8 @@ function crearBaseInicial(): Base {
     ordenes: crearOrdenes(),
     incidentes: crearIncidentes(),
     categorias: crearCategorias(),
-    fotos: [],
-    fotosCierre: [],
+    fotos: crearFotos(),
+    fotosCierre: crearFotosCierre(),
     idSesion: null,
   }
 }

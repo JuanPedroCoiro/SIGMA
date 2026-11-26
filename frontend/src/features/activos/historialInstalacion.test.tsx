@@ -7,7 +7,6 @@ import { servidor } from '../../mocks/servidor'
 import { cliente } from '../../shared/api/cliente'
 import { obtenerProblemDetail } from '../../shared/api/problemDetail'
 import { renderizarRuta } from '../../test/renderizarRuta'
-import type { MomentoFoto } from '../ot/types'
 
 // Datos de la API simulada (src/mocks/datos.ts):
 // - INST-001: OT-0001 en curso (Norte); en el historial, OT-0006 (preventiva anulada, hace 119 h),
@@ -26,26 +25,12 @@ function entrada(numero: string) {
   return within(historial().getByText(numero).closest('li')!)
 }
 
-/** Fotos del incidente: solo sus datos; la imagen es el marcador de la API simulada. */
+/** Más fotos del incidente: solo sus datos; la imagen es el marcador de la API simulada. */
 function fotosDelIncidente(idIncidente: number, ...nombres: string[]) {
   for (const nombre of nombres) {
     base.fotos.push({
       id: base.fotos.length + 1,
       idIncidente,
-      nombreOriginal: nombre,
-      tipo: 'image/jpeg',
-      tamanioBytes: 100,
-      subidaEn: new Date().toISOString(),
-    })
-  }
-}
-
-function fotosDelCierre(idOrdenTrabajo: number, ...fotos: [string, MomentoFoto][]) {
-  for (const [nombre, momento] of fotos) {
-    base.fotosCierre.push({
-      id: base.fotosCierre.length + 1,
-      idOrdenTrabajo,
-      momento,
       nombreOriginal: nombre,
       tipo: 'image/jpeg',
       tamanioBytes: 100,
@@ -180,16 +165,8 @@ describe('historial de la instalación (HU-10)', () => {
   })
 
   describe('fotos (CU-8)', () => {
-    // INC-0006 es el incidente de OT-0005 (validada, de Norte).
-    beforeEach(() => {
-      fotosDelIncidente(6, 'peatonal.jpg', 'lampara.jpg')
-      fotosDelCierre(
-        5,
-        ['antes.jpg', 'ANTES'],
-        ['despues-1.jpg', 'DESPUES'],
-        ['despues-2.jpg', 'DESPUES'],
-      )
-    })
+    // Semilla: INC-0006 (el incidente de OT-0005 validada) con 2 fotos, el cierre de OT-0005 con
+    // 3 (Antes, Durante y Después) e INC-0004 (en espera de UTE) con 1.
 
     it('entradaConFotos_muestraLasCantidadesYLasDespliegaAlPedirlas', async () => {
       renderizarRuta('/instalaciones/1')
@@ -205,14 +182,16 @@ describe('historial de la instalación (HU-10)', () => {
       expect(boton).toHaveAttribute('aria-expanded', 'false')
       fireEvent.click(boton)
 
-      expect(await validada.findByRole('img', { name: 'peatonal.jpg' })).toBeInTheDocument()
-      expect(validada.getByRole('img', { name: 'lampara.jpg' })).toBeInTheDocument()
+      expect(
+        await validada.findByRole('img', { name: 'semaforo-peatonal.jpg' }),
+      ).toBeInTheDocument()
+      expect(validada.getByRole('img', { name: 'lampara-verde.jpg' })).toBeInTheDocument()
       expect(
         await validada.findByRole('heading', { name: 'Fotos de la intervención' }),
       ).toBeInTheDocument()
       expect(
-        within(validada.getByRole('list', { name: 'Fotos: Después' })).getAllByRole('img'),
-      ).toHaveLength(2)
+        within(validada.getByRole('list', { name: 'Fotos: Durante' })).getAllByRole('img'),
+      ).toHaveLength(1)
       expect(validada.getByRole('button', { name: 'Ocultar fotos de OT-0005' })).toHaveAttribute(
         'aria-expanded',
         'true',
@@ -230,7 +209,6 @@ describe('historial de la instalación (HU-10)', () => {
     })
 
     it('soloDelIncidente_noNombraLasDelCierre', async () => {
-      fotosDelIncidente(4, 'cruce.jpg')
       renderizarRuta('/instalaciones/4')
 
       await screen.findByText('INC-0004')
@@ -244,19 +222,22 @@ describe('historial de la instalación (HU-10)', () => {
       fireEvent.click(await screen.findByRole('button', { name: 'Ver fotos de OT-0005' }))
 
       const validada = entrada('OT-0005')
-      expect(await validada.findByRole('img', { name: 'peatonal.jpg' })).toBeInTheDocument()
+      expect(
+        await validada.findByRole('img', { name: 'semaforo-peatonal.jpg' }),
+      ).toBeInTheDocument()
       expect(await validada.findByRole('img', { name: 'antes.jpg' })).toBeInTheDocument()
       expect(validada.queryByText(/No se pudieron cargar/)).not.toBeInTheDocument()
     })
 
     it('tecnicoDeOtraCuadrilla_veLasFotosDeUnIncidenteEnEsperaDeTercero', async () => {
       base.idSesion = ID_TECNICO_SUR
-      fotosDelIncidente(4, 'cruce.jpg')
       renderizarRuta('/instalaciones/4')
 
       fireEvent.click(await screen.findByRole('button', { name: 'Ver fotos de INC-0004' }))
 
-      expect(await entrada('INC-0004').findByRole('img', { name: 'cruce.jpg' })).toBeInTheDocument()
+      expect(
+        await entrada('INC-0004').findByRole('img', { name: 'cruce-sin-energia.jpg' }),
+      ).toBeInTheDocument()
     })
 
     it('tecnicoDeOtraCuadrilla_enElDetalleDeLaValidada_veLasFotosDelIncidente', async () => {
